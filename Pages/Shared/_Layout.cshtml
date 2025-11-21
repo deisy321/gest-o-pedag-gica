@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Gestão Pedagógica</title>
+    <link href="~/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="~/app.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="d-flex flex-column min-vh-100">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+            <div class="container-fluid">
+           <a class="navbar-brand" href="/">Gestão Pedagógica</a>
+   <div class="ms-auto text-white">
+@if (User?.Identity?.IsAuthenticated == true)
+  {
+           <span>Olá, @User.Identity.Name</span>
+      <form method="post" action="/Identity/Account/Logout" style="display:inline;">
+     <button type="submit" class="btn btn-sm btn-outline-light ms-2">Logout</button>
+        </form>
+               }
+          </div>
+     </div>
+        </nav>
+
+        <main class="flex-grow-1 p-4">
+         <div class="container-fluid">
+                @RenderBody()
+        </div>
+        </main>
+
+        <footer class="bg-light text-center py-3 border-top">
+            <p>&copy; 2024 Gestão Pedagógica. Todos os direitos reservados.</p>
+</footer>
+    </div>
+
+    <script src="~/lib/jquery/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js"></script>
+  @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

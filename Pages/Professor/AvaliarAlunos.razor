@@ -1,0 +1,94 @@
+﻿@page "/professor/AvaliarAlunos"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Professor")]
+@namespace gestaopedagogica.Pages.Professor
+@layout MainLayout
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
+
+<AuthorizeView Roles="Professor">
+    <Authorized>
+        <h3>Avaliar Alunos</h3>
+        <div>
+            <div class="mb-3">
+                <label>Turma:</label>
+                <select class="form-select" @bind="SelectedClass">
+                    @foreach(var c in Classes)
+                    {
+                        <option value="@c">@c</option>
+                    }
+                </select>
+            </div>
+
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Módulo</th>
+                        <th>Conhecimento</th>
+                        <th>Aptidão</th>
+                        <th>Competência</th>
+                        <th>Nota Final</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach(var s in FilteredStudents)
+                    {
+                        <tr>
+                            <td>@s.Name</td>
+                            <td>@s.Module</td>
+                            <td><input type="number" class="form-control" style="width:90px;" @bind="s.Knowledge" min="0" max="20" /></td>
+                            <td><input type="number" class="form-control" style="width:90px;" @bind="s.Aptitude" min="0" max="20" /></td>
+                            <td><input type="number" class="form-control" style="width:90px;" @bind="s.Competence" min="0" max="20" /></td>
+                            <td>@ComputeFinal(s)</td>
+                            <td>
+                                <button class="btn btn-sm btn-success" @onclick="() => Save(s)">Salvar</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-danger">Acesso negado. Faça login com uma conta de Professor.</div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int? moduleId { get; set; }
+
+    private string SelectedClass = "Turma A";
+    private List<string> Classes = new() { "Turma A", "Turma B", "Turma C" };
+
+    private List<Student> Students = new()
+    {
+        new Student{ Id=1, Name="Ana Silva", Module="Matemática", ClassName="Turma A", Knowledge=12, Aptitude=14, Competence=13 },
+        new Student{ Id=2, Name="João Souza", Module="Matemática", ClassName="Turma B", Knowledge=10, Aptitude=11, Competence=12 },
+        new Student{ Id=3, Name="Pedro Alves", Module="Física", ClassName="Turma C", Knowledge=15, Aptitude=16, Competence=15 }
+    };
+
+    private IEnumerable<Student> FilteredStudents => Students.Where(s => s.ClassName == SelectedClass && (moduleId == null || s.ModuleId == moduleId));
+
+    private double ComputeFinal(Student s) => Math.Round((s.Knowledge + s.Aptitude + s.Competence) /3.0,2);
+
+    private void Save(Student s)
+    {
+        // Aqui você pode enviar para backend. No front-end mock apenas exibir mensagem.
+        Console.WriteLine($"Salvando notas do aluno {s.Name}: {ComputeFinal(s)}");
+    }
+
+    public class Student{
+        public int Id{get;set;}
+        public string Name{get;set;} = "";
+        public string Module{get;set;} = "";
+        public int ModuleId { get; set; }
+        public string ClassName{get;set;} = "";
+        public double Knowledge{get;set;}
+        public double Aptitude{get;set;}
+        public double Competence{get;set;}
+    }
+}

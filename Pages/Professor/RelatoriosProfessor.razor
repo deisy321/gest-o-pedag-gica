@@ -1,0 +1,45 @@
+﻿@page "/professor/RelatoriosProfessor"
+@namespace gestaopedagogica.Pages.Professor
+@layout MainLayout
+@using Microsoft.JSInterop
+
+<h3>Relatórios do Professor</h3>
+
+<div class="row">
+ <div class="col-md-6">
+ <div class="card p-3">
+ <h5>Distribuição de Notas (por módulo)</h5>
+ <canvas id="gradeChart" width="400" height="200"></canvas>
+ </div>
+ </div>
+ <div class="col-md-6">
+ <div class="card p-3">
+ <h5>Estatísticas Rápidas</h5>
+ <ul>
+ <li>Média geral:13.5</li>
+ <li>Alunos acima da média:8</li>
+ <li>Alunos abaixo da média:3</li>
+ </ul>
+ </div>
+ </div>
+</div>
+
+@code {
+ [Inject]
+ public IJSRuntime JS { get; set; } = default!;
+
+ [Parameter]
+ [SupplyParameterFromQuery]
+ public int? moduleId { get; set; }
+
+ protected override async Task OnAfterRenderAsync(bool firstRender)
+ {
+ if (firstRender)
+ {
+ var labels = new[] { "Matemática", "Física" };
+ var data = new[] {14,13 };
+ var colors = new[] { "#007bff", "#28a745" };
+ await JS.InvokeVoidAsync("site.renderBarChart", "gradeChart", labels, data, colors);
+ }
+ }
+}

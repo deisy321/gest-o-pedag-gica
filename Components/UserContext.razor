@@ -1,0 +1,54 @@
+@namespace gestaopedagogica.Components
+@inject UserState State
+@inject NavigationManager Nav
+
+<div style="position:sticky; top:0; z-index:10000; background:#f8f9fa; padding:.5rem; border-bottom:2px solid #ccc; display:flex; align-items:center; gap:1rem; width:100%;">
+ <strong style="min-width:140px;">Perfil (simulado):</strong>
+
+ <!-- Visible buttons with inline styles to avoid being hidden by global CSS -->
+ <div style="display:flex; gap:.5rem; align-items:center;">
+ <button type="button" style="padding:.35rem .6rem; border-radius:.25rem; border:1px solid #0d6efd; color:#fff; background:#0d6efd;" class="user-role-btn" @onclick="() => SetRole("Administrador")">Administrador</button>
+ <button type="button" style="padding:.35rem .6rem; border-radius:.25rem; border:1px solid #0d6efd; color:#fff; background:#0d6efd;" class="user-role-btn" @onclick="() => SetRole("Professor")">Professor</button>
+ <button type="button" style="padding:.35rem .6rem; border-radius:.25rem; border:1px solid #0d6efd; color:#fff; background:#0d6efd;" class="user-role-btn" @onclick="() => SetRole("Aluno")">Aluno</button>
+ </div>
+
+ <!-- Select fallback (also styled) -->
+ <select @bind="State.CurrentRole" style="width:220px; height:36px; padding:.25rem; border:1px solid #ccc; border-radius:.25rem;">
+ <option value="Administrador">Administrador</option>
+ <option value="Professor">Professor</option>
+ <option value="Aluno">Aluno</option>
+ </select>
+
+ <span style="background:#6c757d; color:#fff; padding:.25rem .5rem; border-radius:.25rem;">Ativo: @State.CurrentRole</span>
+
+ <span style="color:#666; font-size:0.9rem; margin-left:1rem;">(clique para mudar e será redirecionado)</span>
+</div>
+
+<CascadingValue Value="State.CurrentRole" Name="UserRole">
+ @ChildContent
+</CascadingValue>
+
+@code {
+ [Parameter]
+ public string InitialRole { get; set; } = "Professor";
+
+ protected override void OnInitialized()
+ {
+ if (!string.IsNullOrEmpty(InitialRole)) State.CurrentRole = InitialRole;
+ Console.WriteLine($"UserContext initialized. CurrentRole={State.CurrentRole}");
+ }
+
+ private void SetRole(string role)
+ {
+ State.CurrentRole = role;
+ Console.WriteLine($"Role changed to: {role}"); // Log when SetRole runs
+ StateHasChanged();
+ // redirecionar automaticamente
+ if (role == "Professor") Nav.NavigateTo("/professor/DashboardProfessor");
+ if (role == "Administrador") Nav.NavigateTo("/admin/DashboardAdmin");
+ if (role == "Aluno") Nav.NavigateTo("/aluno/DashboardAluno");
+ }
+
+ [Parameter]
+ public RenderFragment? ChildContent { get; set; }
+}

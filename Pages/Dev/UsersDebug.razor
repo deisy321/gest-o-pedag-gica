@@ -1,0 +1,70 @@
+@page "/dev/users"
+@using gestaopedagogica.Data
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.Extensions.Hosting
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@inject IWebHostEnvironment Env
+
+@if (!Env.IsDevelopment())
+{
+ <div class="alert alert-danger">Página de debug disponível apenas em Development.</div>
+}
+else
+{
+ <h3>Debug: Utilizadores e Roles</h3>
+ <p>Ambiente: <strong>@Env.EnvironmentName</strong></p>
+ <button class="btn btn-sm btn-secondary mb-3" @onclick="Refresh">Atualizar</button>
+ <table class="table table-striped">
+ <thead>
+ <tr><th>Username</th><th>Email</th><th>Roles</th></tr>
+ </thead>
+ <tbody>
+ @foreach (var u in Users)
+ {
+ <tr>
+ <td>@u.UserName</td>
+ <td>@u.Email</td>
+ <td>@string.Join(", ", UserRoles[u.Id])</td>
+ </tr>
+ }
+ </tbody>
+ </table>
+
+ <h4>Roles registradas</h4>
+ <ul>
+ @foreach(var r in Roles)
+ {
+ <li>@r</li>
+ }
+ </ul>
+}
+
+@code {
+ private List<ApplicationUser> Users = new();
+ private Dictionary<string, List<string>> UserRoles = new();
+ private List<string> Roles = new();
+
+ protected override async Task OnInitializedAsync()
+ {
+ await LoadData();
+ }
+
+ private async Task LoadData()
+ {
+ Users = UserManager.Users.ToList();
+ Roles = RoleManager.Roles.Select(r => r.Name!).ToList();
+ UserRoles.Clear();
+ foreach(var u in Users)
+ {
+ var roles = await UserManager.GetRolesAsync(u);
+ UserRoles[u.Id] = roles.ToList();
+ }
+ }
+
+ private async Task Refresh()
+ {
+ await LoadData();
+ StateHasChanged();
+ }
+}

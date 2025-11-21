@@ -1,0 +1,52 @@
+﻿@page "/aluno/MinhasNotas"
+@namespace gestaopedagogica.Pages.Aluno
+@layout MainLayout
+@using gestaopedagogica.Data
+@using gestaopedagogica.Models
+
+<h3>Minhas Notas</h3>
+
+<div class="card p-4">
+    <h5>Avaliações Recebidas</h5>
+   <table class="table table-striped">
+    <thead>
+       <tr>
+      <th>Conhecimento</th>
+  <th>Aptidão</th>
+ <th>Competência</th>
+   <th>Nota Final</th>
+  <th>Data</th>
+</tr>
+  </thead>
+    <tbody>
+   @if (avaliacoes?.Count > 0)
+        {
+   @foreach (var avaliacao in avaliacoes)
+{
+   <tr>
+    <td>@avaliacao.Conhecimento</td>
+   <td>@avaliacao.Aptidao</td>
+      <td>@avaliacao.Competencia</td>
+<td>@avaliacao.NotaFinal</td>
+    <td>@avaliacao.Data.ToShortDateString()</td>
+   </tr>
+      }
+     }
+    else
+  {
+   <tr>
+   <td colspan="5" class="text-center">Sem avaliações disponíveis</td>
+  </tr>
+   }
+ </tbody>
+  </table>
+</div>
+
+@code {
+    private List<Avaliacao> avaliacoes = new();
+
+  protected override void OnInitialized()
+    {
+  // TODO: Carregar avaliações do banco de dados baseado no aluno autenticado
+   }
+}

@@ -1,0 +1,125 @@
+﻿@page "/admin/GerirModulos"
+@namespace gestaopedagogica.Pages.Admin
+@layout MainLayout
+
+
+<h3>Gerir Módulos</h3>
+
+<button class="btn btn-success mb-3" @onclick="MostrarCriar">Adicionar Módulo</button>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Nome</th>
+            <th>Professor</th>
+            <th>Ações</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        @foreach (var m in Modulos)
+        {
+            <tr>
+                <td>@m.Nome</td>
+                <td>@m.Professor</td>
+                <td>
+                    <button class="btn btn-primary btn-sm" @onclick="() => Editar(m)">Editar</button>
+                    <button class="btn btn-danger btn-sm" @onclick="() => Remover(m)">Remover</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (MostrarModalCriar)
+{
+    <div class="modal-bg">
+        <div class="modal-card">
+            <h4>Novo Módulo</h4>
+
+            <input class="form-control mb-2" placeholder="Nome" @bind="NovoModulo.Nome" />
+            <input class="form-control mb-2" placeholder="Professor" @bind="NovoModulo.Professor" />
+
+            <button class="btn btn-success" @onclick="SalvarNovo">Guardar</button>
+            <button class="btn btn-secondary" @onclick="() => MostrarModalCriar = false">Cancelar</button>
+        </div>
+    </div>
+}
+
+@if (MostrarModalEditar)
+{
+    <div class="modal-bg">
+        <div class="modal-card">
+            <h4>Editar Módulo</h4>
+
+            <input class="form-control mb-2" @bind="EditarModulo.Nome" />
+            <input class="form-control mb-2" @bind="EditarModulo.Professor" />
+
+            <button class="btn btn-primary" @onclick="SalvarEdicao">Guardar</button>
+            <button class="btn btn-secondary" @onclick="() => MostrarModalEditar = false">Cancelar</button>
+        </div>
+    </div>
+}
+
+@code {
+    List<Modulo> Modulos = new()
+    {
+        new Modulo { Nome = "Programação", Professor = "João" },
+        new Modulo { Nome = "Matemática", Professor = "Carla" }
+    };
+
+    Modulo NovoModulo = new();
+    Modulo EditarModulo = new();
+
+    bool MostrarModalCriar = false;
+    bool MostrarModalEditar = false;
+
+    void MostrarCriar()
+    {
+        NovoModulo = new();
+        MostrarModalCriar = true;
+    }
+
+    void SalvarNovo()
+    {
+        Modulos.Add(new Modulo
+        {
+            Nome = NovoModulo.Nome,
+            Professor = NovoModulo.Professor
+        });
+
+        MostrarModalCriar = false;
+    }
+
+    void Editar(Modulo m)
+    {
+        EditarModulo = new Modulo
+        {
+            Nome = m.Nome,
+            Professor = m.Professor
+        };
+
+        MostrarModalEditar = true;
+    }
+
+    void SalvarEdicao()
+    {
+        var original = Modulos.First(x => x.Nome == EditarModulo.Nome);
+
+        original.Nome = EditarModulo.Nome;
+        original.Professor = EditarModulo.Professor;
+
+        MostrarModalEditar = false;
+    }
+
+    void Remover(Modulo m)
+    {
+        Modulos.Remove(m);
+    }
+
+    public class Modulo
+    {
+        public string Nome { get; set; } = "";
+        public string Professor { get; set; } = "";
+    }
+}

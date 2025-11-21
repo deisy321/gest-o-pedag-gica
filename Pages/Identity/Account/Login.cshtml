@@ -1,0 +1,124 @@
+@page
+@model gestaopedagogica.Pages.Identity.Account.LoginModel
+
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - Gestão Pedagógica</title>
+    <link href="~/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <style>
+    body {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+         display: flex;
+   align-items: center;
+        justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+   .login-container {
+            max-width: 420px;
+            width: 100%;
+            padding: 0 15px;
+     }
+        .card {
+            border: none;
+ border-radius: 10px;
+     overflow: hidden;
+        }
+        .card-body {
+            padding: 40px;
+        }
+      .btn:disabled {
+        opacity: 0.7;
+     }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+<div class="card shadow-lg">
+<div class="card-body">
+ <h2 class="text-center mb-2">Gestão Pedagógica</h2>
+           <p class="text-center text-muted mb-4">Sistema de Avaliação</p>
+
+         @if (!ModelState.IsValid && Model.Input != null)
+         {
+  <div class="alert alert-danger" role="alert">
+    <strong>Erro ao fazer login:</strong>
+       @foreach (var modelState in ViewData.ModelState.Values)
+               {
+   @foreach (var error in modelState.Errors)
+           {
+ <div>@error.ErrorMessage</div>
+         }
+             }
+   </div>
+        }
+
+              <form id="loginForm" method="post">
+             @Html.AntiForgeryToken()
+
+            <div class="mb-3">
+            <label class="form-label">Email ou Utilizador</label>
+          <input type="text" id="username" name="Input.Username" class="form-control form-control-lg" placeholder="admin@local" required autofocus />
+    </div>
+
+         <div class="mb-3">
+              <label class="form-label">Senha</label>
+               <input type="password" id="password" name="Input.Password" class="form-control form-control-lg" placeholder="Sua senha" required />
+        </div>
+
+          <div class="mb-3 form-check">
+               <input type="checkbox" id="rememberMe" name="Input.RememberMe" class="form-check-input" />
+         <label class="form-check-label" for="rememberMe">Lembrar-me neste computador</label>
+  </div>
+
+     <button type="submit" id="submitBtn" class="btn btn-primary btn-lg w-100 mb-3">Entrar</button>
+      </form>
+
+                <hr />
+
+    <div class="text-center text-muted">
+           <small>Se não tem credenciais, contacte o administrador do sistema.</small>
+     </div>
+    </div>
+        </div>
+
+    <div class="mt-4 text-center text-white text-opacity-75">
+            <p class="small mb-2"><strong>Credenciais de Teste:</strong></p>
+            <p class="small">????? Admin: admin@local / Admin123!</p>
+      <p class="small">????? Professor: prof@local / Prof123!</p>
+        <p class="small">????? Aluno: aluno@local / Aluno123!</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+          console.log('Formulário enviado');
+    var username = document.getElementById('username').value;
+ var password = document.getElementById('password').value;
+
+            if (!username || !password) {
+    console.error('Username ou password vazios');
+                e.preventDefault();
+      alert('Preencha todos os campos');
+           return false;
+            }
+
+console.log('Username: ' + username);
+         console.log('Password: ' + (password.length > 0 ? '****' : 'vazio'));
+
+        // Desabilita o botão para evitar duplos cliques
+            document.getElementById('submitBtn').disabled = true;
+ document.getElementById('submitBtn').textContent = 'A processar...';
+
+     return true;
+  });
+ </script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+﻿@page "/admin/GerirTurmas"
+@namespace gestaopedagogica.Pages.Admin
+@layout MainLayout
+
+
+<h3>Gerir Turmas</h3>
+
+<button class="btn btn-success mb-3" @onclick="MostrarCriarTurma">
+    Criar Turma
+</button>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Nome</th>
+            <th>Ano Letivo</th>
+            <th>Professor Responsável</th>
+            <th>Alunos</th>
+            <th>Ações</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        @foreach (var t in Turmas)
+        {
+            <tr>
+                <td>@t.Nome</td>
+                <td>@t.Ano</td>
+                <td>@t.ProfessorResponsavel</td>
+                <td>@t.Alunos.Count</td>
+                <td>
+                    <button class="btn btn-primary btn-sm" @onclick="() => Editar(t)">Editar</button>
+                    <button class="btn btn-info btn-sm" @onclick="() => VerDetalhes(t)">Detalhes</button>
+                    <button class="btn btn-danger btn-sm" @onclick="() => Remover(t)">Eliminar</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@* Modal Criar Turma *@
+@if (MostrarModalCriar)
+{
+    <div class="modal-bg">
+        <div class="modal-card">
+            <h4>Criar Nova Turma</h4>
+
+            <input class="form-control mb-2" placeholder="Nome da Turma" @bind="NovaTurma.Nome" />
+            <input class="form-control mb-2" placeholder="Ano Letivo" @bind="NovaTurma.Ano" />
+
+            <input class="form-control mb-2" placeholder="Professor Responsável" @bind="NovaTurma.ProfessorResponsavel" />
+
+            <button class="btn btn-success" @onclick="SalvarNovaTurma">Guardar</button>
+            <button class="btn btn-secondary" @onclick="() => MostrarModalCriar = false">Cancelar</button>
+        </div>
+    </div>
+}
+
+@* Modal Editar Turma *@
+@if (MostrarModalEditar)
+{
+    <div class="modal-bg">
+        <div class="modal-card">
+            <h4>Editar Turma</h4>
+
+            <input class="form-control mb-2" @bind="EditarTurma.Nome" />
+            <input class="form-control mb-2" @bind="EditarTurma.Ano" />
+            <input class="form-control mb-2" @bind="EditarTurma.ProfessorResponsavel" />
+
+            <button class="btn btn-primary" @onclick="SalvarEdicao">Guardar</button>
+            <button class="btn btn-secondary" @onclick="() => MostrarModalEditar = false">Cancelar</button>
+        </div>
+    </div>
+}
+
+@* Modal Detalhes *@
+@if (MostrarModalDetalhes)
+{
+    <div class="modal-bg">
+        <div class="modal-card">
+            <h4>Detalhes da Turma: @TurmaDetalhes.Nome</h4>
+
+            <p><b>Ano:</b> @TurmaDetalhes.Ano</p>
+            <p><b>Professor Responsável:</b> @TurmaDetalhes.ProfessorResponsavel</p>
+
+            <h5>Alunos</h5>
+            <ul>
+                @foreach (var aluno in TurmaDetalhes.Alunos)
+                {
+                    <li>@aluno</li>
+                }
+            </ul>
+
+            <input class="form-control mb-2" placeholder="Adicionar Aluno" @bind="AlunoNovo" />
+            <button class="btn btn-success" @onclick="AdicionarAluno">Adicionar</button>
+
+            <button class="btn btn-secondary mt-3" @onclick="() => MostrarModalDetalhes = false">
+                Fechar
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    public class Turma
+    {
+        public string Nome { get; set; } = "";
+        public string Ano { get; set; } = "";
+        public string ProfessorResponsavel { get; set; } = "";
+        public List<string> Alunos { get; set; } = new();
+    }
+
+    List<Turma> Turmas = new()
+    {
+        new Turma { Nome="TIC-12A", Ano="2024/2025", ProfessorResponsavel="Ana Silva", Alunos={ "João", "Carla" } },
+        new Turma { Nome="TIC-12B", Ano="2024/2025", ProfessorResponsavel="Miguel Sousa", Alunos={ "Rita", "Pedro" } }
+    };
+
+    bool MostrarModalCriar = false;
+    bool MostrarModalEditar = false;
+    bool MostrarModalDetalhes = false;
+
+    Turma NovaTurma = new();
+    Turma EditarTurma = new();
+    Turma TurmaDetalhes = new();
+    string AlunoNovo = "";
+
+    void MostrarCriarTurma()
+    {
+        NovaTurma = new();
+        MostrarModalCriar = true;
+    }
+
+    void SalvarNovaTurma()
+    {
+        Turmas.Add(new Turma
+        {
+            Nome = NovaTurma.Nome,
+            Ano = NovaTurma.Ano,
+            ProfessorResponsavel = NovaTurma.ProfessorResponsavel
+        });
+
+        MostrarModalCriar = false;
+    }
+
+    void Editar(Turma t)
+    {
+        EditarTurma = new Turma
+        {
+            Nome = t.Nome,
+            Ano = t.Ano,
+            ProfessorResponsavel = t.ProfessorResponsavel,
+            Alunos = new List<string>(t.Alunos)
+        };
+        MostrarModalEditar = true;
+    }
+
+    void SalvarEdicao()
+    {
+        var original = Turmas.First(x => x.Nome == EditarTurma.Nome);
+
+        original.Ano = EditarTurma.Ano;
+        original.ProfessorResponsavel = EditarTurma.ProfessorResponsavel;
+
+        MostrarModalEditar = false;
+    }
+
+    void Remover(Turma t)
+    {
+        Turmas.Remove(t);
+    }
+
+    void VerDetalhes(Turma t)
+    {
+        TurmaDetalhes = t;
+        MostrarModalDetalhes = true;
+    }
+
+    void AdicionarAluno()
+    {
+        if (!string.IsNullOrWhiteSpace(AlunoNovo))
+        {
+            TurmaDetalhes.Alunos.Add(AlunoNovo);
+            AlunoNovo = "";
+        }
+    }
+}

@@ -1,0 +1,117 @@
+﻿@page "/admin/GerirUtilizadores"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using gestaopedagogica.Data
+@attribute [Authorize(Roles = "Administrador")]
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@namespace gestaopedagogica.Pages.Admin
+@layout MainLayout
+
+<AuthorizeView Roles="Administrador">
+ <Authorized>
+ <h3>Gerir Utilizadores</h3>
+ <button class="btn btn-success mb-3" @onclick="MostrarCriar">Adicionar Utilizador</button>
+
+ <table class="table table-striped">
+ <thead>
+ <tr>
+ <th>Nome</th>
+ <th>Email</th>
+ <th>Perfil</th>
+ <th>Ações</th>
+ </tr>
+ </thead>
+
+ <tbody>
+ @foreach (var user in Usuarios)
+ {
+ <tr>
+ <td>@user.UserName</td>
+ <td>@user.Email</td>
+ <td>@string.Join(", ", UserRoles[user.Id])</td>
+ <td>
+ <button class="btn btn-primary btn-sm" @onclick="() => Editar(user)">Editar</button>
+ <button class="btn btn-danger btn-sm" @onclick="() => Remover(user)">Remover</button>
+ </td>
+ </tr>
+ }
+ </tbody>
+ </table>
+
+ @if (MostrarModalCriar)
+ {
+ <div class="modal-bg">
+ <div class="modal-card">
+ <h4>Novo Utilizador</h4>
+
+ <input class="form-control mb-2" placeholder="Username" @bind="NovoUser.UserName" />
+ <input class="form-control mb-2" placeholder="Email" @bind="NovoUser.Email" />
+
+ <select class="form-control mb-2" @bind="NovoRole">
+ @foreach(var r in Roles) { <option value="@r">@r</option> }
+ </select>
+
+ <button class="btn btn-success" @onclick="SalvarNovo">Guardar</button>
+ <button class="btn btn-secondary" @onclick="() => MostrarModalCriar = false">Cancelar</button>
+ </div>
+ </div>
+ }
+ </Authorized>
+ <NotAuthorized>
+ <div class="alert alert-danger">Acesso negado. Administrador apenas.</div>
+ </NotAuthorized>
+</AuthorizeView>
+
+@code {
+ List<ApplicationUser> Usuarios = new();
+ Dictionary<string, List<string>> UserRoles = new();
+ List<string> Roles = new();
+ ApplicationUser NovoUser = new();
+ string NovoRole = "Professor";
+ bool MostrarModalCriar = false;
+
+ protected override async Task OnInitializedAsync()
+ {
+ var users = UserManager.Users.ToList();
+ Usuarios = users;
+ Roles = RoleManager.Roles.Select(r => r.Name!).ToList();
+ foreach(var u in Usuarios)
+ {
+ var rolesForUser = await UserManager.GetRolesAsync(u);
+ UserRoles[u.Id] = rolesForUser.ToList();
+ }
+ }
+
+ void MostrarCriar()
+ {
+ NovoUser = new ApplicationUser();
+ MostrarModalCriar = true;
+ }
+
+ async Task SalvarNovo()
+ {
+ var result = await UserManager.CreateAsync(new ApplicationUser { UserName = NovoUser.UserName, Email = NovoUser.Email }, "Temp123!");
+ if (result.Succeeded)
+ {
+ var created = await UserManager.FindByNameAsync(NovoUser.UserName);
+ if (created != null)
+ {
+ await UserManager.AddToRoleAsync(created, NovoRole);
+ }
+ }
+ MostrarModalCriar = false;
+ await OnInitializedAsync();
+ }
+
+ async Task Editar(ApplicationUser u)
+ {
+ // simple edit modal could be implemented
+ }
+
+ async Task Remover(ApplicationUser u)
+ {
+ await UserManager.DeleteAsync(u);
+ await OnInitializedAsync();
+ }
+}

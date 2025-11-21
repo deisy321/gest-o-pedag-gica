@@ -1,0 +1,33 @@
+﻿<table class="table table-striped">
+    <thead>
+        <tr>
+            @foreach (var col in Columns)
+            {
+                <th>@col</th>
+            }
+            <th>Ações</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Items)
+        {
+            <tr>
+                @foreach (var prop in item.GetType().GetProperties())
+                {
+                    <td>@prop.GetValue(item)</td>
+                }
+                <td>
+                    <button class="btn btn-sm btn-warning me-1" @onclick="() => OnEdit.InvokeAsync(item)">Editar</button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => OnDelete.InvokeAsync(item)">Excluir</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    [Parameter] public IEnumerable<object> Items { get; set; }
+    [Parameter] public List<string> Columns { get; set; }
+    [Parameter] public EventCallback<object> OnEdit { get; set; }
+    [Parameter] public EventCallback<object> OnDelete { get; set; }
+}

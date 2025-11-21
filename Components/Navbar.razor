@@ -1,0 +1,25 @@
+﻿@namespace gestaopedagogica.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.JSInterop
+@inject NavigationManager Nav
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <a class="navbar-brand" href="#">Gestão Pedagógica</a>
+    <div class="ms-auto d-flex align-items-center" style="gap:1rem;">
+        <AuthorizeView>
+            <Authorized>
+                <div class="text-white">Olá, @context.User.Identity.Name</div>
+                <form method="post" action="/Identity/Account/Logout">
+                    <button type="submit" class="btn btn-sm btn-outline-light">Logout</button>
+                </form>
+            </Authorized>
+            <NotAuthorized>
+                <button class="btn btn-sm btn-light" @onclick="() => Nav.NavigateTo("/login")">Login</button>
+                <button class="btn btn-sm btn-outline-light" @onclick="() => Nav.NavigateTo("/register")">Register</button>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+</nav>
+
+@code {
+}

@@ -1,0 +1,43 @@
+﻿@namespace gestaopedagogica.Components
+@using Microsoft.AspNetCore.Components.Routing
+
+<div class="bg-light border-right" style="width:250px; min-height:100vh;">
+    <ul class="list-group list-group-flush">
+        @foreach (var item in MenuItems)
+        {
+            <li class="list-group-item">
+                @if (item.Roles == null || item.Roles.Count == 0)
+                {
+                    <NavLink class="nav-link" href="@item.Url" Match="NavLinkMatch.Prefix">
+                        @item.Name
+                    </NavLink>
+                }
+                else
+                {
+                    <AuthorizeView Roles="@string.Join(',', item.Roles)">
+                        <Authorized>
+                            <NavLink class="nav-link" href="@item.Url" Match="NavLinkMatch.Prefix">
+                                @item.Name
+                            </NavLink>
+                        </Authorized>
+                        <NotAuthorized>
+                            @* nothing *@
+                        </NotAuthorized>
+                    </AuthorizeView>
+                }
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    [Parameter]
+    public List<MenuItem> MenuItems { get; set; } = new();
+
+    public class MenuItem
+    {
+        public string? Name { get; set; }
+        public string? Url { get; set; }
+        public List<string>? Roles { get; set; }
+    }
+}

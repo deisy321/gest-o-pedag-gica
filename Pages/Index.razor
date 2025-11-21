@@ -1,0 +1,36 @@
+@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+
+@code {
+ protected override async Task OnInitializedAsync()
+ {
+ var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+ var user = auth.User;
+ if (!user.Identity?.IsAuthenticated ?? true)
+ {
+ // not authenticated -> go to login
+ Nav.NavigateTo("/Identity/Account/Login", forceLoad: true);
+ return;
+ }
+
+ if (user.IsInRole("Administrador"))
+ {
+ Nav.NavigateTo("/admin/DashboardAdmin", forceLoad: false);
+ return;
+ }
+ if (user.IsInRole("Professor"))
+ {
+ Nav.NavigateTo("/professor/DashboardProfessor", forceLoad: false);
+ return;
+ }
+ if (user.IsInRole("Aluno"))
+ {
+ Nav.NavigateTo("/aluno/DashboardAluno", forceLoad: false);
+ return;
+ }
+ // default
+ Nav.NavigateTo("/admin/DashboardAdmin", forceLoad: false);
+ }
+}

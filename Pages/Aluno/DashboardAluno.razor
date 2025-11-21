@@ -1,0 +1,46 @@
+﻿@page "/aluno/DashboardAluno"
+@namespace gestaopedagogica.Pages.Aluno
+@layout MainLayout
+@using gestaopedagogica.Data
+@using Microsoft.AspNetCore.Components.Authorization
+
+<AuthorizeView Roles="Aluno">
+    <Authorized>
+        <h3>Dashboard do Aluno</h3>
+
+        <div class="row">
+      <div class="col-md-4">
+         <div class="card p-3">
+         <h5>Minhas Notas</h5>
+  <p>Acesse suas avaliações</p>
+     <a href="/aluno/MinhasNotas" class="btn btn-sm btn-primary">Ver Notas</a>
+     </div>
+            </div>
+        <div class="col-md-4">
+             <div class="card p-3">
+              <h5>Histórico</h5>
+    <p>Consulte seu histórico</p>
+        <a href="/aluno/Historico" class="btn btn-sm btn-primary">Ver Histórico</a>
+        </div>
+            </div>
+      <div class="col-md-4">
+      <div class="card p-3">
+    <h5>Feedback</h5>
+           <p>Receba feedback dos professores</p>
+           <a href="/aluno/Feedback" class="btn btn-sm btn-primary">Ver Feedback</a>
+         </div>
+         </div>
+      </div>
+    </Authorized>
+    <NotAuthorized>
+      <div class="alert alert-danger mt-5">
+        <h4>Acesso Negado</h4>
+            <p>Você não tem permissão para acessar o dashboard do aluno.</p>
+            <p>Por favor, <a href="/Identity/Account/Login">faça login novamente</a> com uma conta de aluno.</p>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+
+}

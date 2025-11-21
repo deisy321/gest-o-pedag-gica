@@ -1,0 +1,101 @@
+﻿@page "/admin/RelatoriosGlobais"
+@namespace gestaopedagogica.Pages.Admin
+@layout MainLayout
+
+<h3>Relatórios Globais</h3>
+
+<div class="row">
+ <div class="col-md-4">
+    <div class="card p-3 text-center">
+           <h6>Total de Alunos</h6>
+          <h3>@TotalAlunos</h3>
+        </div>
+    </div>
+   <div class="col-md-4">
+     <div class="card p-3 text-center">
+       <h6>Total de Professores</h6>
+    <h3>@TotalProfessores</h3>
+        </div>
+   </div>
+    <div class="col-md-4">
+ <div class="card p-3 text-center">
+    <h6>Total de Módulos</h6>
+<h3>@TotalModulos</h3>
+    </div>
+    </div>
+</div>
+
+<div class="card p-4 mt-4">
+   <h5>Estatísticas por Turma</h5>
+    <table class="table table-striped">
+  <thead>
+   <tr>
+    <th>Turma</th>
+   <th>Alunos</th>
+      <th>Média de Notas</th>
+  <th>Status</th>
+  </tr>
+   </thead>
+ <tbody>
+    @if (estatisticas?.Count > 0)
+ {
+     @foreach (var est in estatisticas)
+ {
+         <tr>
+     <td>@est.Turma</td>
+    <td>@est.NumAlunos</td>
+    <td>@est.MediaNotas.ToString("F2")</td>
+    <td>
+     @if (est.MediaNotas >= 10)
+  {
+       <span class="badge bg-success">Bom</span>
+       }
+     else if (est.MediaNotas >= 8)
+      {
+     <span class="badge bg-warning">Adequado</span>
+        }
+  else
+      {
+   <span class="badge bg-danger">Necessita Melhoria</span>
+     }
+       </td>
+    </tr>
+         }
+      }
+    else
+     {
+   <tr>
+    <td colspan="4" class="text-center">Sem dados disponíveis</td>
+   </tr>
+  }
+   </tbody>
+ </table>
+</div>
+
+@code {
+   private int TotalAlunos = 0;
+   private int TotalProfessores = 0;
+private int TotalModulos = 0;
+  private List<EstatisticasItem> estatisticas = new();
+
+  protected override void OnInitialized()
+   {
+  // TODO: Carregar dados reais do banco de dados
+    TotalAlunos = 45;
+ TotalProfessores = 8;
+  TotalModulos = 12;
+
+      estatisticas = new List<EstatisticasItem>
+      {
+new EstatisticasItem { Turma = "TIC-12A", NumAlunos = 22, MediaNotas = 14.5m },
+      new EstatisticasItem { Turma = "TIC-12B", NumAlunos = 23, MediaNotas = 13.2m }
+      };
+ }
+
+  private class EstatisticasItem
+    {
+  public string Turma { get; set; }
+    public int NumAlunos { get; set; }
+  public decimal MediaNotas { get; set; }
+    }
+}

@@ -1,0 +1,33 @@
+﻿@namespace gestaopedagogica.Shared
+@inherits LayoutComponentBase
+@using gestaopedagogica.Components
+
+<div style="display: flex; width: 100%; min-height: 100vh; background: white;">
+  <!-- Sidebar -->
+    <div style="width: 250px; background: #f0f0f0; border-right: 1px solid #ddd; overflow-y: auto;">
+  <Sidebar MenuItems="FilteredMenuItems" />
+    </div>
+
+    <!-- Main Content -->
+    <div style="flex: 1; display: flex; flex-direction: column; width: calc(100% - 250px);">
+        <!-- Navbar -->
+        <Navbar />
+
+        <!-- Body Content -->
+        <div style="flex: 1; padding: 20px; background: #f5f5f5; overflow-y: auto;">
+         @Body
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Sidebar.MenuItem> MenuItems = new()
+    {
+        new Sidebar.MenuItem { Name = "Dashboard (Admin)", Url = "/admin/DashboardAdmin", Roles = new List<string>{"Administrador"} },
+        new Sidebar.MenuItem { Name = "Gerir Utilizadores", Url = "/admin/ListarUtilizadores", Roles = new List<string>{"Administrador"} },
+        new Sidebar.MenuItem { Name = "Dashboard (Professor)", Url = "/professor/DashboardProfessor", Roles = new List<string>{"Professor"} },
+        new Sidebar.MenuItem { Name = "Dashboard (Aluno)", Url = "/aluno/DashboardAluno", Roles = new List<string>{"Aluno"} },
+    };
+
+    private List<Sidebar.MenuItem> FilteredMenuItems => MenuItems;
+}

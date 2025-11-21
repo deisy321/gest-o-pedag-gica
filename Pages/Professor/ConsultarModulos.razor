@@ -1,0 +1,56 @@
+﻿@page "/professor/ConsultarModulos"
+@namespace gestaopedagogica.Pages.Professor
+@layout MainLayout
+
+<h3>Consultar Módulos</h3>
+
+<div class="card p-4">
+   <h5>Módulos Disponíveis</h5>
+  <table class="table table-striped">
+ <thead>
+   <tr>
+    <th>Nome do Módulo</th>
+   <th>Descrição</th>
+    <th>Turmas</th>
+  <th>Horas</th>
+       </tr>
+    </thead>
+ <tbody>
+  @if (modulos?.Count > 0)
+       {
+@foreach (var modulo in modulos)
+      {
+  <tr>
+      <td>@modulo.Nome</td>
+  <td>@modulo.Descricao</td>
+   <td>@string.Join(", ", modulo.Turmas)</td>
+   <td>@modulo.Horas</td>
+    </tr>
+ }
+   }
+    else
+      {
+    <tr>
+    <td colspan="4" class="text-center">Sem módulos disponíveis</td>
+      </tr>
+  }
+    </tbody>
+ </table>
+</div>
+
+@code {
+    private List<ModuloItem> modulos = new();
+
+    protected override void OnInitialized()
+   {
+      // TODO: Carregar módulos do banco de dados
+    }
+
+   private class ModuloItem
+     {
+  public string Nome { get; set; }
+    public string Descricao { get; set; }
+      public List<string> Turmas { get; set; }
+      public int Horas { get; set; }
+    }
+}

@@ -1,0 +1,69 @@
+﻿@page "/aluno/Historico"
+@namespace gestaopedagogica.Pages.Aluno
+@layout MainLayout
+@using gestaopedagogica.Data
+
+<h3>Histórico Académico</h3>
+
+<div class="card p-4">
+    <h5>Histórico Completo</h5>
+ <table class="table table-striped">
+    <thead>
+  <tr>
+        <th>Ano Letivo</th>
+  <th>Módulo</th>
+   <th>Professor</th>
+       <th>Classificação Final</th>
+      <th>Status</th>
+ </tr>
+        </thead>
+  <tbody>
+@if (historico?.Count > 0)
+           {
+         @foreach (var item in historico)
+        {
+    <tr>
+    <td>@item.AnoLetivo</td>
+  <td>@item.Modulo</td>
+    <td>@item.Professor</td>
+   <td>@item.ClassificacaoFinal</td>
+      <td>
+     @if (item.Aprovado)
+        {
+          <span class="badge bg-success">Aprovado</span>
+          }
+    else
+          {
+<span class="badge bg-danger">Reprovado</span>
+        }
+</td>
+   </tr>
+      }
+      }
+   else
+    {
+      <tr>
+  <td colspan="5" class="text-center">Sem histórico disponível</td>
+        </tr>
+   }
+  </tbody>
+ </table>
+</div>
+
+@code {
+   private List<HistoricoItem> historico = new();
+
+     protected override void OnInitialized()
+    {
+        // TODO: Carregar histórico do banco de dados
+    }
+
+     private class HistoricoItem
+    {
+   public string AnoLetivo { get; set; }
+        public string Modulo { get; set; }
+       public string Professor { get; set; }
+        public decimal ClassificacaoFinal { get; set; }
+  public bool Aprovado { get; set; }
+   }
+}

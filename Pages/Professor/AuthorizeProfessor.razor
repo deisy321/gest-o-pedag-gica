@@ -1,0 +1,10 @@
+@using gestaopedagogica.Components
+
+<AuthorizeRole AllowedRoles="@(new[] { "Professor" })">
+ @ChildContent
+</AuthorizeRole>
+
+@code {
+ [Parameter]
+ public RenderFragment? ChildContent { get; set; }
+}

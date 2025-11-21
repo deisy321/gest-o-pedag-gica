@@ -1,0 +1,69 @@
+﻿@page "/admin/DashboardAdmin"
+@namespace gestaopedagogica.Pages.Admin
+@layout MainLayout
+@using Microsoft.AspNetCore.Components.Authorization
+
+<AuthorizeView Roles="Administrador">
+    <Authorized>
+        @if (!string.IsNullOrEmpty(successMessage))
+  {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                @((MarkupString)successMessage)
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+ </div>
+   }
+
+        <h3>Dashboard do Administrador</h3>
+
+        <div class="row mb-3">
+    <div class="col-md-12">
+    <a href="/admin/ListarUtilizadores" class="btn btn-info">
+        📋 Gerir Utilizadores
+      </a>
+            </div>
+      </div>
+
+     <div class="row">
+            <div class="col-md-4">
+           <div class="card p-3">
+  <h5>Total de Alunos</h5>
+           <p>— dados —</p>
+         </div>
+          </div>
+            <div class="col-md-4">
+      <div class="card p-3">
+   <h5>Total de Professores</h5>
+   <p>— dados —</p>
+</div>
+         </div>
+            <div class="col-md-4">
+            <div class="card p-3">
+          <h5>Registar Utilizador</h5>
+         <p>Criar nova conta de utilizador</p>
+  <a href="/admin/RegisterAdmin" class="btn btn-sm btn-primary">Registar</a>
+     </div>
+          </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-danger mt-5">
+       <h4>Acesso Negado</h4>
+<p>Você não tem permissão para acessar o dashboard do administrador.</p>
+       <p>Por favor, <a href="/login">faça login novamente</a> com uma conta de administrador.</p>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string successMessage;
+
+    protected override void OnInitialized()
+    {
+        // Verifica se há mensagem de sucesso no TempData
+        // Em Blazor, usamos localStorage ou sessão para isso
+        if (!string.IsNullOrEmpty(successMessage))
+ {
+            successMessage = null;
+        }
+    }
+}

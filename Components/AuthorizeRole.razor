@@ -1,0 +1,21 @@
+@namespace gestaopedagogica.Components
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject AuthenticationStateProvider AuthStateProvider
+
+@code {
+ [Parameter]
+ public string[] AllowedRoles { get; set; } = Array.Empty<string>();
+
+ [Parameter]
+ public RenderFragment? ChildContent { get; set; }
+}
+
+<AuthorizeView Roles="@string.Join(',', AllowedRoles)">
+ <Authorized>
+ @ChildContent
+ </Authorized>
+ <NotAuthorized>
+ <div class="alert alert-danger">Acesso negado. Este recurso é somente para: @string.Join(", ", AllowedRoles)</div>
+ </NotAuthorized>
+</AuthorizeView>

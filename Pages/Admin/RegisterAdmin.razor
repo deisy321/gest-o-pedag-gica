@@ -1,0 +1,303 @@
+@page "/admin/RegisterAdmin"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using gestaopedagogica.Data
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+@attribute [Authorize(Roles = "Administrador")]
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@inject NavigationManager Navigation
+@inject ILogger<RegisterAdmin> Logger
+@namespace gestaopedagogica.Pages.Admin
+@layout MainLayout
+
+<AuthorizeView Roles="Administrador">
+<Authorized>
+        <div class="container mt-4">
+       <div class="row">
+        <div class="col-md-8 offset-md-2">
+         <div class="card shadow-lg">
+      <div class="card-body">
+       <h2 class="text-center mb-2">Gestão Pedagógica</h2>
+      <p class="text-center text-muted mb-4">Registar Novo Utilizador</p>
+
+               @if (!string.IsNullOrEmpty(ErrorMessage))
+     {
+      <div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <strong>? Erro:</strong> @ErrorMessage
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+     </div>
+     }
+
+         @if (ShowSuccessMessage)
+   {
+         <div class="alert alert-success alert-dismissible fade show" role="alert">
+       <strong>? Sucesso:</strong> Utilizador registado com sucesso!
+         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+         </div>
+            }
+
+  <EditForm Model="Input" OnValidSubmit="HandleRegisterAsync">
+     <DataAnnotationsValidator />
+           <ValidationSummary class="text-danger" />
+
+             <div class="mb-3">
+   <label for="email" class="form-label">Email do Utilizador <span class="text-danger">*</span></label>
+     <InputText id="email" @bind-Value="Input.Email" class="form-control form-control-lg"
+   placeholder="usuario@exemplo.com" />
+       </div>
+
+       <div class="mb-3">
+    <label class="form-label">Tipo de Utilizador <span class="text-danger">*</span></label>
+         <div>
+  <div class="form-check">
+         <InputRadio id="roleAluno" name="SelectedRole" value="@UserRoles.Aluno"
+   @bind-Value="SelectedRole" class="form-check-input" />
+        <label class="form-check-label" for="roleAluno">
+    <span class="role-badge role-aluno">?????</span>
+  <strong>Aluno</strong> - Estudante do sistema
+     </label>
+        </div>
+
+  <div class="form-check">
+    <InputRadio id="roleProfessor" name="SelectedRole" value="@UserRoles.Professor"
+          @bind-Value="SelectedRole" class="form-check-input" />
+             <label class="form-check-label" for="roleProfessor">
+   <span class="role-badge role-professor">?????</span>
+  <strong>Professor</strong> - Docente/Formador
+</label>
+         </div>
+
+           <div class="form-check">
+   <InputRadio id="roleAdmin" name="SelectedRole" value="@UserRoles.Administrador"
+    @bind-Value="SelectedRole" class="form-check-input" />
+    <label class="form-check-label" for="roleAdmin">
+      <span class="role-badge role-admin">??</span>
+       <strong>Administrador</strong> - Gestor do sistema
+                 </label>
+                </div>
+              </div>
+          </div>
+
+     <div class="mb-3">
+  <label for="password" class="form-label">Senha <span class="text-danger">*</span></label>
+             <InputText id="password" type="password" @bind-Value="Input.Password" class="form-control form-control-lg"
+             placeholder="Mínimo 6 caracteres" />
+             <small class="text-muted">Mínimo 6 caracteres, sem requisitos especiais</small>
+               </div>
+
+   <div class="mb-3">
+         <label for="confirmPassword" class="form-label">Confirmar Senha <span class="text-danger">*</span></label>
+          <InputText id="confirmPassword" type="password" @bind-Value="Input.ConfirmPassword" class="form-control form-control-lg"
+       placeholder="Confirme a senha" />
+   </div>
+
+     <button type="submit" id="submitBtn" class="btn btn-primary btn-lg w-100 mb-3" disabled="@IsSubmitting">
+           <span id="btnText">@(IsSubmitting ? "A processar..." : "Registar Utilizador")</span>
+           </button>
+ </EditForm>
+
+       <hr />
+
+ <div class="text-center">
+            <p class="mb-2">Voltar para:</p>
+ <a href="/admin/DashboardAdmin" class="btn btn-outline-primary w-100">Dashboard Admin</a>
+            </div>
+           </div>
+               </div>
+       </div>
+            </div>
+        </div>
+
+  <style>
+            .role-badge {
+       display: inline-block;
+        padding: 5px 10px;
+border-radius: 5px;
+        font-size: 12px;
+        font-weight: bold;
+            margin: 5px 5px 5px 0;
+         }
+
+         .role-admin {
+        background-color: #dc3545;
+    color: white;
+       }
+
+            .role-professor {
+       background-color: #007bff;
+                color: white;
+   }
+
+          .role-aluno {
+     background-color: #28a745;
+    color: white;
+ }
+
+     .form-check {
+             margin-bottom: 1rem;
+            }
+        </style>
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-danger mt-5">
+  <h4>Acesso Negado</h4>
+      <p>Você não tem permissão para registar utilizadores.</p>
+    <p>Por favor, <a href="/login">faça login novamente</a> com uma conta de administrador.</p>
+     </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private RegisterAdminInputModel Input { get; set; } = new();
+    private string SelectedRole { get; set; } = UserRoles.Aluno;
+    private string ErrorMessage { get; set; } = string.Empty;
+    private bool ShowSuccessMessage { get; set; } = false;
+    private bool IsSubmitting { get; set; } = false;
+
+    // Constantes para roles
+    public static class UserRoles
+  {
+        public const string Aluno = "Aluno";
+      public const string Professor = "Professor";
+ public const string Administrador = "Administrador";
+
+        public static readonly string[] All = { Aluno, Professor, Administrador };
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+  Logger.LogInformation("Página de registo de admin acessada");
+    }
+
+    private async Task HandleRegisterAsync()
+    {
+        try
+     {
+     IsSubmitting = true;
+            ErrorMessage = string.Empty;
+         ShowSuccessMessage = false;
+
+   Logger.LogInformation($"Tentativa de registar utilizador: {Input?.Email} com role: {SelectedRole}");
+
+      // Validação: Email é obrigatório
+  if (Input == null || string.IsNullOrWhiteSpace(Input.Email))
+      {
+        Logger.LogWarning("Email vazio ou Input nulo");
+     ErrorMessage = "Email é obrigatório.";
+   IsSubmitting = false;
+      return;
+            }
+
+   // Validação: Role selecionada é válida
+if (string.IsNullOrWhiteSpace(SelectedRole) || !UserRoles.All.Contains(SelectedRole))
+ {
+              ErrorMessage = "Tipo de utilizador inválido.";
+       Logger.LogWarning($"Role inválida: {SelectedRole}");
+      IsSubmitting = false;
+         return;
+         }
+
+  // Validação: Senhas coincidem
+     if (Input.Password != Input.ConfirmPassword)
+    {
+                ErrorMessage = "As senhas não correspondem.";
+         Logger.LogWarning("Senhas não correspondem");
+IsSubmitting = false;
+        return;
+            }
+
+       // Validação: Comprimento da senha
+            if (Input.Password.Length < 6)
+    {
+   ErrorMessage = "A senha deve ter pelo menos 6 caracteres.";
+     Logger.LogWarning("Senha muito curta");
+           IsSubmitting = false;
+ return;
+}
+
+            // Verifica se o utilizador já existe
+        var existingUser = await UserManager.FindByEmailAsync(Input.Email);
+            if (existingUser != null)
+    {
+      Logger.LogWarning($"Utilizador com email {Input.Email} já existe");
+                ErrorMessage = "Este email já está registado no sistema.";
+                IsSubmitting = false;
+          return;
+          }
+
+  // Cria o novo utilizador
+    var user = new ApplicationUser
+            {
+           UserName = Input.Email,
+  Email = Input.Email,
+  EmailConfirmed = true
+   };
+
+     Logger.LogInformation($"A criar utilizador: {Input.Email}");
+            var result = await UserManager.CreateAsync(user, Input.Password);
+
+        if (result.Succeeded)
+            {
+           Logger.LogInformation($"Utilizador {Input.Email} criado com sucesso. ID: {user.Id}");
+
+          // Atribui a role selecionada
+      await UserManager.AddToRoleAsync(user, SelectedRole);
+       Logger.LogInformation($"Utilizador {Input.Email} adicionado à role {SelectedRole}");
+
+  // Mostra mensagem de sucesso
+    ShowSuccessMessage = true;
+
+        // Limpa o formulário
+       Input = new RegisterAdminInputModel();
+  SelectedRole = UserRoles.Aluno;
+
+    // Redireciona após 2 segundos
+      await Task.Delay(2000);
+          Navigation.NavigateTo("/admin/DashboardAdmin", new NavigationOptions { ReplaceHistoryEntry = true });
+ }
+      else
+   {
+           ErrorMessage = "Erro ao criar utilizador: " + string.Join(", ", result.Errors.Select(e => e.Description));
+      Logger.LogError($"Erro ao criar utilizador {Input.Email}: {ErrorMessage}");
+    }
+ }
+        catch (Exception ex)
+        {
+   Logger.LogError(ex, $"Exceção ao registar utilizador {Input?.Email}");
+    ErrorMessage = $"Ocorreu um erro ao registar o utilizador: {ex.Message}";
+  }
+      finally
+    {
+            IsSubmitting = false;
+        }
+  }
+
+    private string GetRoleName(string role)
+    {
+        return role switch
+        {
+      UserRoles.Aluno => "Aluno (Estudante)",
+            UserRoles.Professor => "Professor (Docente/Formador)",
+   UserRoles.Administrador => "Administrador (Gestor do sistema)",
+    _ => role
+ };
+    }
+
+    public class RegisterAdminInputModel
+    {
+        [Required(ErrorMessage = "O email é obrigatório")]
+        [EmailAddress(ErrorMessage = "Email inválido")]
+public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "A senha é obrigatória")]
+        [StringLength(100, ErrorMessage = "A senha deve ter entre {2} e {1} caracteres.", MinimumLength = 6)]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = string.Empty;
+
+        [DataType(DataType.Password)]
+        [Compare("Password", ErrorMessage = "A senha e a confirmação não correspondem.")]
+    public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}
