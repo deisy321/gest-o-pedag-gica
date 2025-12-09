@@ -55,15 +55,14 @@
 </AuthorizeView>
 
 @code {
-    // Aqui você pode depois carregar os roteiros reais do banco
     private Roteiro Roteiro { get; set; } = new Roteiro
     {
         Titulo = "Exemplo de Roteiro",
         Tarefas = new List<Tarefa>
         {
-            new Tarefa { Id=1, Descricao="Tarefa 1", Prazo=DateTime.Now.AddDays(1), Ordem=1 },
-            new Tarefa { Id=2, Descricao="Tarefa 2", Prazo=DateTime.Now.AddDays(2), Ordem=2 },
-            new Tarefa { Id=3, Descricao="Tarefa 3", Prazo=DateTime.Now.AddDays(3), Ordem=3 }
+            new Tarefa { Id = 1, Descricao = "Tarefa 1", Prazo = DateTime.Now.AddDays(1), Ordem = 1 },
+            new Tarefa { Id = 2, Descricao = "Tarefa 2", Prazo = DateTime.Now.AddDays(2), Ordem = 2 },
+            new Tarefa { Id = 3, Descricao = "Tarefa 3", Prazo = DateTime.Now.AddDays(3), Ordem = 3 }
         }
     };
 
@@ -76,6 +75,6 @@
     {
         if (tarefa.Ordem == 1) return true; // primeira tarefa sempre habilitada
         var anterior = Roteiro.Tarefas.FirstOrDefault(t => t.Ordem == tarefa.Ordem - 1);
-        return anterior != null && anterior.IsSubmitted;
+        return anterior != null && anterior.IsSubmitted; // progressão automática pelo envio
     }
 }

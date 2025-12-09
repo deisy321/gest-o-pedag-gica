@@ -1,27 +1,24 @@
-﻿<div class="card mb-3">
-    <div class="card-body">
-        <h5 class="card-title">@Tarefa.Descricao</h5>
-        <p class="card-text">Prazo: @Tarefa.Prazo.ToString("dd/MM/yyyy HH:mm")</p>
-        <p class="card-text">
-            Status: @(Tarefa.IsSubmitted ? "Enviado ✅" : "Pendente ⏳")
-        </p>
+﻿<div class="card mb-2 p-3" style="@(!EstaHabilitado ? "opacity:0.6; pointer-events:none;" : "")">
+    <strong>@Tarefa.Descricao</strong>
+    <p>Prazo: @Tarefa.Prazo.ToString("dd/MM/yyyy HH:mm")</p>
+    <p>Status: @(Tarefa.IsSubmitted ? "Enviado ✅" : "Pendente ⏳")</p>
 
-        @if (!Tarefa.IsSubmitted && EstaHabilitado)
-        {
-            <button class="btn btn-primary" @onclick="EnviarTarefa">Enviar</button>
-        }
+    <button class="btn btn-sm btn-primary" @onclick="EnviarTarefa" disabled="@(Tarefa.IsSubmitted || !EstaHabilitado)">
+        Enviar
+    </button>
 
-        @if (!string.IsNullOrEmpty(Tarefa.Feedback))
-        {
-            <p class="mt-2"><strong>Feedback:</strong> @Tarefa.Feedback</p>
-        }
-    </div>
+    @if (!string.IsNullOrEmpty(Tarefa.Feedback))
+    {
+        <div class="mt-1">
+            <strong>Feedback:</strong> @Tarefa.Feedback
+        </div>
+    }
 </div>
 
 @code {
     [Parameter] public Tarefa Tarefa { get; set; } = new();
-    [Parameter] public EventCallback OnEnviado { get; set; }
     [Parameter] public bool EstaHabilitado { get; set; } = false;
+    [Parameter] public EventCallback OnEnviado { get; set; }
 
     private void EnviarTarefa()
     {

@@ -9,19 +9,22 @@ namespace gestaopedagogica.Models
 
         [Required]
         public int TrabalhoId { get; set; }
-        public Trabalho Trabalho { get; set; }
+
+        // Inicializa a propriedade com um novo objeto vazio
+        public Trabalho Trabalho { get; set; } = new Trabalho();
 
         [Required]
-        public string Tipo { get; set; } // "Competencia", "Aptidao", "Conhecimento"
+        public string Tipo { get; set; } = ""; // "Competencia", "Aptidao", "Conhecimento"
 
-        public string ConteudoTexto { get; set; }
+        public string ConteudoTexto { get; set; } = "";
 
-        public string FicheiroPath { get; set; }
+        public string FicheiroPath { get; set; } = "";
 
         public DateTime DataEnvio { get; set; } = DateTime.Now;
 
         // AVALIAÇÃO
         public decimal? Nota { get; set; }
-        public string Feedback { get; set; }
+
+        public string Feedback { get; set; } = "";
     }
 }

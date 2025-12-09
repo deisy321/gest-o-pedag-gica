@@ -20,7 +20,7 @@
 
     <!-- COMPETÊNCIA -->
     <h5>Competência</h5>
-    <InputFile OnChange="e => OnFileSelected(e," Competencia")" />
+    <InputFile OnChange="e => OnFileSelected(e, 'Competencia')" />
     <textarea class="form-control mt-2" placeholder="Ou escreva aqui..."
               @bind="TextoCompetencia"></textarea>
 
@@ -28,7 +28,7 @@
 
     <!-- APTIDÃO -->
     <h5>Aptidão</h5>
-    <InputFile OnChange="e => OnFileSelected(e," Aptidao")" />
+    <InputFile OnChange="e => OnFileSelected(e, 'Aptidao')" />
     <textarea class="form-control mt-2" placeholder="Ou escreva aqui..."
               @bind="TextoAptidao"></textarea>
 
@@ -36,7 +36,7 @@
 
     <!-- CONHECIMENTO -->
     <h5>Conhecimento</h5>
-    <InputFile OnChange="e => OnFileSelected(e," Conhecimento")" />
+    <InputFile OnChange="e => OnFileSelected(e, 'Conhecimento')" />
     <textarea class="form-control mt-2" placeholder="Ou escreva aqui..."
               @bind="TextoConhecimento"></textarea>
 
@@ -45,11 +45,16 @@
 </div>
 
 @code {
-    private string Titulo;
+    // Inicializações para evitar warnings de não-nulidade
+    private string Titulo { get; set; } = "";
 
-    private IBrowserFile FileCompetencia, FileAptidao, FileConhecimento;
+    private IBrowserFile? FileCompetencia { get; set; }
+    private IBrowserFile? FileAptidao { get; set; }
+    private IBrowserFile? FileConhecimento { get; set; }
 
-    private string TextoCompetencia, TextoAptidao, TextoConhecimento;
+    private string TextoCompetencia { get; set; } = "";
+    private string TextoAptidao { get; set; } = "";
+    private string TextoConhecimento { get; set; } = "";
 
     private void OnFileSelected(InputFileChangeEventArgs e, string tipo)
     {
@@ -64,16 +69,19 @@
     {
         var trabalho = new Trabalho
         {
-            AlunoId = "aluno1", // depois pega pelo auth
+            AlunoId = "aluno1", // futuramente pegar do usuário logado
             ProfessorId = "prof1",
             Titulo = Titulo,
+            ConteudoTexto = "",
+            FicheiroCompetencia = FileCompetencia?.Name ?? "",
+            FicheiroAptidao = FileAptidao?.Name ?? "",
+            FicheiroConhecimento = FileConhecimento?.Name ?? "",
             DataEnvio = DateTime.Now
         };
 
         _context.Trabalhos.Add(trabalho);
         await _context.SaveChangesAsync();
 
-        // Salvar as 3 vertentes
         await SalvarVertente(trabalho.Id, "Competencia", FileCompetencia, TextoCompetencia);
         await SalvarVertente(trabalho.Id, "Aptidao", FileAptidao, TextoAptidao);
         await SalvarVertente(trabalho.Id, "Conhecimento", FileConhecimento, TextoConhecimento);
@@ -81,9 +89,9 @@
         Nav.NavigateTo("/aluno/DashboardAluno");
     }
 
-    private async Task SalvarVertente(int trabalhoId, string tipo, IBrowserFile ficheiro, string texto)
+    private async Task SalvarVertente(int trabalhoId, string tipo, IBrowserFile? ficheiro, string texto)
     {
-        string path = null;
+        string? path = null;
 
         if (ficheiro != null)
         {
@@ -91,10 +99,8 @@
             Directory.CreateDirectory(folder);
 
             var filePath = Path.Combine(folder, ficheiro.Name);
-            using (var stream = File.Create(filePath))
-            {
-                await ficheiro.OpenReadStream().CopyToAsync(stream);
-            }
+            using var stream = File.Create(filePath);
+            await ficheiro.OpenReadStream().CopyToAsync(stream);
 
             path = "/uploads/" + ficheiro.Name;
         }
@@ -103,8 +109,8 @@
         {
             TrabalhoId = trabalhoId,
             Tipo = tipo,
-            ConteudoTexto = texto,
-            FicheiroPath = path
+            ConteudoTexto = texto ?? "",
+            FicheiroPath = path ?? ""
         };
 
         _context.TrabalhoVertentes.Add(vertente);

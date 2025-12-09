@@ -3,7 +3,6 @@
 @using gestaopedagogica.Models
 @inject ApplicationDbContext _context
 @inject NavigationManager Nav
-@attribute [SupplyParameterFromQuery] public int vid { get; set; }
 
 <h3>Avaliar Vertente</h3>
 
@@ -17,7 +16,7 @@ else
 
         <p><strong>Tipo:</strong> @Vertente.Tipo</p>
 
-        @if (Vertente.FicheiroPath != null)
+        @if (!string.IsNullOrEmpty(Vertente.FicheiroPath))
         {
             <p><a href="@Vertente.FicheiroPath" target="_blank">Baixar ficheiro enviado</a></p>
         }
@@ -44,7 +43,10 @@ else
 }
 
 @code {
-    private TrabalhoVertente Vertente;
+    [SupplyParameterFromQuery]
+    public int vid { get; set; }
+
+    private TrabalhoVertente? Vertente { get; set; }
 
     protected override void OnInitialized()
     {
@@ -53,8 +55,11 @@ else
 
     private async Task Salvar()
     {
-        _context.TrabalhoVertentes.Update(Vertente);
-        await _context.SaveChangesAsync();
-        Nav.NavigateTo("/professor/TrabalhosRecebidos");
+        if (Vertente != null)
+        {
+            _context.TrabalhoVertentes.Update(Vertente);
+            await _context.SaveChangesAsync();
+            Nav.NavigateTo("/professor/TrabalhosRecebidos");
+        }
     }
 }
