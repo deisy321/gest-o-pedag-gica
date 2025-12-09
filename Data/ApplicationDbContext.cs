@@ -16,5 +16,7 @@ namespace gestaopedagogica.Data
         public DbSet<Avaliacao> Avaliacoes { get; set; }
         public DbSet<Modulo> Modulos { get; set; }
         public DbSet<Turma> Turmas { get; set; }
+        public DbSet<Trabalho> Trabalhos { get; set; }
+
     }
 }

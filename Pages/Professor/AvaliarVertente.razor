@@ -1,0 +1,60 @@
+﻿@page "/professor/AvaliarVertente"
+@using gestaopedagogica.Data
+@using gestaopedagogica.Models
+@inject ApplicationDbContext _context
+@inject NavigationManager Nav
+@attribute [SupplyParameterFromQuery] public int vid { get; set; }
+
+<h3>Avaliar Vertente</h3>
+
+@if (Vertente == null)
+{
+    <p>Carregando...</p>
+}
+else
+{
+    <div class="card p-4">
+
+        <p><strong>Tipo:</strong> @Vertente.Tipo</p>
+
+        @if (Vertente.FicheiroPath != null)
+        {
+            <p><a href="@Vertente.FicheiroPath" target="_blank">Baixar ficheiro enviado</a></p>
+        }
+
+        @if (!string.IsNullOrEmpty(Vertente.ConteudoTexto))
+        {
+            <p><strong>Texto enviado:</strong></p>
+            <p>@Vertente.ConteudoTexto</p>
+        }
+
+        <div class="mt-3">
+            <label>Nota</label>
+            <input type="number" class="form-control" style="width:120px" @bind="Vertente.Nota" />
+        </div>
+
+        <div class="mt-3">
+            <label>Feedback</label>
+            <textarea class="form-control" @bind="Vertente.Feedback"></textarea>
+        </div>
+
+        <button class="btn btn-success mt-3" @onclick="Salvar">Salvar</button>
+
+    </div>
+}
+
+@code {
+    private TrabalhoVertente Vertente;
+
+    protected override void OnInitialized()
+    {
+        Vertente = _context.TrabalhoVertentes.FirstOrDefault(v => v.Id == vid);
+    }
+
+    private async Task Salvar()
+    {
+        _context.TrabalhoVertentes.Update(Vertente);
+        await _context.SaveChangesAsync();
+        Nav.NavigateTo("/professor/TrabalhosRecebidos");
+    }
+}

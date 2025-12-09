@@ -1,0 +1,60 @@
+﻿@page "/professor/TrabalhosRecebidos"
+@namespace gestaopedagogica.Pages.Professor
+@layout MainLayout
+@using gestaopedagogica.Models
+@using gestaopedagogica.Data
+@inject ApplicationDbContext _context
+
+<h3>Trabalhos Enviados</h3>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Aluno</th>
+            <th>Título</th>
+            <th>Vertente</th>
+            <th>Data</th>
+            <th>Estado</th>
+            <th>Avaliar</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Lista)
+        {
+            <tr>
+                <td>@item.AlunoId</td>
+                <td>@item.Titulo</td>
+                <td>@item.Tipo</td>
+                <td>@item.DataEnvio.ToShortDateString()</td>
+                <td>@(item.Nota == null ? "Pendente" : "Avaliado")</td>
+                <td>
+                    <a class="btn btn-sm btn-primary" href="/professor/AvaliarVertente?vid=@item.Id">
+                        Avaliar
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<dynamic> Lista;
+
+    protected override void OnInitialized()
+    {
+        Lista = (
+            from t in _context.Trabalhos
+            from v in _context.TrabalhoVertentes
+            where v.TrabalhoId == t.Id
+            select new
+            {
+                v.Id,
+                t.Titulo,
+                t.AlunoId,
+                v.Tipo,
+                v.DataEnvio,
+                v.Nota
+            }
+        ).ToList<dynamic>();
+    }
+}

@@ -1,0 +1,31 @@
+﻿<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">@Tarefa.Descricao</h5>
+        <p class="card-text">Prazo: @Tarefa.Prazo.ToString("dd/MM/yyyy HH:mm")</p>
+        <p class="card-text">
+            Status: @(Tarefa.IsSubmitted ? "Enviado ✅" : "Pendente ⏳")
+        </p>
+
+        @if (!Tarefa.IsSubmitted && EstaHabilitado)
+        {
+            <button class="btn btn-primary" @onclick="EnviarTarefa">Enviar</button>
+        }
+
+        @if (!string.IsNullOrEmpty(Tarefa.Feedback))
+        {
+            <p class="mt-2"><strong>Feedback:</strong> @Tarefa.Feedback</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public Tarefa Tarefa { get; set; } = new();
+    [Parameter] public EventCallback OnEnviado { get; set; }
+    [Parameter] public bool EstaHabilitado { get; set; } = false;
+
+    private void EnviarTarefa()
+    {
+        Tarefa.IsSubmitted = true;
+        OnEnviado.InvokeAsync();
+    }
+}

@@ -1,0 +1,113 @@
+﻿@page "/aluno/EnviarTrabalho"
+@namespace gestaopedagogica.Pages.Aluno
+@layout MainLayout
+@using gestaopedagogica.Models
+@using gestaopedagogica.Data
+@using Microsoft.AspNetCore.Components.Forms
+@inject ApplicationDbContext _context
+@inject NavigationManager Nav
+
+<h3>Enviar Trabalho</h3>
+
+<div class="card p-4">
+
+    <div class="mb-3">
+        <label>Título do Trabalho</label>
+        <input class="form-control" @bind="Titulo" />
+    </div>
+
+    <hr />
+
+    <!-- COMPETÊNCIA -->
+    <h5>Competência</h5>
+    <InputFile OnChange="e => OnFileSelected(e," Competencia")" />
+    <textarea class="form-control mt-2" placeholder="Ou escreva aqui..."
+              @bind="TextoCompetencia"></textarea>
+
+    <hr />
+
+    <!-- APTIDÃO -->
+    <h5>Aptidão</h5>
+    <InputFile OnChange="e => OnFileSelected(e," Aptidao")" />
+    <textarea class="form-control mt-2" placeholder="Ou escreva aqui..."
+              @bind="TextoAptidao"></textarea>
+
+    <hr />
+
+    <!-- CONHECIMENTO -->
+    <h5>Conhecimento</h5>
+    <InputFile OnChange="e => OnFileSelected(e," Conhecimento")" />
+    <textarea class="form-control mt-2" placeholder="Ou escreva aqui..."
+              @bind="TextoConhecimento"></textarea>
+
+    <button class="btn btn-success mt-4" @onclick="Enviar">Enviar Trabalho</button>
+
+</div>
+
+@code {
+    private string Titulo;
+
+    private IBrowserFile FileCompetencia, FileAptidao, FileConhecimento;
+
+    private string TextoCompetencia, TextoAptidao, TextoConhecimento;
+
+    private void OnFileSelected(InputFileChangeEventArgs e, string tipo)
+    {
+        var file = e.File;
+
+        if (tipo == "Competencia") FileCompetencia = file;
+        if (tipo == "Aptidao") FileAptidao = file;
+        if (tipo == "Conhecimento") FileConhecimento = file;
+    }
+
+    private async Task Enviar()
+    {
+        var trabalho = new Trabalho
+        {
+            AlunoId = "aluno1", // depois pega pelo auth
+            ProfessorId = "prof1",
+            Titulo = Titulo,
+            DataEnvio = DateTime.Now
+        };
+
+        _context.Trabalhos.Add(trabalho);
+        await _context.SaveChangesAsync();
+
+        // Salvar as 3 vertentes
+        await SalvarVertente(trabalho.Id, "Competencia", FileCompetencia, TextoCompetencia);
+        await SalvarVertente(trabalho.Id, "Aptidao", FileAptidao, TextoAptidao);
+        await SalvarVertente(trabalho.Id, "Conhecimento", FileConhecimento, TextoConhecimento);
+
+        Nav.NavigateTo("/aluno/DashboardAluno");
+    }
+
+    private async Task SalvarVertente(int trabalhoId, string tipo, IBrowserFile ficheiro, string texto)
+    {
+        string path = null;
+
+        if (ficheiro != null)
+        {
+            var folder = Path.Combine("wwwroot", "uploads");
+            Directory.CreateDirectory(folder);
+
+            var filePath = Path.Combine(folder, ficheiro.Name);
+            using (var stream = File.Create(filePath))
+            {
+                await ficheiro.OpenReadStream().CopyToAsync(stream);
+            }
+
+            path = "/uploads/" + ficheiro.Name;
+        }
+
+        var vertente = new TrabalhoVertente
+        {
+            TrabalhoId = trabalhoId,
+            Tipo = tipo,
+            ConteudoTexto = texto,
+            FicheiroPath = path
+        };
+
+        _context.TrabalhoVertentes.Add(vertente);
+        await _context.SaveChangesAsync();
+    }
+}
