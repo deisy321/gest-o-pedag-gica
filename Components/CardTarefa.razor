@@ -1,18 +1,27 @@
-﻿<div class="card mb-2 p-3" style="@(!EstaHabilitado ? "opacity:0.6; pointer-events:none;" : "")">
-    <strong>@Tarefa.Descricao</strong>
-    <p>Prazo: @Tarefa.Prazo.ToString("dd/MM/yyyy HH:mm")</p>
-    <p>Status: @(Tarefa.IsSubmitted ? "Enviado ✅" : "Pendente ⏳")</p>
+﻿@using gestaopedagogica.Models
 
-    <button class="btn btn-sm btn-primary" @onclick="EnviarTarefa" disabled="@(Tarefa.IsSubmitted || !EstaHabilitado)">
-        Enviar
-    </button>
+<div class="card card-custom mb-3 p-3 @(EstaHabilitado ? "card-enabled" : "card-disabled")">
+    <div class="d-flex justify-content-between align-items-start mb-2">
+        <strong class="card-title">@Tarefa.Descricao</strong>
+        <span class="badge @(Tarefa.IsSubmitted ? "bg-success" : "bg-secondary")">
+            @(Tarefa.IsSubmitted ? "Enviado ✅" : "Pendente ⏳")
+        </span>
+    </div>
+
+    <p class="mb-2"><strong>Prazo:</strong> @Tarefa.Prazo.ToString("dd/MM/yyyy HH:mm")</p>
 
     @if (!string.IsNullOrEmpty(Tarefa.Feedback))
     {
-        <div class="mt-1">
+        <div class="feedback mb-2">
             <strong>Feedback:</strong> @Tarefa.Feedback
         </div>
     }
+
+    <button class="btn btn-primary btn-sm btn-custom"
+            @onclick="EnviarTarefa"
+            disabled="@(Tarefa.IsSubmitted || !EstaHabilitado)">
+        Enviar
+    </button>
 </div>
 
 @code {

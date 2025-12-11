@@ -13,40 +13,45 @@
             </div>
         }
 
-        <h3>Dashboard do Administrador</h3>
+        <h3 class="mb-4">Dashboard do Administrador</h3>
 
         <div class="row mb-3">
             <div class="col-md-12">
-                <a href="/admin/ListarUtilizadores" class="btn btn-info">
+                <a href="/admin/ListarUtilizadores" class="btn btn-info btn-custom mb-3">
                     📋 Gerir Utilizadores
                 </a>
             </div>
         </div>
 
-        <div class="row">
+        <div class="row g-3">
+            <!-- Total de Alunos -->
             <div class="col-md-4">
-                <div class="card p-3">
-                    <h5>Total de Alunos</h5>
+                <div class="card card-custom p-3">
+                    <h5 class="mb-2">Total de Alunos</h5>
                     <p>— dados —</p>
                 </div>
             </div>
+
+            <!-- Total de Professores -->
             <div class="col-md-4">
-                <div class="card p-3">
-                    <h5>Total de Professores</h5>
+                <div class="card card-custom p-3">
+                    <h5 class="mb-2">Total de Professores</h5>
                     <p>— dados —</p>
                 </div>
             </div>
+
+            <!-- Registar Utilizador -->
             <div class="col-md-4">
-                <div class="card p-3">
-                    <h5>Registar Utilizador</h5>
+                <div class="card card-custom p-3">
+                    <h5 class="mb-2">Registar Utilizador</h5>
                     <p>Criar nova conta de utilizador</p>
-                    <a href="/admin/RegisterAdmin" class="btn btn-sm btn-primary">Registar</a>
+                    <a href="/admin/RegisterAdmin" class="btn btn-primary btn-custom btn-sm">Registar</a>
                 </div>
             </div>
         </div>
     </Authorized>
     <NotAuthorized>
-        <div class="alert alert-danger mt-5">
+        <div class="alert alert-danger mt-5 card-custom">
             <h4>Acesso Negado</h4>
             <p>Você não tem permissão para acessar o dashboard do administrador.</p>
             <p>Por favor, <a href="/login">faça login novamente</a> com uma conta de administrador.</p>
@@ -55,15 +60,13 @@
 </AuthorizeView>
 
 @code {
-    // Tornando anulável
     private string? successMessage;
 
     protected override void OnInitialized()
     {
-        // Se quiser "limpar" a mensagem, apenas atribua string vazia
         if (!string.IsNullOrEmpty(successMessage))
         {
-            successMessage = ""; // Limpa a mensagem sem gerar erro
+            successMessage = "";
         }
     }
 }

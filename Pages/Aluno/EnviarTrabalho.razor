@@ -20,7 +20,7 @@
 
     <!-- COMPETÊNCIA -->
     <h5>Competência</h5>
-    <InputFile OnChange="e => OnFileSelected(e, 'Competencia')" />
+    <InputFile OnChange='e => OnFileSelected(e, "Competencia")' />
     <textarea class="form-control mt-2" placeholder="Ou escreva aqui..."
               @bind="TextoCompetencia"></textarea>
 
@@ -28,7 +28,7 @@
 
     <!-- APTIDÃO -->
     <h5>Aptidão</h5>
-    <InputFile OnChange="e => OnFileSelected(e, 'Aptidao')" />
+    <InputFile OnChange='e => OnFileSelected(e, "Aptidao")' />
     <textarea class="form-control mt-2" placeholder="Ou escreva aqui..."
               @bind="TextoAptidao"></textarea>
 
@@ -36,7 +36,7 @@
 
     <!-- CONHECIMENTO -->
     <h5>Conhecimento</h5>
-    <InputFile OnChange="e => OnFileSelected(e, 'Conhecimento')" />
+    <InputFile OnChange='e => OnFileSelected(e, "Conhecimento")' />
     <textarea class="form-control mt-2" placeholder="Ou escreva aqui..."
               @bind="TextoConhecimento"></textarea>
 
@@ -45,7 +45,6 @@
 </div>
 
 @code {
-    // Inicializações para evitar warnings de não-nulidade
     private string Titulo { get; set; } = "";
 
     private IBrowserFile? FileCompetencia { get; set; }

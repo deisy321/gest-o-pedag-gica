@@ -2,23 +2,27 @@
 @inherits LayoutComponentBase
 @using gestaopedagogica.Components
 
-<div style="display: flex; width: 100%; min-height: 100vh; background: white;">
-  <!-- Sidebar -->
-    <div style="width: 250px; background: #f0f0f0; border-right: 1px solid #ddd; overflow-y: auto;">
-  <Sidebar MenuItems="FilteredMenuItems" />
+<link href="bootstrap/bootstrap.min.css" rel="stylesheet" />
+<link href="css/custom.css" rel="stylesheet" />
+
+<div class="layout-wrapper">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <Sidebar MenuItems="FilteredMenuItems" />
     </div>
 
     <!-- Main Content -->
-    <div style="flex: 1; display: flex; flex-direction: column; width: calc(100% - 250px);">
+    <div class="main-content">
         <!-- Navbar -->
         <Navbar />
 
         <!-- Body Content -->
-        <div style="flex: 1; padding: 20px; background: #f5f5f5; overflow-y: auto;">
-         @Body
+        <div class="body-content">
+            @Body
         </div>
     </div>
 </div>
+
 
 @code {
     private List<Sidebar.MenuItem> MenuItems = new()

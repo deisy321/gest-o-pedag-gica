@@ -8,45 +8,46 @@
 
 <AuthorizeView Roles="Aluno">
     <Authorized>
-        <h3>Dashboard do Aluno</h3>
+        <h3 class="mb-4">Dashboard do Aluno</h3>
 
         <!-- Cards rápidos -->
-        <div class="row mb-4">
+        <div class="row mb-4 g-3">
             <div class="col-md-3">
-                <div class="card p-3">
-                    <h5>Minhas Notas</h5>
+                <div class="card card-custom p-3">
+                    <h5 class="mb-2">Minhas Notas</h5>
                     <p>Acesse suas avaliações</p>
-                    <a href="/aluno/MinhasNotas" class="btn btn-sm btn-primary">Ver Notas</a>
+                    <a href="/aluno/MinhasNotas" class="btn btn-primary btn-custom btn-sm">Ver Notas</a>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card p-3">
-                    <h5>Histórico</h5>
+                <div class="card card-custom p-3">
+                    <h5 class="mb-2">Histórico</h5>
                     <p>Consulte seu histórico</p>
-                    <a href="/aluno/Historico" class="btn btn-sm btn-primary">Ver Histórico</a>
+                    <a href="/aluno/Historico" class="btn btn-primary btn-custom btn-sm">Ver Histórico</a>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card p-3">
-                    <h5>Feedback</h5>
+                <div class="card card-custom p-3">
+                    <h5 class="mb-2">Feedback</h5>
                     <p>Receba feedback dos professores</p>
-                    <a href="/aluno/Feedback" class="btn btn-sm btn-primary">Ver Feedback</a>
+                    <a href="/aluno/Feedback" class="btn btn-primary btn-custom btn-sm">Ver Feedback</a>
                 </div>
             </div>
         </div>
 
         <!-- Roteiro de Aprendizagem -->
-        <h4>Roteiro de Aprendizagem</h4>
+        <h4 class="mb-3">Roteiro de Aprendizagem</h4>
         @foreach (var tarefa in Roteiro.Tarefas.OrderBy(t => t.Ordem))
         {
             <CardTarefa Tarefa="tarefa"
                         EstaHabilitado="HabilitarTarefa(tarefa)"
-                        OnEnviado="AtualizarProgresso" />
+                        OnEnviado="AtualizarProgresso"
+                        class="mb-3" />
         }
 
     </Authorized>
     <NotAuthorized>
-        <div class="alert alert-danger mt-5">
+        <div class="alert alert-danger mt-5 card-custom">
             <h4>Acesso Negado</h4>
             <p>Você não tem permissão para acessar o dashboard do aluno.</p>
             <p>Por favor, <a href="/Identity/Account/Login">faça login novamente</a> com uma conta de aluno.</p>
