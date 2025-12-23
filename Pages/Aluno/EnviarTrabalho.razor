@@ -2,15 +2,15 @@
 @namespace gestaopedagogica.Pages.Aluno
 @layout MainLayout
 @using gestaopedagogica.Models
-@using gestaopedagogica.Data
-@using Microsoft.AspNetCore.Components.Forms
-@inject ApplicationDbContext _context
+@using gestaopedagogica.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject TrabalhoService TrabalhoService
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
 
-<h3>Enviar Trabalho</h3>
+<h3>@(IsEdit ? "Editar Trabalho" : "Enviar Trabalho")</h3>
 
 <div class="card p-4">
-
     <div class="mb-3">
         <label>Título do Trabalho</label>
         <input class="form-control" @bind="Titulo" />
@@ -18,101 +18,148 @@
 
     <hr />
 
-    <!-- COMPETÊNCIA -->
-    <h5>Competência</h5>
-    <InputFile OnChange='e => OnFileSelected(e, "Competencia")' />
-    <textarea class="form-control mt-2" placeholder="Ou escreva aqui..."
-              @bind="TextoCompetencia"></textarea>
+    @foreach (var vertente in Vertentes)
+    {
+        <h5>@vertente.Tipo</h5>
 
-    <hr />
+        @if (!string.IsNullOrEmpty(vertente.FicheiroPath))
+        {
+            <p>Arquivo atual: <a href="@vertente.FicheiroPath" target="_blank">@vertente.FicheiroPath</a></p>
+        }
 
-    <!-- APTIDÃO -->
-    <h5>Aptidão</h5>
-    <InputFile OnChange='e => OnFileSelected(e, "Aptidao")' />
-    <textarea class="form-control mt-2" placeholder="Ou escreva aqui..."
-              @bind="TextoAptidao"></textarea>
+        <InputFile OnChange="e => OnFileSelected(e, vertente)" />
+        <textarea class="form-control mt-2" placeholder="Ou escreva aqui..." @bind="vertente.ConteudoTexto"></textarea>
+        <hr />
+    }
 
-    <hr />
-
-    <!-- CONHECIMENTO -->
-    <h5>Conhecimento</h5>
-    <InputFile OnChange='e => OnFileSelected(e, "Conhecimento")' />
-    <textarea class="form-control mt-2" placeholder="Ou escreva aqui..."
-              @bind="TextoConhecimento"></textarea>
-
-    <button class="btn btn-success mt-4" @onclick="Enviar">Enviar Trabalho</button>
-
+    <button class="btn btn-success mt-4" @onclick="Enviar">@ButtonText</button>
 </div>
 
 @code {
+    [Parameter] public int? id { get; set; }
+    private bool IsEdit => id.HasValue;
+    private string ButtonText => IsEdit ? "Atualizar Trabalho" : "Enviar Trabalho";
+
     private string Titulo { get; set; } = "";
 
-    private IBrowserFile? FileCompetencia { get; set; }
-    private IBrowserFile? FileAptidao { get; set; }
-    private IBrowserFile? FileConhecimento { get; set; }
-
-    private string TextoCompetencia { get; set; } = "";
-    private string TextoAptidao { get; set; } = "";
-    private string TextoConhecimento { get; set; } = "";
-
-    private void OnFileSelected(InputFileChangeEventArgs e, string tipo)
+    private List<VertenteEditModel> Vertentes { get; set; } = new List<VertenteEditModel>
     {
-        var file = e.File;
+        new VertenteEditModel { Tipo = "Competencia" },
+        new VertenteEditModel { Tipo = "Aptidao" },
+        new VertenteEditModel { Tipo = "Conhecimento" }
+    };
 
-        if (tipo == "Competencia") FileCompetencia = file;
-        if (tipo == "Aptidao") FileAptidao = file;
-        if (tipo == "Conhecimento") FileConhecimento = file;
+    protected override async Task OnInitializedAsync()
+    {
+        if (!IsEdit) return;
+
+        var trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(id!.Value);
+        if (trabalho != null)
+        {
+            Titulo = trabalho.Titulo;
+
+            var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(trabalho.Id);
+
+            foreach (var vert in Vertentes)
+            {
+                var dbVert = vertentesDb.FirstOrDefault(v => v.Tipo == vert.Tipo);
+                if (dbVert != null)
+                {
+                    vert.ConteudoTexto = dbVert.ConteudoTexto ?? "";
+                    vert.FicheiroPath = dbVert.FicheiroPath ?? "";
+                    vert.Id = dbVert.Id;
+                }
+            }
+        }
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e, VertenteEditModel vertente)
+    {
+        vertente.File = e.File;
     }
 
     private async Task Enviar()
     {
-        var trabalho = new Trabalho
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var alunoId = user.FindFirst(c => c.Type == "sub")?.Value;
+
+        if (string.IsNullOrEmpty(alunoId))
         {
-            AlunoId = "aluno1", // futuramente pegar do usuário logado
-            ProfessorId = "prof1",
-            Titulo = Titulo,
-            ConteudoTexto = "",
-            FicheiroCompetencia = FileCompetencia?.Name ?? "",
-            FicheiroAptidao = FileAptidao?.Name ?? "",
-            FicheiroConhecimento = FileConhecimento?.Name ?? "",
-            DataEnvio = DateTime.Now
-        };
+            // caso não encontre o aluno
+            return;
+        }
 
-        _context.Trabalhos.Add(trabalho);
-        await _context.SaveChangesAsync();
+        Trabalho trabalho;
+        if (IsEdit)
+        {
+            trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(id!.Value) ?? new Trabalho();
+            trabalho.Titulo = Titulo;
+            trabalho.DataEnvio = DateTime.Now;
+        }
+        else
+        {
+            trabalho = new Trabalho
+            {
+                AlunoId = alunoId,
+                ProfessorId = "prof1", // pegar professor correto futuramente
+                Titulo = Titulo,
+                DataEnvio = DateTime.Now
+            };
+            await TrabalhoService.AddTrabalhoAsync(trabalho);
+        }
 
-        await SalvarVertente(trabalho.Id, "Competencia", FileCompetencia, TextoCompetencia);
-        await SalvarVertente(trabalho.Id, "Aptidao", FileAptidao, TextoAptidao);
-        await SalvarVertente(trabalho.Id, "Conhecimento", FileConhecimento, TextoConhecimento);
+        foreach (var vert in Vertentes)
+        {
+            await SalvarVertente(trabalho.Id, vert);
+        }
 
         Nav.NavigateTo("/aluno/DashboardAluno");
     }
 
-    private async Task SalvarVertente(int trabalhoId, string tipo, IBrowserFile? ficheiro, string texto)
+    private async Task SalvarVertente(int trabalhoId, VertenteEditModel vert)
     {
         string? path = null;
 
-        if (ficheiro != null)
+        if (vert.File != null)
         {
             var folder = Path.Combine("wwwroot", "uploads");
             Directory.CreateDirectory(folder);
-
-            var filePath = Path.Combine(folder, ficheiro.Name);
+            var fileName = $"{Guid.NewGuid()}_{vert.File.Name}";
+            var filePath = Path.Combine(folder, fileName);
             using var stream = File.Create(filePath);
-            await ficheiro.OpenReadStream().CopyToAsync(stream);
-
-            path = "/uploads/" + ficheiro.Name;
+            await vert.File.OpenReadStream().CopyToAsync(stream);
+            path = "/uploads/" + fileName;
         }
 
-        var vertente = new TrabalhoVertente
-        {
-            TrabalhoId = trabalhoId,
-            Tipo = tipo,
-            ConteudoTexto = texto ?? "",
-            FicheiroPath = path ?? ""
-        };
+        var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(trabalhoId);
+        var vertenteDb = vertentesDb.FirstOrDefault(v => v.Tipo == vert.Tipo);
 
-        _context.TrabalhoVertentes.Add(vertente);
-        await _context.SaveChangesAsync();
+        if (vertenteDb != null)
+        {
+            vertenteDb.ConteudoTexto = vert.ConteudoTexto ?? "";
+            if (path != null) vertenteDb.FicheiroPath = path;
+            await TrabalhoService.AtualizarVertenteAsync(vertenteDb);
+        }
+        else
+        {
+            vertenteDb = new TrabalhoVertente
+            {
+                TrabalhoId = trabalhoId,
+                Tipo = vert.Tipo,
+                ConteudoTexto = vert.ConteudoTexto ?? "",
+                FicheiroPath = path ?? ""
+            };
+            await TrabalhoService.AddVertenteAsync(vertenteDb);
+        }
+    }
+
+    public class VertenteEditModel
+    {
+        public int Id { get; set; }
+        public string Tipo { get; set; } = "";
+        public string ConteudoTexto { get; set; } = "";
+        public string FicheiroPath { get; set; } = "";
+        public IBrowserFile? File { get; set; }
     }
 }

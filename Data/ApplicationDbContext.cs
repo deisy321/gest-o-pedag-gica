@@ -17,11 +17,11 @@ namespace gestaopedagogica.Data
         public DbSet<Modulo> Modulos { get; set; }
         public DbSet<Turma> Turmas { get; set; }
         public DbSet<Trabalho> Trabalhos { get; set; }
+        public DbSet<Curso> Cursos { get; set; }
 
-        // Adicionar DbSet para TrabalhoVertente
+        // DbSet para TrabalhoVertente
         public DbSet<TrabalhoVertente> TrabalhoVertentes { get; set; }
 
-        // Opcional: você pode configurar relacionamentos aqui
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -29,9 +29,17 @@ namespace gestaopedagogica.Data
             // Relação 1:N Trabalho -> TrabalhoVertente
             builder.Entity<TrabalhoVertente>()
                 .HasOne(tv => tv.Trabalho)
-                .WithMany()
+                .WithMany(t => t.TrabalhoVertentes)
                 .HasForeignKey(tv => tv.TrabalhoId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Relação 1:N Turma -> Alunos
+            builder.Entity<Turma>()
+                .HasMany(t => t.Alunos)
+                .WithOne(a => a.Turma)
+                .HasForeignKey(a => a.TurmaId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
+
     }
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using gestaopedagogica.Data;
@@ -11,9 +12,11 @@ using gestaopedagogica.Data;
 namespace gestaopedagogica.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251223153811_CorrigirRelacionamentoTrabalhoVertente")]
+    partial class CorrigirRelacionamentoTrabalhoVertente
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -407,9 +410,14 @@ namespace gestaopedagogica.Migrations
                     b.Property<int>("TrabalhoId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("TrabalhoId1")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("TrabalhoId");
+
+                    b.HasIndex("TrabalhoId1");
 
                     b.ToTable("TrabalhoVertentes");
                 });
@@ -515,10 +523,14 @@ namespace gestaopedagogica.Migrations
             modelBuilder.Entity("gestaopedagogica.Models.TrabalhoVertente", b =>
                 {
                     b.HasOne("gestaopedagogica.Models.Trabalho", "Trabalho")
-                        .WithMany("TrabalhoVertentes")
+                        .WithMany()
                         .HasForeignKey("TrabalhoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("gestaopedagogica.Models.Trabalho", null)
+                        .WithMany("TrabalhoVertentes")
+                        .HasForeignKey("TrabalhoId1");
 
                     b.Navigation("Trabalho");
                 });

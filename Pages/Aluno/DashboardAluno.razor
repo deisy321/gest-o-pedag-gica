@@ -2,9 +2,11 @@
 @namespace gestaopedagogica.Pages.Aluno
 @layout MainLayout
 @using gestaopedagogica.Models
-@using gestaopedagogica.Components
-@using gestaopedagogica.Data
+@using gestaopedagogica.Services
 @using Microsoft.AspNetCore.Components.Authorization
+@inject TrabalhoService TrabalhoService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
 
 <AuthorizeView Roles="Aluno">
     <Authorized>
@@ -14,35 +16,74 @@
         <div class="row mb-4 g-3">
             <div class="col-md-3">
                 <div class="card card-custom p-3">
-                    <h5 class="mb-2">Minhas Notas</h5>
-                    <p>Acesse suas avaliações</p>
+                    <h5 class="mb-2">Trabalhos Pendentes</h5>
+                    <p>@TrabalhosPendentes trabalhos pendentes</p>
+                    <a href="/aluno/EnviarTrabalho" class="btn btn-primary btn-custom btn-sm">Enviar Trabalho</a>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3">
+                    <h5 class="mb-2">Trabalhos Avaliados</h5>
+                    <p>@TrabalhosAvaliados trabalhos avaliados</p>
                     <a href="/aluno/MinhasNotas" class="btn btn-primary btn-custom btn-sm">Ver Notas</a>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card card-custom p-3">
-                    <h5 class="mb-2">Histórico</h5>
-                    <p>Consulte seu histórico</p>
-                    <a href="/aluno/Historico" class="btn btn-primary btn-custom btn-sm">Ver Histórico</a>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card card-custom p-3">
-                    <h5 class="mb-2">Feedback</h5>
-                    <p>Receba feedback dos professores</p>
-                    <a href="/aluno/Feedback" class="btn btn-primary btn-custom btn-sm">Ver Feedback</a>
                 </div>
             </div>
         </div>
 
-        <!-- Roteiro de Aprendizagem -->
-        <h4 class="mb-3">Roteiro de Aprendizagem</h4>
-        @foreach (var tarefa in Roteiro.Tarefas.OrderBy(t => t.Ordem))
+        <!-- Lista de Trabalhos -->
+        <h4 class="mb-3">Meus Trabalhos</h4>
+        @if (Trabalhos == null)
         {
-            <CardTarefa Tarefa="tarefa"
-                        EstaHabilitado="HabilitarTarefa(tarefa)"
-                        OnEnviado="AtualizarProgresso"
-                        class="mb-3" />
+            <p><em>Carregando trabalhos...</em></p>
+        }
+        else if (!Trabalhos.Any())
+        {
+            <p><em>Nenhum trabalho enviado ainda.</em></p>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Data de Envio</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Trabalhos)
+                    {
+                        <tr>
+                            <td>@t.Titulo</td>
+                            <td>@t.DataEnvio.ToShortDateString()</td>
+                            <td>
+                                @(string.IsNullOrEmpty(t.NotaCompetencia) &&
+                                                        string.IsNullOrEmpty(t.NotaAptidao) &&
+                                                        string.IsNullOrEmpty(t.NotaConhecimento)
+                                                        ? "Pendente" : "Avaliado")
+                    </td>
+                    <td>
+                        <a class="btn btn-sm btn-primary" href="/aluno/EnviarTrabalho?id=@t.Id">
+                            Ver/Editar
+                        </a>
+                        @if (!string.IsNullOrEmpty(t.FicheiroCompetencia))
+                                {
+                                    <a class="btn btn-sm btn-secondary ms-1" href="@t.FicheiroCompetencia" target="_blank">Competência</a>
+                                }
+                                @if (!string.IsNullOrEmpty(t.FicheiroAptidao))
+                                {
+                                    <a class="btn btn-sm btn-secondary ms-1" href="@t.FicheiroAptidao" target="_blank">Aptidão</a>
+                                }
+                                @if (!string.IsNullOrEmpty(t.FicheiroConhecimento))
+                                {
+                                    <a class="btn btn-sm btn-secondary ms-1" href="@t.FicheiroConhecimento" target="_blank">Conhecimento</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         }
 
     </Authorized>
@@ -56,26 +97,24 @@
 </AuthorizeView>
 
 @code {
-    private Roteiro Roteiro { get; set; } = new Roteiro
-    {
-        Titulo = "Exemplo de Roteiro",
-        Tarefas = new List<Tarefa>
-        {
-            new Tarefa { Id = 1, Descricao = "Tarefa 1", Prazo = DateTime.Now.AddDays(1), Ordem = 1 },
-            new Tarefa { Id = 2, Descricao = "Tarefa 2", Prazo = DateTime.Now.AddDays(2), Ordem = 2 },
-            new Tarefa { Id = 3, Descricao = "Tarefa 3", Prazo = DateTime.Now.AddDays(3), Ordem = 3 }
-        }
-    };
+    private List<Trabalho> Trabalhos { get; set; } = new();
 
-    private void AtualizarProgresso()
-    {
-        StateHasChanged(); // Atualiza a UI para desbloquear o próximo card
-    }
+    private int TrabalhosPendentes => Trabalhos.Count(t =>
+        string.IsNullOrEmpty(t.NotaCompetencia) &&
+        string.IsNullOrEmpty(t.NotaAptidao) &&
+        string.IsNullOrEmpty(t.NotaConhecimento));
 
-    private bool HabilitarTarefa(Tarefa tarefa)
+    private int TrabalhosAvaliados => Trabalhos.Count(t =>
+        !string.IsNullOrEmpty(t.NotaCompetencia) ||
+        !string.IsNullOrEmpty(t.NotaAptidao) ||
+        !string.IsNullOrEmpty(t.NotaConhecimento));
+
+    protected override async Task OnInitializedAsync()
     {
-        if (tarefa.Ordem == 1) return true; // primeira tarefa sempre habilitada
-        var anterior = Roteiro.Tarefas.FirstOrDefault(t => t.Ordem == tarefa.Ordem - 1);
-        return anterior != null && anterior.IsSubmitted; // progressão automática pelo envio
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var alunoId = user.FindFirst(c => c.Type == "sub")?.Value ?? "";
+
+        Trabalhos = await TrabalhoService.GetTrabalhosDoAlunoAsync(alunoId);
     }
 }

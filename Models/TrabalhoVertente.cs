@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace gestaopedagogica.Models
 {
@@ -7,14 +8,14 @@ namespace gestaopedagogica.Models
     {
         public int Id { get; set; }
 
-        [Required]
+        // ✅ FK explícita
         public int TrabalhoId { get; set; }
 
-        // Inicializa a propriedade com um novo objeto vazio
-        public Trabalho Trabalho { get; set; } = new Trabalho();
+        // Navegação
+        public Trabalho Trabalho { get; set; } = null!;
 
         [Required]
-        public string Tipo { get; set; } = ""; // "Competencia", "Aptidao", "Conhecimento"
+        public string Tipo { get; set; } = "";
 
         public string ConteudoTexto { get; set; } = "";
 
@@ -22,7 +23,6 @@ namespace gestaopedagogica.Models
 
         public DateTime DataEnvio { get; set; } = DateTime.Now;
 
-        // AVALIAÇÃO
         public decimal? Nota { get; set; }
 
         public string Feedback { get; set; } = "";

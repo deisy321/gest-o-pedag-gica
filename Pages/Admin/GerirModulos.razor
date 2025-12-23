@@ -2,12 +2,23 @@
 @namespace gestaopedagogica.Pages.Admin
 @layout MainLayout
 
+@using gestaopedagogica.Services
+@using gestaopedagogica.Models
+@inject ModuloService ModuloService
 
 <h3>Gerir Módulos</h3>
 
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @Message
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
 <button class="btn btn-success mb-3" @onclick="MostrarCriar">Adicionar Módulo</button>
 
-<table class="table">
+<table class="table table-striped">
     <thead>
         <tr>
             <th>Nome</th>
@@ -15,7 +26,6 @@
             <th>Ações</th>
         </tr>
     </thead>
-
     <tbody>
         @foreach (var m in Modulos)
         {
@@ -24,102 +34,97 @@
                 <td>@m.Professor</td>
                 <td>
                     <button class="btn btn-primary btn-sm" @onclick="() => Editar(m)">Editar</button>
-                    <button class="btn btn-danger btn-sm" @onclick="() => Remover(m)">Remover</button>
+                    <button class="btn btn-danger btn-sm" @onclick="() => Remover(m.Id)">Remover</button>
                 </td>
             </tr>
         }
     </tbody>
 </table>
 
-@if (MostrarModalCriar)
+@if (MostrarModal)
 {
     <div class="modal-bg">
         <div class="modal-card">
-            <h4>Novo Módulo</h4>
+            <h4>@(EditarModulo.Id == 0 ? "Novo Módulo" : "Editar Módulo")</h4>
 
-            <input class="form-control mb-2" placeholder="Nome" @bind="NovoModulo.Nome" />
-            <input class="form-control mb-2" placeholder="Professor" @bind="NovoModulo.Professor" />
+            <input class="form-control mb-2" placeholder="Nome" @bind="EditarModulo.Nome" />
+            <input class="form-control mb-2" placeholder="Professor" @bind="EditarModulo.Professor" />
 
-            <button class="btn btn-success" @onclick="SalvarNovo">Guardar</button>
-            <button class="btn btn-secondary" @onclick="() => MostrarModalCriar = false">Cancelar</button>
-        </div>
-    </div>
-}
-
-@if (MostrarModalEditar)
-{
-    <div class="modal-bg">
-        <div class="modal-card">
-            <h4>Editar Módulo</h4>
-
-            <input class="form-control mb-2" @bind="EditarModulo.Nome" />
-            <input class="form-control mb-2" @bind="EditarModulo.Professor" />
-
-            <button class="btn btn-primary" @onclick="SalvarEdicao">Guardar</button>
-            <button class="btn btn-secondary" @onclick="() => MostrarModalEditar = false">Cancelar</button>
+            <button class="btn btn-success" @onclick="Salvar">Guardar</button>
+            <button class="btn btn-secondary ms-2" @onclick="Cancelar">Cancelar</button>
         </div>
     </div>
 }
 
 @code {
-    List<Modulo> Modulos = new()
+    private List<Modulo> Modulos = new();
+    private Modulo EditarModulo = new();
+    private bool MostrarModal = false;
+    private string? Message;
+
+    protected override async Task OnInitializedAsync()
     {
-        new Modulo { Nome = "Programação", Professor = "João" },
-        new Modulo { Nome = "Matemática", Professor = "Carla" }
-    };
-
-    Modulo NovoModulo = new();
-    Modulo EditarModulo = new();
-
-    bool MostrarModalCriar = false;
-    bool MostrarModalEditar = false;
-
-    void MostrarCriar()
-    {
-        NovoModulo = new();
-        MostrarModalCriar = true;
+        await CarregarModulos();
     }
 
-    void SalvarNovo()
+    private async Task CarregarModulos()
     {
-        Modulos.Add(new Modulo
-        {
-            Nome = NovoModulo.Nome,
-            Professor = NovoModulo.Professor
-        });
-
-        MostrarModalCriar = false;
+        Modulos = await ModuloService.GetModulosAsync();
     }
 
-    void Editar(Modulo m)
+    private void MostrarCriar()
+    {
+        EditarModulo = new Modulo();
+        MostrarModal = true;
+    }
+
+    private void Editar(Modulo m)
     {
         EditarModulo = new Modulo
         {
+            Id = m.Id,
             Nome = m.Nome,
             Professor = m.Professor
         };
-
-        MostrarModalEditar = true;
+        MostrarModal = true;
     }
 
-    void SalvarEdicao()
+    private async Task Salvar()
     {
-        var original = Modulos.First(x => x.Nome == EditarModulo.Nome);
+        if (string.IsNullOrWhiteSpace(EditarModulo.Nome) || string.IsNullOrWhiteSpace(EditarModulo.Professor))
+        {
+            Message = "Preencha todos os campos!";
+            return;
+        }
 
-        original.Nome = EditarModulo.Nome;
-        original.Professor = EditarModulo.Professor;
+        if (EditarModulo.Id == 0)
+        {
+            await ModuloService.AddModuloAsync(EditarModulo);
+            Message = "Módulo criado com sucesso!";
+        }
+        else
+        {
+            await ModuloService.UpdateModuloAsync(EditarModulo);
+            Message = "Módulo atualizado com sucesso!";
+        }
 
-        MostrarModalEditar = false;
+        MostrarModal = false;
+        await CarregarModulos();
     }
 
-    void Remover(Modulo m)
+    private async Task Remover(int id)
     {
-        Modulos.Remove(m);
+        var modulo = Modulos.FirstOrDefault(m => m.Id == id);
+        if (modulo != null)
+        {
+            await ModuloService.RemoveModuloAsync(modulo);
+            Message = "Módulo removido!";
+            await CarregarModulos();
+        }
     }
 
-    public class Modulo
+    private void Cancelar()
     {
-        public string Nome { get; set; } = "";
-        public string Professor { get; set; } = "";
+        MostrarModal = false;
     }
 }

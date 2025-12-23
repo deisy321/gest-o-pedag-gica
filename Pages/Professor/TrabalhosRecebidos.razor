@@ -2,59 +2,146 @@
 @namespace gestaopedagogica.Pages.Professor
 @layout MainLayout
 @using gestaopedagogica.Models
-@using gestaopedagogica.Data
-@inject ApplicationDbContext _context
+@using gestaopedagogica.Services
+@inject TrabalhoService TrabalhoService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
 
 <h3>Trabalhos Enviados</h3>
 
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Aluno</th>
-            <th>Título</th>
-            <th>Vertente</th>
-            <th>Data</th>
-            <th>Estado</th>
-            <th>Avaliar</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Lista)
-        {
+@if (Lista == null)
+{
+    <p><em>Carregando trabalhos...</em></p>
+}
+else if (!Lista.Any())
+{
+    <p><em>Nenhum trabalho encontrado.</em></p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
             <tr>
-                <td>@item.AlunoId</td>
-                <td>@item.Titulo</td>
-                <td>@item.Tipo</td>
-                <td>@item.DataEnvio.ToShortDateString()</td>
-                <td>@(item.Nota == null ? "Pendente" : "Avaliado")</td>
-                <td>
-                    <a class="btn btn-sm btn-primary" href="/professor/AvaliarVertente?vid=@item.Id">
-                        Avaliar
-                    </a>
-                </td>
+                <th>Aluno</th>
+                <th>Título</th>
+                <th>Vertente</th>
+                <th>Data</th>
+                <th>Estado</th>
+                <th>Avaliar</th>
             </tr>
-        }
-    </tbody>
-</table>
+        </thead>
+        <tbody>
+            @foreach (var item in Lista)
+            {
+                <tr>
+                    <td>@item.AlunoId</td>
+                    <td>@item.Titulo</td>
+                    <td>@item.Tipo</td>
+                    <td>@item.DataEnvio.ToShortDateString()</td>
+                    <td>@(item.Nota == null ? "Pendente" : "Avaliado")</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" @onclick="() => AbrirAvaliar(item.Id)">
+                            Avaliar
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (Selecionado != null)
+{
+    <div class="card p-3 my-3">
+        <h5>Avaliar @Selecionado.Tipo - @Selecionado.Titulo</h5>
+        <p><strong>Aluno:</strong> @Selecionado.AlunoId</p>
+        <p><strong>Conteúdo:</strong> @Selecionado.ConteudoTexto</p>
+
+        <div class="mb-2">
+            <label>Nota:</label>
+            <input class="form-control" type="number" step="0.01" @bind="Selecionado.Nota" />
+        </div>
+        <div class="mb-2">
+            <label>Feedback:</label>
+            <textarea class="form-control" @bind="Selecionado.Feedback"></textarea>
+        </div>
+
+        <button class="btn btn-success" @onclick="SalvarAvaliacao">Salvar Avaliação</button>
+        <button class="btn btn-secondary ms-2" @onclick="CancelarAvaliacao">Cancelar</button>
+    </div>
+}
 
 @code {
-    private List<dynamic> Lista { get; set; } = new();
-
-    protected override void OnInitialized()
+    // ViewModel para vinculação correta
+    public class VertenteViewModel
     {
+        public int Id { get; set; }
+        public int TrabalhoId { get; set; }
+        public string Titulo { get; set; } = "";
+        public string AlunoId { get; set; } = "";
+        public string Tipo { get; set; } = "";
+        public DateTime DataEnvio { get; set; }
+        public decimal? Nota { get; set; }
+        public string Feedback { get; set; } = "";
+        public string ConteudoTexto { get; set; } = "";
+    }
+
+    private List<VertenteViewModel> Lista { get; set; } = new();
+    private VertenteViewModel? Selecionado { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var professorId = user.FindFirst(c => c.Type == "sub")?.Value ?? "";
+
+        // Buscar trabalhos do professor via service
+        var trabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(professorId);
+
+        // Juntar vertentes para exibição
         Lista = (
-            from t in _context.Trabalhos
-            from v in _context.TrabalhoVertentes
-            where v.TrabalhoId == t.Id
-            select new
+            from t in trabalhos
+            from v in t.TrabalhoVertentes
+            select new VertenteViewModel
             {
-                v.Id,
-                t.Titulo,
-                t.AlunoId,
-                v.Tipo,
-                v.DataEnvio,
-                v.Nota
+                Id = v.Id,
+                TrabalhoId = t.Id,
+                Titulo = t.Titulo,
+                AlunoId = t.AlunoId,
+                Tipo = v.Tipo,
+                DataEnvio = v.DataEnvio,
+                Nota = v.Nota,
+                Feedback = v.Feedback,
+                ConteudoTexto = v.ConteudoTexto
             }
-        ).ToList<dynamic>();
+        ).ToList();
+    }
+
+    private void AbrirAvaliar(int vertenteId)
+    {
+        Selecionado = Lista.FirstOrDefault(v => v.Id == vertenteId);
+    }
+
+    private async Task SalvarAvaliacao()
+    {
+        if (Selecionado != null)
+        {
+            // Buscar a vertente no banco
+            var vertente = await TrabalhoService.GetVertentePorIdAsync(Selecionado.Id);
+            if (vertente != null)
+            {
+                vertente.Nota = Selecionado.Nota;
+                vertente.Feedback = Selecionado.Feedback;
+                await TrabalhoService.AtualizarVertenteAsync(vertente);
+
+                Selecionado = null;
+                await OnInitializedAsync(); // recarregar lista
+            }
+        }
+    }
+
+    private void CancelarAvaliacao()
+    {
+        Selecionado = null;
     }
 }

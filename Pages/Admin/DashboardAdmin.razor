@@ -2,6 +2,10 @@
 @namespace gestaopedagogica.Pages.Admin
 @layout MainLayout
 @using Microsoft.AspNetCore.Components.Authorization
+@using gestaopedagogica.Services
+
+@inject AdminService AdminService
+@inject AuthenticationStateProvider AuthStateProvider
 
 <AuthorizeView Roles="Administrador">
     <Authorized>
@@ -28,7 +32,7 @@
             <div class="col-md-4">
                 <div class="card card-custom p-3">
                     <h5 class="mb-2">Total de Alunos</h5>
-                    <p>— dados —</p>
+                    <p>@TotalAlunos</p>
                 </div>
             </div>
 
@@ -36,7 +40,7 @@
             <div class="col-md-4">
                 <div class="card card-custom p-3">
                     <h5 class="mb-2">Total de Professores</h5>
-                    <p>— dados —</p>
+                    <p>@TotalProfessores</p>
                 </div>
             </div>
 
@@ -62,11 +66,13 @@
 @code {
     private string? successMessage;
 
-    protected override void OnInitialized()
+    private int TotalAlunos { get; set; }
+    private int TotalProfessores { get; set; }
+
+    protected override async Task OnInitializedAsync()
     {
-        if (!string.IsNullOrEmpty(successMessage))
-        {
-            successMessage = "";
-        }
+        // Carregar totais do AdminService
+        TotalAlunos = await AdminService.GetTotalAlunosAsync();
+        TotalProfessores = await AdminService.GetTotalProfessoresAsync();
     }
 }

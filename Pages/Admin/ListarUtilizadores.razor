@@ -1,150 +1,87 @@
 @page "/admin/ListarUtilizadores"
-
-@using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Identity
-@using gestaopedagogica.Data
-@attribute [Authorize(Roles = "Administrador")]
 @namespace gestaopedagogica.Pages.Admin
 @layout MainLayout
-@inject UserManager<ApplicationUser> UserManager
-@inject RoleManager<IdentityRole> RoleManager
+@using gestaopedagogica.Services
+@inject UserService UserService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
 
-<h3>Gerir Utilizadores</h3>
+<AuthorizeView Roles="Administrador">
+    <Authorized>
+        <h3 class="mb-4">Gerir Utilizadores</h3>
 
-<div class="row mb-3">
-  <div class="col-md-12">
-        <a href="/admin/DashboardAdmin" class="btn btn-outline-secondary">?? Voltar ao Dashboard</a>
-        <a href="/admin/RegisterAdmin" class="btn btn-success">? Registar Novo Utilizador</a>
-    </div>
-</div>
-
-@if (utilizadores == null)
-{
-  <div class="alert alert-info">A carregar utilizadores...</div>
-}
-else if (utilizadores.Count == 0)
-{
-    <div class="alert alert-warning">Nenhum utilizador encontrado no sistema.</div>
-}
-else
-{
-    <div class="card">
-  <div class="card-body">
-   <h5 class="card-title">Total de Utilizadores: @utilizadores.Count</h5>
- 
-       <div class="table-responsive">
-   <table class="table table-striped table-hover">
-      <thead class="table-dark">
-     <tr>
-    <th>Email</th>
-          <th>Username</th>
-     <th>Tipo de Utilizador</th>
-<th>Email Confirmado</th>
-       <th>Data de Registo</th>
-         <th>Ações</th>
-</tr>
-</thead>
-   <tbody>
-     @foreach (var user in utilizadores)
-      {
-       <tr>
-       <td>@user.Email</td>
-     <td>@user.UserName</td>
-        <td>
-  @{
-           var roles = rolesDoUtilizador.ContainsKey(user.Id) ? rolesDoUtilizador[user.Id] : new List<string>();
-       var roleName = roles.FirstOrDefault() ?? "Sem role";
-  }
-    <span class="badge @GetRoleBadgeClass(roleName)">
-       @GetRoleEmoji(roleName) @roleName
-        </span>
-          </td>
-   <td>
-  @if (user.EmailConfirmed)
-    {
-      <span class="badge bg-success">? Confirmado</span>
- }
-      else
-    {
-            <span class="badge bg-warning">? Pendente</span>
-   }
-    </td>
-               <td>@user.Id.Substring(0, 8)...</td>
-        <td>
-     <button class="btn btn-sm btn-info" @onclick="() => VerDetalhes(user)">Detalhes</button>
-       @if (user.UserName != "admin@local")
-{
-    <button class="btn btn-sm btn-danger" @onclick="() => Deletar(user)">Deletar</button>
+        @if (ListaUsuarios == null)
+        {
+            <p><em>Carregando usuários...</em></p>
         }
-  </td>
-     </tr>
-    }
-       </tbody>
- </table>
-    </div>
+        else if (!ListaUsuarios.Any())
+        {
+            <p><em>Nenhum usuário encontrado.</em></p>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Email</th>
+                        <th>Função</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in ListaUsuarios)
+                    {
+                        <tr>
+                            <td>@user.Nome</td>
+                            <td>@user.Email</td>
+                            <td>@user.Role</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary me-1" @onclick="() => EditarUsuario(user.Id)">Editar</button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => ExcluirUsuario(user.Id)">Excluir</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <button class="btn btn-success mt-3" @onclick="CriarUsuario">Novo Usuário</button>
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-danger mt-5">
+            <h4>Acesso Negado</h4>
+            <p>Você não tem permissão para acessar esta página.</p>
+            <p>Por favor, <a href="/login">faça login novamente</a> com uma conta de administrador.</p>
         </div>
-</div>
-}
+    </NotAuthorized>
+</AuthorizeView>
 
 @code {
-    private List<ApplicationUser> utilizadores;
-    private Dictionary<string, List<string>> rolesDoUtilizador = new();
+    private List<UsuarioModel>? ListaUsuarios;
 
     protected override async Task OnInitializedAsync()
     {
-        await CarregarUtilizadores();
-  }
+        ListaUsuarios = await UserService.GetAllUsuariosAsync();
+    }
 
- private async Task CarregarUtilizadores()
+    private void CriarUsuario()
     {
-   utilizadores = UserManager.Users.ToList();
-   rolesDoUtilizador.Clear();
+        Nav.NavigateTo("/admin/RegisterAdmin");
+    }
 
-        foreach (var user in utilizadores)
-     {
-         var roles = await UserManager.GetRolesAsync(user);
-        rolesDoUtilizador[user.Id] = roles.ToList();
+    private void EditarUsuario(string userId)
+    {
+        Nav.NavigateTo($"/admin/EditarUsuario/{userId}");
+    }
+
+    private async Task ExcluirUsuario(string userId)
+    {
+        var confirmado = await JS.InvokeAsync<bool>("confirm", $"Tem certeza que deseja excluir este usuário?");
+        if (confirmado)
+        {
+            await UserService.ExcluirUsuarioAsync(userId);
+            ListaUsuarios = await UserService.GetAllUsuariosAsync(); // Recarrega lista após exclusão
         }
     }
-
-  private void VerDetalhes(ApplicationUser user)
-    {
-        var roles = rolesDoUtilizador.ContainsKey(user.Id) ? string.Join(", ", rolesDoUtilizador[user.Id]) : "Sem role";
-        System.Diagnostics.Debug.WriteLine($"Utilizador: {user.Email} - Roles: {roles}");
-  }
-
-  private async Task Deletar(ApplicationUser user)
-    {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Tem certeza que quer deletar {user.Email}?"))
-     {
-    await UserManager.DeleteAsync(user);
-            await CarregarUtilizadores();
- StateHasChanged();
-        }
-    }
-
-private string GetRoleBadgeClass(string role)
-    {
-        return role switch
-        {
-       "Administrador" => "bg-danger",
-"Professor" => "bg-primary",
-    "Aluno" => "bg-success",
-        _ => "bg-secondary"
-        };
-    }
-
-    private string GetRoleEmoji(string role)
-    {
-        return role switch
-        {
-    "Administrador" => "??",
-     "Professor" => "?????",
-    "Aluno" => "?????",
- _ => "?"
-        };
-    }
-
- [Inject]
-    private IJSRuntime JSRuntime { get; set; }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic; // necessário para List<T>
 using System.ComponentModel.DataAnnotations;
 
 namespace gestaopedagogica.Models
@@ -8,13 +9,13 @@ namespace gestaopedagogica.Models
         public int Id { get; set; }
 
         [Required]
-        public string AlunoId { get; set; } = "";  // inicializado
+        public string AlunoId { get; set; } = "";
 
         [Required]
-        public string ProfessorId { get; set; } = "";  // inicializado
+        public string ProfessorId { get; set; } = "";
 
         [Required]
-        public string Titulo { get; set; } = "";  // inicializado
+        public string Titulo { get; set; } = "";
 
         public string ConteudoTexto { get; set; } = "";
 
@@ -31,5 +32,8 @@ namespace gestaopedagogica.Models
         public string NotaCompetencia { get; set; } = "";
         public string NotaAptidao { get; set; } = "";
         public string NotaConhecimento { get; set; } = "";
+
+        // ✅ Relacionamento com vertentes
+        public List<TrabalhoVertente> TrabalhoVertentes { get; set; } = new();
     }
 }

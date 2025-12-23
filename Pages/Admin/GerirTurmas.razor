@@ -1,7 +1,10 @@
 ﻿@page "/admin/GerirTurmas"
 @namespace gestaopedagogica.Pages.Admin
 @layout MainLayout
+@using gestaopedagogica.Models
+@using gestaopedagogica.Services
 
+@inject TurmaService TurmaService
 
 <h3>Gerir Turmas</h3>
 
@@ -19,7 +22,6 @@
             <th>Ações</th>
         </tr>
     </thead>
-
     <tbody>
         @foreach (var t in Turmas)
         {
@@ -47,7 +49,6 @@
 
             <input class="form-control mb-2" placeholder="Nome da Turma" @bind="NovaTurma.Nome" />
             <input class="form-control mb-2" placeholder="Ano Letivo" @bind="NovaTurma.Ano" />
-
             <input class="form-control mb-2" placeholder="Professor Responsável" @bind="NovaTurma.ProfessorResponsavel" />
 
             <button class="btn btn-success" @onclick="SalvarNovaTurma">Guardar</button>
@@ -87,7 +88,7 @@
             <ul>
                 @foreach (var aluno in TurmaDetalhes.Alunos)
                 {
-                    <li>@aluno</li>
+                    <li>@aluno.Nome</li>
                 }
             </ul>
 
@@ -102,19 +103,7 @@
 }
 
 @code {
-    public class Turma
-    {
-        public string Nome { get; set; } = "";
-        public string Ano { get; set; } = "";
-        public string ProfessorResponsavel { get; set; } = "";
-        public List<string> Alunos { get; set; } = new();
-    }
-
-    List<Turma> Turmas = new()
-    {
-        new Turma { Nome="TIC-12A", Ano="2024/2025", ProfessorResponsavel="Ana Silva", Alunos={ "João", "Carla" } },
-        new Turma { Nome="TIC-12B", Ano="2024/2025", ProfessorResponsavel="Miguel Sousa", Alunos={ "Rita", "Pedro" } }
-    };
+    List<Turma> Turmas = new();
 
     bool MostrarModalCriar = false;
     bool MostrarModalEditar = false;
@@ -125,49 +114,48 @@
     Turma TurmaDetalhes = new();
     string AlunoNovo = "";
 
+    protected override async Task OnInitializedAsync()
+    {
+        Turmas = await TurmaService.GetTurmasAsync();
+    }
+
     void MostrarCriarTurma()
     {
-        NovaTurma = new();
+        NovaTurma = new Turma();
         MostrarModalCriar = true;
     }
 
-    void SalvarNovaTurma()
+    async Task SalvarNovaTurma()
     {
-        Turmas.Add(new Turma
-        {
-            Nome = NovaTurma.Nome,
-            Ano = NovaTurma.Ano,
-            ProfessorResponsavel = NovaTurma.ProfessorResponsavel
-        });
-
+        await TurmaService.AddTurmaAsync(NovaTurma);
         MostrarModalCriar = false;
+        Turmas = await TurmaService.GetTurmasAsync();
     }
 
     void Editar(Turma t)
     {
         EditarTurma = new Turma
         {
+            Id = t.Id,
             Nome = t.Nome,
             Ano = t.Ano,
             ProfessorResponsavel = t.ProfessorResponsavel,
-            Alunos = new List<string>(t.Alunos)
+            Alunos = new List<Aluno>(t.Alunos)
         };
         MostrarModalEditar = true;
     }
 
-    void SalvarEdicao()
+    async Task SalvarEdicao()
     {
-        var original = Turmas.First(x => x.Nome == EditarTurma.Nome);
-
-        original.Ano = EditarTurma.Ano;
-        original.ProfessorResponsavel = EditarTurma.ProfessorResponsavel;
-
+        await TurmaService.UpdateTurmaAsync(EditarTurma);
         MostrarModalEditar = false;
+        Turmas = await TurmaService.GetTurmasAsync();
     }
 
-    void Remover(Turma t)
+    async Task Remover(Turma t)
     {
-        Turmas.Remove(t);
+        await TurmaService.RemoveTurmaAsync(t);
+        Turmas = await TurmaService.GetTurmasAsync();
     }
 
     void VerDetalhes(Turma t)
@@ -176,12 +164,14 @@
         MostrarModalDetalhes = true;
     }
 
-    void AdicionarAluno()
+    async Task AdicionarAluno()
     {
         if (!string.IsNullOrWhiteSpace(AlunoNovo))
         {
-            TurmaDetalhes.Alunos.Add(AlunoNovo);
+            TurmaDetalhes.Alunos.Add(new Aluno { Nome = AlunoNovo });
             AlunoNovo = "";
+            await TurmaService.UpdateTurmaAsync(TurmaDetalhes);
+            Turmas = await TurmaService.GetTurmasAsync();
         }
     }
 }
