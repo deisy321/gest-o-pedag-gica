@@ -1,4 +1,4 @@
-﻿@page "/aluno/EnviarTrabalho"
+﻿@page "/aluno/EnviarTrabalho/{id:int}"
 @namespace gestaopedagogica.Pages.Aluno
 @layout MainLayout
 @using gestaopedagogica.Models
@@ -8,12 +8,17 @@
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
 
-<h3>@(IsEdit ? "Editar Trabalho" : "Enviar Trabalho")</h3>
+<h3>Enviar Trabalho</h3>
+
+@if (!string.IsNullOrEmpty(StatusMessage))
+{
+    <div class="alert alert-info">@StatusMessage</div>
+}
 
 <div class="card p-4">
     <div class="mb-3">
         <label>Título do Trabalho</label>
-        <input class="form-control" @bind="Titulo" />
+        <input class="form-control" @bind="Titulo" disabled />
     </div>
 
     <hr />
@@ -32,45 +37,40 @@
         <hr />
     }
 
-    <button class="btn btn-success mt-4" @onclick="Enviar">@ButtonText</button>
+    <button class="btn btn-success mt-4" @onclick="Enviar" disabled="@IsSending">
+        @(IsSending ? "Enviando..." : "Enviar Trabalho")
+    </button>
 </div>
 
 @code {
-    [Parameter] public int? id { get; set; }
-    private bool IsEdit => id.HasValue;
-    private string ButtonText => IsEdit ? "Atualizar Trabalho" : "Enviar Trabalho";
-
+    [Parameter] public int id { get; set; } // ID do trabalho criado pelo professor
     private string Titulo { get; set; } = "";
+    private string StatusMessage { get; set; } = "";
+    private bool IsSending = false;
 
-    private List<VertenteEditModel> Vertentes { get; set; } = new List<VertenteEditModel>
-    {
-        new VertenteEditModel { Tipo = "Competencia" },
-        new VertenteEditModel { Tipo = "Aptidao" },
-        new VertenteEditModel { Tipo = "Conhecimento" }
-    };
+    private List<VertenteEditModel> Vertentes { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
     {
-        if (!IsEdit) return;
-
-        var trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(id!.Value);
-        if (trabalho != null)
+        // Carregar trabalho criado pelo professor
+        var trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(id);
+        if (trabalho == null)
         {
-            Titulo = trabalho.Titulo;
-
-            var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(trabalho.Id);
-
-            foreach (var vert in Vertentes)
-            {
-                var dbVert = vertentesDb.FirstOrDefault(v => v.Tipo == vert.Tipo);
-                if (dbVert != null)
-                {
-                    vert.ConteudoTexto = dbVert.ConteudoTexto ?? "";
-                    vert.FicheiroPath = dbVert.FicheiroPath ?? "";
-                    vert.Id = dbVert.Id;
-                }
-            }
+            StatusMessage = "❌ Trabalho não encontrado!";
+            return;
         }
+
+        Titulo = trabalho.Titulo;
+
+        // Carregar vertentes
+        var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(trabalho.Id);
+        Vertentes = vertentesDb.Select(v => new VertenteEditModel
+        {
+            Id = v.Id,
+            Tipo = v.Tipo,
+            ConteudoTexto = v.ConteudoTexto ?? "",
+            FicheiroPath = v.FicheiroPath
+        }).ToList();
     }
 
     private void OnFileSelected(InputFileChangeEventArgs e, VertenteEditModel vertente)
@@ -80,41 +80,48 @@
 
     private async Task Enviar()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        var alunoId = user.FindFirst(c => c.Type == "sub")?.Value;
+        IsSending = true;
+        StatusMessage = "";
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            var alunoId = user.FindFirst(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
 
-        if (string.IsNullOrEmpty(alunoId))
-        {
-            // caso não encontre o aluno
-            return;
-        }
-
-        Trabalho trabalho;
-        if (IsEdit)
-        {
-            trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(id!.Value) ?? new Trabalho();
-            trabalho.Titulo = Titulo;
-            trabalho.DataEnvio = DateTime.Now;
-        }
-        else
-        {
-            trabalho = new Trabalho
+            if (string.IsNullOrEmpty(alunoId))
             {
-                AlunoId = alunoId,
-                ProfessorId = "prof1", // pegar professor correto futuramente
-                Titulo = Titulo,
-                DataEnvio = DateTime.Now
-            };
-            await TrabalhoService.AddTrabalhoAsync(trabalho);
-        }
+                StatusMessage = "❌ Erro: aluno não encontrado.";
+                return;
+            }
 
-        foreach (var vert in Vertentes)
+            var trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(id);
+            if (trabalho == null)
+            {
+                StatusMessage = "❌ Trabalho não encontrado.";
+                return;
+            }
+
+            // Preencher dados de envio
+            trabalho.AlunoId = alunoId;
+            trabalho.DataEnvio = DateTime.Now;
+            await TrabalhoService.AtualizarTrabalhoAsync(trabalho);
+
+            foreach (var vert in Vertentes)
+            {
+                await SalvarVertente(trabalho.Id, vert);
+            }
+
+            StatusMessage = "✅ Trabalho enviado com sucesso!";
+            Nav.NavigateTo("/aluno/DashboardAluno");
+        }
+        catch (Exception ex)
         {
-            await SalvarVertente(trabalho.Id, vert);
+            StatusMessage = "❌ Erro ao enviar: " + ex.Message + " | " + ex.InnerException?.Message;
         }
-
-        Nav.NavigateTo("/aluno/DashboardAluno");
+        finally
+        {
+            IsSending = false;
+        }
     }
 
     private async Task SalvarVertente(int trabalhoId, VertenteEditModel vert)
@@ -123,34 +130,22 @@
 
         if (vert.File != null)
         {
-            var folder = Path.Combine("wwwroot", "uploads");
+            var folder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
             Directory.CreateDirectory(folder);
             var fileName = $"{Guid.NewGuid()}_{vert.File.Name}";
             var filePath = Path.Combine(folder, fileName);
+
             using var stream = File.Create(filePath);
-            await vert.File.OpenReadStream().CopyToAsync(stream);
+            await vert.File.OpenReadStream(10485760).CopyToAsync(stream); // 10MB limite
             path = "/uploads/" + fileName;
         }
 
-        var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(trabalhoId);
-        var vertenteDb = vertentesDb.FirstOrDefault(v => v.Tipo == vert.Tipo);
-
+        var vertenteDb = await TrabalhoService.GetVertentePorIdAsync(vert.Id);
         if (vertenteDb != null)
         {
             vertenteDb.ConteudoTexto = vert.ConteudoTexto ?? "";
             if (path != null) vertenteDb.FicheiroPath = path;
             await TrabalhoService.AtualizarVertenteAsync(vertenteDb);
-        }
-        else
-        {
-            vertenteDb = new TrabalhoVertente
-            {
-                TrabalhoId = trabalhoId,
-                Tipo = vert.Tipo,
-                ConteudoTexto = vert.ConteudoTexto ?? "",
-                FicheiroPath = path ?? ""
-            };
-            await TrabalhoService.AddVertenteAsync(vertenteDb);
         }
     }
 

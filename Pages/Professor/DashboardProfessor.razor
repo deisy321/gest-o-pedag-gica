@@ -7,73 +7,45 @@
 
 @inject TrabalhoService TrabalhoService
 @inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
 
 <AuthorizeView Roles="Professor">
     <Authorized>
         <h3>Dashboard do Professor</h3>
 
-        <!-- Módulos -->
-        <div class="mb-4">
-            <h5>Módulos que leciono</h5>
-            @if (Modules?.Any() != true)
-            {
-                <p>Sem módulos atribuídos.</p>
-            }
-            else
-            {
-                <div class="list-group mb-3">
-                    @foreach (var mod in Modules)
-                    {
-                        <div class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>@mod.Name</strong>
-                                <div class="text-muted">Turmas: @string.Join(", ", mod.Classes)</div>
-                            </div>
-                            <div>
-                                <a class="btn btn-sm btn-primary" href="/professor/AvaliarAlunos?moduleId=@mod.Id">Avaliar Alunos</a>
-                                <a class="btn btn-sm btn-secondary ms-2" href="/professor/RelatoriosProfessor?moduleId=@mod.Id">Relatórios</a>
-                                <a class="btn btn-sm btn-warning ms-2" href="/professor/TrabalhosRecebidos">Trabalhos Recebidos</a>
-                            </div>
-                        </div>
-                    }
-                </div>
-            }
+        <div class="mb-3">
+            <button class="btn btn-success" @onclick="CriarRoteiro">Criar Novo Roteiro</button>
         </div>
 
-        <!-- Trabalhos Recebidos -->
-        <h5>Trabalhos Recebidos</h5>
-        @if (Lista == null)
+        <h5>Roteiros Criados</h5>
+        @if (Lista.Count == 0)
         {
-            <p><em>Carregando trabalhos...</em></p>
-        }
-        else if (!Lista.Any())
-        {
-            <p><em>Nenhum trabalho encontrado.</em></p>
+            <p><em>Nenhum roteiro criado.</em></p>
         }
         else
         {
             <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>Aluno</th>
                         <th>Título</th>
-                        <th>Vertente</th>
-                        <th>Data</th>
-                        <th>Estado</th>
-                        <th>Avaliar</th>
+                        <th>Vertentes</th>
+                        <th>Data de Criação</th>
+                        <th>Status Envio</th>
+                        <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var item in Lista)
                     {
                         <tr>
-                            <td>@item.AlunoId</td>
                             <td>@item.Titulo</td>
-                            <td>@item.Tipo</td>
-                            <td>@item.DataEnvio.ToShortDateString()</td>
-                            <td>@(item.Nota.HasValue ? "Avaliado" : "Pendente")</td>
+                            <td>@string.Join(", ", item.Vertentes.Select(v => v.Tipo))</td>
+                            <td>@item.DataCriacao.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@(string.IsNullOrEmpty(item.AlunoId) ? "Pendente" : "Enviado")</td>
                             <td>
-                                <button class="btn btn-sm btn-primary" @onclick="() => AbrirAvaliar(item)">
+                                <button class="btn btn-sm btn-primary"
+                                        @onclick="() => AvaliarTrabalho(item)"
+                                        disabled="@string.IsNullOrEmpty(item.AlunoId)">
                                     Avaliar
                                 </button>
                             </td>
@@ -83,28 +55,31 @@
             </table>
         }
 
-        <!-- Avaliação inline -->
         @if (Selecionado != null)
         {
             <div class="card p-3 my-3">
-                <h5>Avaliar @Selecionado.Tipo - @Selecionado.Titulo</h5>
-                <p><strong>Aluno:</strong> @Selecionado.AlunoId</p>
-                <p><strong>Conteúdo:</strong> @Selecionado.ConteudoTexto</p>
-
-                <div class="mb-2">
-                    <label>Nota:</label>
-                    <input type="number" class="form-control" @bind="Selecionado.Nota" min="0" max="10" step="0.1" />
-                </div>
-                <div class="mb-2">
-                    <label>Feedback:</label>
-                    <textarea class="form-control" @bind="Selecionado.Feedback"></textarea>
-                </div>
+                <h5>Avaliar Roteiro - @Selecionado.Titulo</h5>
+                @foreach (var vert in Selecionado.Vertentes)
+                {
+                    <div class="mb-3">
+                        <strong>@vert.Tipo</strong>
+                        <p>@vert.ConteudoTexto</p>
+                        <div class="mb-2">
+                            <label>Nota:</label>
+                            <input type="number" class="form-control" @bind="vert.Nota" min="0" max="10" step="0.1" />
+                        </div>
+                        <div class="mb-2">
+                            <label>Feedback:</label>
+                            <textarea class="form-control" @bind="vert.Feedback"></textarea>
+                        </div>
+                        <hr />
+                    </div>
+                }
 
                 <button class="btn btn-success" @onclick="SalvarAvaliacao">Salvar Avaliação</button>
                 <button class="btn btn-secondary ms-2" @onclick="CancelarAvaliacao">Cancelar</button>
             </div>
         }
-
     </Authorized>
     <NotAuthorized>
         <div class="alert alert-danger mt-5">
@@ -116,14 +91,8 @@
 </AuthorizeView>
 
 @code {
-    private List<ModuleModel> Modules = new()
-    {
-        new ModuleModel{ Id=1, Name="Matemática", Classes=new List<string>{"Turma A","Turma B"} },
-        new ModuleModel{ Id=2, Name="Física", Classes=new List<string>{"Turma C"} }
-    };
-
-    private List<VertenteViewModel>? Lista { get; set; }
-    private VertenteViewModel? Selecionado { get; set; }
+    private List<TrabalhoViewModel> Lista { get; set; } = new();
+    private TrabalhoViewModel? Selecionado { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -133,62 +102,66 @@
 
         var trabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(professorId);
 
-        // Lista de vertentes com dados do trabalho
-        Lista = trabalhos
-            .SelectMany(t => t.TrabalhoVertentes, (t, v) => new VertenteViewModel
+        Lista = trabalhos.Select(t => new TrabalhoViewModel
+        {
+            Id = t.Id,
+            Titulo = t.Titulo,
+            AlunoId = string.IsNullOrEmpty(t.AlunoId) ? null : t.AlunoId,
+            DataCriacao = t.DataCriacao, // já em UTC
+            Vertentes = t.TrabalhoVertentes.Select(v => new VertenteViewModel
             {
-                Vertente = v,
                 Id = v.Id,
-                TrabalhoId = t.Id,
-                AlunoId = t.AlunoId,
-                Titulo = t.Titulo,
                 Tipo = v.Tipo,
-                DataEnvio = v.DataEnvio,
-                Nota = v.Nota, // 👈 decimal? diretamente
-                Feedback = v.Feedback,
-                ConteudoTexto = v.ConteudoTexto
-            })
-            .ToList();
+                ConteudoTexto = v.ConteudoTexto ?? "",
+                Nota = v.Nota,
+                Feedback = v.Feedback
+            }).ToList()
+        }).ToList();
     }
 
-    private void AbrirAvaliar(VertenteViewModel item)
-    {
-        Selecionado = item;
-    }
+    private void CriarRoteiro() => Nav.NavigateTo("/professor/CriarRoteiro");
+
+    private void AvaliarTrabalho(TrabalhoViewModel item) => Selecionado = item;
 
     private async Task SalvarAvaliacao()
     {
         if (Selecionado != null)
         {
-            await TrabalhoService.AtualizarVertenteAsync(Selecionado.Vertente);
+            foreach (var vert in Selecionado.Vertentes)
+            {
+                var vertDb = await TrabalhoService.GetVertentePorIdAsync(vert.Id);
+                if (vertDb != null)
+                {
+                    vertDb.Nota = vert.Nota ?? 0;
+                    vertDb.Feedback = vert.Feedback ?? "";
+                    vertDb.ConteudoTexto = vert.ConteudoTexto ?? "";
+                    vertDb.Tipo = vert.Tipo ?? "";
+
+                    await TrabalhoService.AtualizarVertenteAsync(vertDb);
+                }
+            }
             Selecionado = null;
             await OnInitializedAsync();
         }
     }
 
-    private void CancelarAvaliacao()
-    {
-        Selecionado = null;
-    }
+    private void CancelarAvaliacao() => Selecionado = null;
 
-    public class ModuleModel
+    public class TrabalhoViewModel
     {
         public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public List<string> Classes { get; set; } = new();
+        public string Titulo { get; set; } = "";
+        public string? AlunoId { get; set; }
+        public DateTime DataCriacao { get; set; } // UTC
+        public List<VertenteViewModel> Vertentes { get; set; } = new();
     }
 
     public class VertenteViewModel
     {
         public int Id { get; set; }
-        public int TrabalhoId { get; set; }
-        public string AlunoId { get; set; } = "";
-        public string Titulo { get; set; } = "";
         public string Tipo { get; set; } = "";
-        public DateTime DataEnvio { get; set; }
-        public decimal? Nota { get; set; } 
-        public string? Feedback { get; set; }
         public string ConteudoTexto { get; set; } = "";
-        public TrabalhoVertente Vertente { get; set; } = new TrabalhoVertente();
+        public decimal? Nota { get; set; }
+        public string? Feedback { get; set; }
     }
 }

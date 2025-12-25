@@ -1,0 +1,130 @@
+﻿@page "/professor/CriarRoteiro"
+@namespace gestaopedagogica.Pages.Professor
+@layout MainLayout
+@using gestaopedagogica.Models
+@using gestaopedagogica.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject TrabalhoService TrabalhoService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+
+<h3>Criar Roteiro de Trabalho</h3>
+
+@if (!string.IsNullOrEmpty(StatusMessage))
+{
+    <div class="alert alert-info">@StatusMessage</div>
+}
+
+<div class="card p-4">
+    <div class="mb-3">
+        <label>Título do Trabalho</label>
+        <input class="form-control" @bind="Titulo" />
+    </div>
+
+    <div class="mb-3">
+        <label>Prazo de Entrega</label>
+        <input class="form-control" type="date" @bind="PrazoEntrega" />
+    </div>
+
+    <hr />
+
+    @foreach (var vert in Vertentes)
+    {
+        <h5>@vert.Tipo</h5>
+        <textarea class="form-control mt-2"
+                  placeholder="Descrição da vertente"
+                  @bind="vert.ConteudoTexto">
+            </textarea>
+        <hr />
+    }
+
+    <button class="btn btn-success" @onclick="CriarRoteiro" disabled="@IsSaving">
+        @(IsSaving ? "Salvando..." : "Criar Roteiro")
+    </button>
+</div>
+
+@code {
+
+    private string Titulo = "";
+    private DateTime? PrazoEntrega;
+    private string StatusMessage = "";
+    private bool IsSaving = false;
+
+    private List<VertenteEditModel> Vertentes = new()
+    {
+        new VertenteEditModel { Tipo = "Competência" },
+        new VertenteEditModel { Tipo = "Aptidão" },
+        new VertenteEditModel { Tipo = "Conhecimento" }
+    };
+
+    private async Task CriarRoteiro()
+    {
+        IsSaving = true;
+        StatusMessage = "";
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(Titulo))
+            {
+                StatusMessage = "❌ O título é obrigatório.";
+                return;
+            }
+
+            if (PrazoEntrega == null)
+            {
+                StatusMessage = "❌ O prazo de entrega é obrigatório.";
+                return;
+            }
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            var professorId = user.FindFirst(c => c.Type == "sub")?.Value ?? "";
+
+            var trabalho = new Trabalho
+            {
+                Titulo = Titulo.Trim(),
+                ProfessorId = professorId,
+
+                // ✔️ UTC correto (PostgreSQL aceita)
+                DataCriacao = DateTime.UtcNow,
+
+                // ✔️ FORÇA UTC (resolve o erro definitivamente)
+                PrazoEntrega = DateTime.SpecifyKind(
+                    PrazoEntrega.Value,
+                    DateTimeKind.Utc
+                )
+            };
+
+            await TrabalhoService.AddTrabalhoAsync(trabalho);
+
+            foreach (var vert in Vertentes)
+            {
+                var vertDb = new TrabalhoVertente
+                {
+                    TrabalhoId = trabalho.Id,
+                    Tipo = vert.Tipo,
+                    ConteudoTexto = vert.ConteudoTexto?.Trim() ?? ""
+                };
+
+                await TrabalhoService.AddVertenteAsync(vertDb);
+            }
+
+            StatusMessage = "✅ Roteiro criado com sucesso!";
+            Nav.NavigateTo("/professor/DashboardProfessor");
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "❌ Erro: " + ex.InnerException?.Message ?? ex.Message;
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    public class VertenteEditModel
+    {
+        public string Tipo { get; set; } = "";
+        public string? ConteudoTexto { get; set; }
+    }
+}

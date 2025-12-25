@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Collections.Generic; // necessário para List<T>
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace gestaopedagogica.Models
@@ -19,21 +19,21 @@ namespace gestaopedagogica.Models
 
         public string ConteudoTexto { get; set; } = "";
 
-        // Um ficheiro por vertente
         public string FicheiroCompetencia { get; set; } = "";
         public string FicheiroAptidao { get; set; } = "";
         public string FicheiroConhecimento { get; set; } = "";
 
-        public DateTime DataEnvio { get; set; } = DateTime.Now;
+      
+        public DateTime DataEnvio { get; set; }
+        public DateTime PrazoEntrega { get; set; }
+        public DateTime DataCriacao { get; set; }
 
         public bool VistoPeloProfessor { get; set; } = false;
 
-        // Avaliação separada
         public string NotaCompetencia { get; set; } = "";
         public string NotaAptidao { get; set; } = "";
         public string NotaConhecimento { get; set; } = "";
 
-        // ✅ Relacionamento com vertentes
         public List<TrabalhoVertente> TrabalhoVertentes { get; set; } = new();
     }
 }

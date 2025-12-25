@@ -1,15 +1,11 @@
-@page "/logout"
+@page
 @model gestaopedagogica.Pages.Identity.Account.LogoutModel
 
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8" />
-    <title>Logout</title>
-</head>
-<body>
-    <form method="post">
-        <button type="submit">Click to logout</button>
-    </form>
-</body>
-</html>
+<h3>Sessão terminada com sucesso!</h3>
+<p>Será redirecionado para a página de login em 3 segundos...</p>
+
+<script>
+    setTimeout(function() {
+        window.location.href = '/Identity/Account/Login';
+    }, 3000); // 3 segundos
+</script>

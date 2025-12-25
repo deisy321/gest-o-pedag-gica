@@ -6,25 +6,32 @@ using gestaopedagogica.Data;
 namespace gestaopedagogica.Pages.Identity.Account
 {
     public class LogoutModel : PageModel
-{
+    {
         private readonly SignInManager<ApplicationUser> _signInManager;
 
         public LogoutModel(SignInManager<ApplicationUser> signInManager)
         {
-  _signInManager = signInManager;
-     }
+            _signInManager = signInManager;
+        }
 
-     public async Task<IActionResult> OnPost(string returnUrl = null)
-      {
-            await _signInManager.SignOutAsync();
-            if (returnUrl != null)
+        // Mensagem que será exibida na página
+        [TempData]
+        public string StatusMessage { get; set; }
+
+        // Permite logout via GET
+        public async Task<IActionResult> OnGetAsync()
         {
-        return LocalRedirect(returnUrl);
- }
-         else
-{
-          return Redirect("/login");
-            }
- }
+            await _signInManager.SignOutAsync();
+            StatusMessage = "Sessão terminada com sucesso! A redirecionar para login...";
+            return Page();
+        }
+
+        // Permite logout via POST
+        public async Task<IActionResult> OnPostAsync()
+        {
+            await _signInManager.SignOutAsync();
+            StatusMessage = "Sessão terminada com sucesso! A redirecionar para login...";
+            return Page();
+        }
     }
 }

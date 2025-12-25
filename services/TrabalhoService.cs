@@ -8,10 +8,12 @@ namespace gestaopedagogica.Services
     {
         private readonly ApplicationDbContext _context;
 
-        // Construtor primário
-        public TrabalhoService(ApplicationDbContext context) => _context = context;
+        public TrabalhoService(ApplicationDbContext context)
+        {
+            _context = context;
+        }
 
-        // Listar todos os trabalhos de um aluno específico
+        // Listar trabalhos de um aluno
         public async Task<List<Trabalho>> GetTrabalhosDoAlunoAsync(string alunoId)
         {
             return await _context.Trabalhos
@@ -24,30 +26,41 @@ namespace gestaopedagogica.Services
         public async Task<Trabalho?> GetTrabalhoPorIdAsync(int id)
         {
             return await _context.Trabalhos
+                .Include(t => t.TrabalhoVertentes)
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 
-        // Adicionar novo trabalho
+        // Adicionar novo trabalho (UTC garantido)
         public async Task AddTrabalhoAsync(Trabalho trabalho)
         {
-            trabalho.DataEnvio = DateTime.Now;
+            // Garantindo que todas as datas estejam em UTC
+            trabalho.DataEnvio = DateTime.UtcNow;
+            trabalho.DataCriacao = DateTime.UtcNow;
+
+            if (trabalho.PrazoEntrega.Kind != DateTimeKind.Utc)
+                trabalho.PrazoEntrega = DateTime.SpecifyKind(trabalho.PrazoEntrega, DateTimeKind.Utc);
+
             _context.Trabalhos.Add(trabalho);
             await _context.SaveChangesAsync();
         }
 
-        // Atualizar trabalho (status, notas, etc.)
+        // Atualizar trabalho
         public async Task AtualizarTrabalhoAsync(Trabalho trabalho)
         {
+            // Garantir UTC no PrazoEntrega caso precise atualizar
+            if (trabalho.PrazoEntrega.Kind != DateTimeKind.Utc)
+                trabalho.PrazoEntrega = DateTime.SpecifyKind(trabalho.PrazoEntrega, DateTimeKind.Utc);
+
             _context.Trabalhos.Update(trabalho);
             await _context.SaveChangesAsync();
         }
 
-        // Listar trabalhos por professor
+        // Listar trabalhos de um professor
         public async Task<List<Trabalho>> GetTrabalhosDoProfessorAsync(string professorId)
         {
             return await _context.Trabalhos
                 .Where(t => t.ProfessorId == professorId)
-                .Include(t => t.TrabalhoVertentes) // importante para vertentes
+                .Include(t => t.TrabalhoVertentes)
                 .OrderByDescending(t => t.DataEnvio)
                 .ToListAsync();
         }
@@ -64,14 +77,14 @@ namespace gestaopedagogica.Services
         {
             return await _context.TrabalhoVertentes.FindAsync(id);
         }
-        // Buscar todas as vertentes de um trabalho
+
+        // Listar vertentes de um trabalho
         public async Task<List<TrabalhoVertente>> GetVertentesDoTrabalhoAsync(int trabalhoId)
         {
             return await _context.TrabalhoVertentes
                 .Where(v => v.TrabalhoId == trabalhoId)
                 .ToListAsync();
         }
-
 
         // Atualizar vertente
         public async Task AtualizarVertenteAsync(TrabalhoVertente vertente)

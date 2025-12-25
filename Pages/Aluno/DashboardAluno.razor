@@ -12,33 +12,14 @@
     <Authorized>
         <h3 class="mb-4">Dashboard do Aluno</h3>
 
-        <!-- Cards rápidos -->
-        <div class="row mb-4 g-3">
-            <div class="col-md-3">
-                <div class="card card-custom p-3">
-                    <h5 class="mb-2">Trabalhos Pendentes</h5>
-                    <p>@TrabalhosPendentes trabalhos pendentes</p>
-                    <a href="/aluno/EnviarTrabalho" class="btn btn-primary btn-custom btn-sm">Enviar Trabalho</a>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card card-custom p-3">
-                    <h5 class="mb-2">Trabalhos Avaliados</h5>
-                    <p>@TrabalhosAvaliados trabalhos avaliados</p>
-                    <a href="/aluno/MinhasNotas" class="btn btn-primary btn-custom btn-sm">Ver Notas</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Lista de Trabalhos -->
-        <h4 class="mb-3">Meus Trabalhos</h4>
+        <h5>Trabalhos Disponíveis</h5>
         @if (Trabalhos == null)
         {
             <p><em>Carregando trabalhos...</em></p>
         }
         else if (!Trabalhos.Any())
         {
-            <p><em>Nenhum trabalho enviado ainda.</em></p>
+            <p><em>Sem trabalhos disponíveis no momento.</em></p>
         }
         else
         {
@@ -46,7 +27,6 @@
                 <thead>
                     <tr>
                         <th>Título</th>
-                        <th>Data de Envio</th>
                         <th>Status</th>
                         <th>Ações</th>
                     </tr>
@@ -56,28 +36,21 @@
                     {
                         <tr>
                             <td>@t.Titulo</td>
-                            <td>@t.DataEnvio.ToShortDateString()</td>
                             <td>
-                                @(string.IsNullOrEmpty(t.NotaCompetencia) &&
-                                                        string.IsNullOrEmpty(t.NotaAptidao) &&
-                                                        string.IsNullOrEmpty(t.NotaConhecimento)
-                                                        ? "Pendente" : "Avaliado")
-                    </td>
-                    <td>
-                        <a class="btn btn-sm btn-primary" href="/aluno/EnviarTrabalho?id=@t.Id">
-                            Ver/Editar
-                        </a>
-                        @if (!string.IsNullOrEmpty(t.FicheiroCompetencia))
+                                @(t.DataEnvio != null ? "Enviado" : "Pendente")
+                            </td>
+                            <td>
+                                <a class="btn btn-sm btn-primary" href="/aluno/EnviarTrabalho?id=@t.Id">
+                                    Enviar / Editar
+                                </a>
+                                @foreach (var vert in t.Vertentes)
                                 {
-                                    <a class="btn btn-sm btn-secondary ms-1" href="@t.FicheiroCompetencia" target="_blank">Competência</a>
-                                }
-                                @if (!string.IsNullOrEmpty(t.FicheiroAptidao))
-                                {
-                                    <a class="btn btn-sm btn-secondary ms-1" href="@t.FicheiroAptidao" target="_blank">Aptidão</a>
-                                }
-                                @if (!string.IsNullOrEmpty(t.FicheiroConhecimento))
-                                {
-                                    <a class="btn btn-sm btn-secondary ms-1" href="@t.FicheiroConhecimento" target="_blank">Conhecimento</a>
+                                    @if (!string.IsNullOrEmpty(vert.FicheiroPath))
+                                    {
+                                        <a class="btn btn-sm btn-secondary ms-1" href="@vert.FicheiroPath" target="_blank">
+                                            @vert.Tipo
+                                        </a>
+                                    }
                                 }
                             </td>
                         </tr>
@@ -97,17 +70,7 @@
 </AuthorizeView>
 
 @code {
-    private List<Trabalho> Trabalhos { get; set; } = new();
-
-    private int TrabalhosPendentes => Trabalhos.Count(t =>
-        string.IsNullOrEmpty(t.NotaCompetencia) &&
-        string.IsNullOrEmpty(t.NotaAptidao) &&
-        string.IsNullOrEmpty(t.NotaConhecimento));
-
-    private int TrabalhosAvaliados => Trabalhos.Count(t =>
-        !string.IsNullOrEmpty(t.NotaCompetencia) ||
-        !string.IsNullOrEmpty(t.NotaAptidao) ||
-        !string.IsNullOrEmpty(t.NotaConhecimento));
+    private List<TrabalhoAlunoViewModel> Trabalhos { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -115,6 +78,37 @@
         var user = authState.User;
         var alunoId = user.FindFirst(c => c.Type == "sub")?.Value ?? "";
 
-        Trabalhos = await TrabalhoService.GetTrabalhosDoAlunoAsync(alunoId);
+        var trabalhosDb = await TrabalhoService.GetTrabalhosDoAlunoAsync(alunoId);
+
+        Trabalhos = trabalhosDb.Select(t => new TrabalhoAlunoViewModel
+        {
+            Id = t.Id,
+            Titulo = t.Titulo,
+            // Se DataEnvio for DateTime normal, transforma em nullable
+            DataEnvio = t.DataEnvio == default(DateTime) ? null : t.DataEnvio,
+            Vertentes = t.TrabalhoVertentes.Select(v => new VertenteAlunoViewModel
+            {
+                Tipo = v.Tipo,
+                FicheiroPath = v.FicheiroPath,
+                Nota = v.Nota,
+                Feedback = v.Feedback
+            }).ToList()
+        }).ToList();
+    }
+
+    public class TrabalhoAlunoViewModel
+    {
+        public int Id { get; set; }
+        public string Titulo { get; set; } = "";
+        public DateTime? DataEnvio { get; set; }  // Nullable
+        public List<VertenteAlunoViewModel> Vertentes { get; set; } = new();
+    }
+
+    public class VertenteAlunoViewModel
+    {
+        public string Tipo { get; set; } = "";
+        public string? FicheiroPath { get; set; }
+        public decimal? Nota { get; set; }
+        public string? Feedback { get; set; }
     }
 }
