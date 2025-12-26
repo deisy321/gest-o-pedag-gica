@@ -64,7 +64,8 @@
 </AuthorizeView>
 
 @code {
-    private string? successMessage;
+    // Inicializa como vazio para evitar aviso de campo não atribuído
+    private string? successMessage = "";
 
     private int TotalAlunos { get; set; }
     private int TotalProfessores { get; set; }
@@ -74,5 +75,11 @@
         // Carregar totais do AdminService
         TotalAlunos = await AdminService.GetTotalAlunosAsync();
         TotalProfessores = await AdminService.GetTotalProfessoresAsync();
+    }
+
+    // Exemplo de método para atualizar sucesso, se necessário
+    private void MostrarSucesso(string mensagem)
+    {
+        successMessage = mensagem;
     }
 }

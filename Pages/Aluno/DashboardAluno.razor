@@ -4,6 +4,8 @@
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
 @inject TrabalhoService TrabalhoService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
@@ -13,6 +15,7 @@
         <h3 class="mb-4">Dashboard do Aluno</h3>
 
         <h5>Trabalhos Disponíveis</h5>
+
         @if (Trabalhos == null)
         {
             <p><em>Carregando trabalhos...</em></p>
@@ -36,32 +39,20 @@
                     {
                         <tr>
                             <td>@t.Titulo</td>
+                            <td>@(t.DataEnvio != null ? "Enviado" : "Pendente")</td>
                             <td>
-                                @(t.DataEnvio != null ? "Enviado" : "Pendente")
-                            </td>
-                            <td>
-                                <a class="btn btn-sm btn-primary" href="/aluno/EnviarTrabalho?id=@t.Id">
+                                <a class="btn btn-sm btn-primary" href="/aluno/EnviarTrabalho/@t.Id">
                                     Enviar / Editar
                                 </a>
-                                @foreach (var vert in t.Vertentes)
-                                {
-                                    @if (!string.IsNullOrEmpty(vert.FicheiroPath))
-                                    {
-                                        <a class="btn btn-sm btn-secondary ms-1" href="@vert.FicheiroPath" target="_blank">
-                                            @vert.Tipo
-                                        </a>
-                                    }
-                                }
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
         }
-
     </Authorized>
     <NotAuthorized>
-        <div class="alert alert-danger mt-5 card-custom">
+        <div class="alert alert-danger mt-5">
             <h4>Acesso Negado</h4>
             <p>Você não tem permissão para acessar o dashboard do aluno.</p>
             <p>Por favor, <a href="/Identity/Account/Login">faça login novamente</a> com uma conta de aluno.</p>
@@ -74,25 +65,20 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Pegar ID do aluno logado
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        var alunoId = user.FindFirst(c => c.Type == "sub")?.Value ?? "";
+        var alunoId = authState.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? "";
 
-        var trabalhosDb = await TrabalhoService.GetTrabalhosDoAlunoAsync(alunoId);
+        // Buscar trabalhos disponíveis usando o service atualizado
+        var trabalhosDb = await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(alunoId);
 
+        // Mapear para ViewModel
         Trabalhos = trabalhosDb.Select(t => new TrabalhoAlunoViewModel
         {
             Id = t.Id,
             Titulo = t.Titulo,
-            // Se DataEnvio for DateTime normal, transforma em nullable
-            DataEnvio = t.DataEnvio == default(DateTime) ? null : t.DataEnvio,
-            Vertentes = t.TrabalhoVertentes.Select(v => new VertenteAlunoViewModel
-            {
-                Tipo = v.Tipo,
-                FicheiroPath = v.FicheiroPath,
-                Nota = v.Nota,
-                Feedback = v.Feedback
-            }).ToList()
+            // Se DataEnvio for default(DateTime), considera como pendente
+            DataEnvio = t.DataEnvio == default(DateTime) ? null : t.DataEnvio
         }).ToList();
     }
 
@@ -100,15 +86,6 @@
     {
         public int Id { get; set; }
         public string Titulo { get; set; } = "";
-        public DateTime? DataEnvio { get; set; }  // Nullable
-        public List<VertenteAlunoViewModel> Vertentes { get; set; } = new();
-    }
-
-    public class VertenteAlunoViewModel
-    {
-        public string Tipo { get; set; } = "";
-        public string? FicheiroPath { get; set; }
-        public decimal? Nota { get; set; }
-        public string? Feedback { get; set; }
+        public DateTime? DataEnvio { get; set; }
     }
 }

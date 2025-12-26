@@ -1,0 +1,52 @@
+﻿@page "/aluno/trabalhos"
+@using gestaopedagogica.Services
+@using gestaopedagogica.Models
+@inject NavigationManager Nav
+@inject TrabalhoService TrabalhoService
+@inject AuthenticationStateProvider AuthStateProvider
+
+<h3>Trabalhos Disponíveis</h3>
+
+@if (Trabalhos == null)
+{
+    <p>Carregando trabalhos...</p>
+}
+else if (Trabalhos.Count == 0)
+{
+    <p>Não há trabalhos disponíveis.</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var t in Trabalhos)
+        {
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>@t.Titulo</strong><br />
+                    Prazo: @t.PrazoEntrega.ToShortDateString()
+                </div>
+                <button class="btn btn-primary" @onclick="() => AbrirTrabalho(t.Id)">Abrir</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<Trabalho>? Trabalhos;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Pega o ID do aluno logado
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var alunoId = user.FindFirst(c => c.Type == "sub")?.Value ?? "";
+
+        // Chama o método pela instância injetada
+        Trabalhos = await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(alunoId);
+    }
+
+    private void AbrirTrabalho(int trabalhoId)
+    {
+        Nav.NavigateTo($"/aluno/EnviarTrabalho/{trabalhoId}");
+    }
+}

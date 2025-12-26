@@ -1,9 +1,11 @@
 ﻿@page "/professor/CriarRoteiro"
 @namespace gestaopedagogica.Pages.Professor
 @layout MainLayout
+
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
 @using Microsoft.AspNetCore.Components.Authorization
+
 @inject TrabalhoService TrabalhoService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
@@ -33,8 +35,7 @@
         <h5>@vert.Tipo</h5>
         <textarea class="form-control mt-2"
                   placeholder="Descrição da vertente"
-                  @bind="vert.ConteudoTexto">
-            </textarea>
+                  @bind="vert.ConteudoTexto"></textarea>
         <hr />
     }
 
@@ -44,12 +45,12 @@
 </div>
 
 @code {
-
     private string Titulo = "";
     private DateTime? PrazoEntrega;
     private string StatusMessage = "";
     private bool IsSaving = false;
 
+    // Apenas para edição do texto
     private List<VertenteEditModel> Vertentes = new()
     {
         new VertenteEditModel { Tipo = "Competência" },
@@ -84,29 +85,21 @@
             {
                 Titulo = Titulo.Trim(),
                 ProfessorId = professorId,
-
-                // ✔️ UTC correto (PostgreSQL aceita)
                 DataCriacao = DateTime.UtcNow,
-
-                // ✔️ FORÇA UTC (resolve o erro definitivamente)
-                PrazoEntrega = DateTime.SpecifyKind(
-                    PrazoEntrega.Value,
-                    DateTimeKind.Utc
-                )
+                PrazoEntrega = DateTime.SpecifyKind(PrazoEntrega.Value, DateTimeKind.Utc)
             };
 
+            // ✅ cria trabalho + 3 vertentes padrão (UMA VEZ)
             await TrabalhoService.AddTrabalhoAsync(trabalho);
 
-            foreach (var vert in Vertentes)
-            {
-                var vertDb = new TrabalhoVertente
-                {
-                    TrabalhoId = trabalho.Id,
-                    Tipo = vert.Tipo,
-                    ConteudoTexto = vert.ConteudoTexto?.Trim() ?? ""
-                };
+            // ✅ busca as vertentes criadas e atualiza o texto
+            var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(trabalho.Id);
 
-                await TrabalhoService.AddVertenteAsync(vertDb);
+            foreach (var vertDb in vertentesDb)
+            {
+                var local = Vertentes.First(v => v.Tipo == vertDb.Tipo);
+                vertDb.ConteudoTexto = local.ConteudoTexto ?? "";
+                await TrabalhoService.AtualizarVertenteAsync(vertDb);
             }
 
             StatusMessage = "✅ Roteiro criado com sucesso!";
@@ -114,7 +107,7 @@
         }
         catch (Exception ex)
         {
-            StatusMessage = "❌ Erro: " + ex.InnerException?.Message ?? ex.Message;
+            StatusMessage = "❌ Erro: " + ex.Message;
         }
         finally
         {

@@ -18,6 +18,8 @@ namespace gestaopedagogica.Models
         public string Tipo { get; set; } = "";
 
         public string ConteudoTexto { get; set; } = "";
+        public string ConteudoTextoAluno { get; set; } = "";
+
 
         public string FicheiroPath { get; set; } = "";
 

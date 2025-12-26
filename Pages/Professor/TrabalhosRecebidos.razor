@@ -3,6 +3,8 @@
 @layout MainLayout
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
+@using Microsoft.AspNetCore.Components.Authorization
+
 @inject TrabalhoService TrabalhoService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
@@ -72,7 +74,6 @@ else
 }
 
 @code {
-    // ViewModel para vinculação correta
     public class VertenteViewModel
     {
         public int Id { get; set; }
@@ -95,10 +96,8 @@ else
         var user = authState.User;
         var professorId = user.FindFirst(c => c.Type == "sub")?.Value ?? "";
 
-        // Buscar trabalhos do professor via service
         var trabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(professorId);
 
-        // Juntar vertentes para exibição
         Lista = (
             from t in trabalhos
             from v in t.TrabalhoVertentes
@@ -126,17 +125,16 @@ else
     {
         if (Selecionado != null)
         {
-            // Buscar a vertente no banco
             var vertente = await TrabalhoService.GetVertentePorIdAsync(Selecionado.Id);
             if (vertente != null)
             {
                 vertente.Nota = Selecionado.Nota;
                 vertente.Feedback = Selecionado.Feedback;
                 await TrabalhoService.AtualizarVertenteAsync(vertente);
-
-                Selecionado = null;
-                await OnInitializedAsync(); // recarregar lista
             }
+
+            Selecionado = null;
+            await OnInitializedAsync(); // recarrega lista
         }
     }
 
