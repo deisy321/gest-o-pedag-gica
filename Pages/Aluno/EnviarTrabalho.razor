@@ -47,7 +47,7 @@ else
                     @if (!string.IsNullOrEmpty(vert.ArquivoNome))
                     {
                         <p>Arquivo selecionado: @vert.ArquivoNome</p>
-                        <a href="uploads/@vert.ArquivoNome" target="_blank">Baixar arquivo</a>
+                        <a href="@($"/ficheiro/vertente/{vert.Id}")" target="_blank">Abrir arquivo</a>
                     }
                 </div>
             </div>
@@ -73,22 +73,16 @@ else
         {
             var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(Trabalho.Id);
 
-            if (vertentesDb.Count > 0)
+            Vertentes = vertentesDb.Select(v => new AlunoVertenteModel
             {
-                Vertentes = vertentesDb.Select(v => new AlunoVertenteModel
-                {
-                    Id = v.Id,
-                    Tipo = v.Tipo,
-                    ConteudoTextoProfessor = v.ConteudoTexto,
-                    ConteudoTextoAluno = v.ConteudoTextoAluno ?? "",
-                    ArquivoNome = v.FicheiroPath
-                }).ToList();
-            }
-            else
-            {
-                StatusMessage = "❌ Nenhuma vertente encontrada para este trabalho.";
-                Vertentes = new List<AlunoVertenteModel>();
-            }
+                Id = v.Id,
+                Tipo = v.Tipo,
+                ConteudoTextoProfessor = v.ConteudoTexto,
+                ConteudoTextoAluno = v.ConteudoTextoAluno ?? "",
+                ArquivoNome = v.FicheiroNome,
+                ArquivoBytes = v.FicheiroBytes,
+                ArquivoContentType = v.FicheiroContentType
+            }).ToList();
         }
         else
         {
@@ -112,15 +106,20 @@ else
 
                     if (vert.Arquivo != null)
                     {
-                        vertDb.FicheiroPath = vert.ArquivoNome;
+                        using var ms = new MemoryStream();
+                        await vert.Arquivo.OpenReadStream(10_000_000).CopyToAsync(ms);
+
+                        vertDb.FicheiroBytes = ms.ToArray();
+                        vertDb.FicheiroContentType = vert.Arquivo.ContentType;
+                        vertDb.FicheiroNome = vert.Arquivo.Name;
                     }
 
                     await TrabalhoService.AtualizarVertenteAsync(vertDb);
                 }
             }
 
-            FormEnviado = true; // Marca formulário como enviado
-            StatusMessage = ""; // Esconde mensagem de erro se houver
+            FormEnviado = true;
+            StatusMessage = "";
         }
         catch (Exception ex)
         {
@@ -128,21 +127,11 @@ else
         }
     }
 
-    private async Task UploadArquivo(InputFileChangeEventArgs e, AlunoVertenteModel vert)
+    private void UploadArquivo(InputFileChangeEventArgs e, AlunoVertenteModel vert)
     {
-        var arquivo = e.File;
-        vert.Arquivo = arquivo;
-        vert.ArquivoNome = arquivo.Name;
-
-        var caminhoPasta = Path.Combine(Environment.CurrentDirectory, "wwwroot", "uploads");
-
-        if (!Directory.Exists(caminhoPasta))
-            Directory.CreateDirectory(caminhoPasta);
-
-        var caminhoArquivo = Path.Combine(caminhoPasta, arquivo.Name);
-
-        using var stream = new FileStream(caminhoArquivo, FileMode.Create);
-        await arquivo.OpenReadStream(10_000_000).CopyToAsync(stream);
+        vert.Arquivo = e.File;
+        vert.ArquivoNome = e.File.Name;
+        vert.ArquivoContentType = e.File.ContentType;
     }
 
     public class AlunoVertenteModel
@@ -153,5 +142,7 @@ else
         public string ConteudoTextoAluno { get; set; } = "";
         public string? ArquivoNome { get; set; }
         public IBrowserFile? Arquivo { get; set; }
+        public byte[]? ArquivoBytes { get; set; }
+        public string? ArquivoContentType { get; set; }
     }
 }

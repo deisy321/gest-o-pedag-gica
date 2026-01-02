@@ -18,6 +18,7 @@
 }
 
 <div class="card p-4">
+
     <div class="mb-3">
         <label>Título do Trabalho</label>
         <input class="form-control" @bind="Titulo" />
@@ -39,18 +40,21 @@
         <hr />
     }
 
-    <button class="btn btn-success" @onclick="CriarRoteiro" disabled="@IsSaving">
+    <button class="btn btn-success"
+            @onclick="SalvarRoteiro"
+            disabled="@IsSaving">
         @(IsSaving ? "Salvando..." : "Criar Roteiro")
     </button>
 </div>
 
 @code {
+
     private string Titulo = "";
     private DateTime? PrazoEntrega;
     private string StatusMessage = "";
     private bool IsSaving = false;
 
-    // Apenas para edição do texto
+    // vertentes apenas para edição no ecrã
     private List<VertenteEditModel> Vertentes = new()
     {
         new VertenteEditModel { Tipo = "Competência" },
@@ -58,7 +62,7 @@
         new VertenteEditModel { Tipo = "Conhecimento" }
     };
 
-    private async Task CriarRoteiro()
+    private async Task SalvarRoteiro()
     {
         IsSaving = true;
         StatusMessage = "";
@@ -73,28 +77,32 @@
 
             if (PrazoEntrega == null)
             {
-                StatusMessage = "❌ O prazo de entrega é obrigatório.";
+                StatusMessage = "❌ O prazo é obrigatório.";
                 return;
             }
 
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-            var professorId = user.FindFirst(c => c.Type == "sub")?.Value ?? "";
+            var professorId = authState.User.FindFirst("sub")?.Value ?? "";
 
+            // 1️⃣ cria o trabalho
             var trabalho = new Trabalho
             {
                 Titulo = Titulo.Trim(),
                 ProfessorId = professorId,
                 DataCriacao = DateTime.UtcNow,
-                PrazoEntrega = DateTime.SpecifyKind(PrazoEntrega.Value, DateTimeKind.Utc)
+                PrazoEntrega = DateTime.SpecifyKind(
+                    PrazoEntrega.Value,
+                    DateTimeKind.Utc
+                )
             };
 
-            // ✅ cria trabalho + 3 vertentes padrão (UMA VEZ)
             await TrabalhoService.AddTrabalhoAsync(trabalho);
 
-            // ✅ busca as vertentes criadas e atualiza o texto
-            var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(trabalho.Id);
+            // 2️⃣ buscar vertentes criadas automaticamente
+            var vertentesDb =
+                await TrabalhoService.GetVertentesDoTrabalhoAsync(trabalho.Id);
 
+            // 3️⃣ atualizar apenas o texto do professor
             foreach (var vertDb in vertentesDb)
             {
                 var local = Vertentes.First(v => v.Tipo == vertDb.Tipo);
@@ -102,7 +110,6 @@
                 await TrabalhoService.AtualizarVertenteAsync(vertDb);
             }
 
-            StatusMessage = "✅ Roteiro criado com sucesso!";
             Nav.NavigateTo("/professor/DashboardProfessor");
         }
         catch (Exception ex)

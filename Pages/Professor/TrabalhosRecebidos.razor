@@ -1,5 +1,4 @@
 ﻿@page "/professor/TrabalhosRecebidos"
-@namespace gestaopedagogica.Pages.Professor
 @layout MainLayout
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
@@ -11,11 +10,7 @@
 
 <h3>Trabalhos Enviados</h3>
 
-@if (Lista == null)
-{
-    <p><em>Carregando trabalhos...</em></p>
-}
-else if (!Lista.Any())
+@if (Lista == null || !Lista.Any())
 {
     <p><em>Nenhum trabalho encontrado.</em></p>
 }
@@ -39,10 +34,11 @@ else
                     <td>@item.AlunoId</td>
                     <td>@item.Titulo</td>
                     <td>@item.Tipo</td>
-                    <td>@item.DataEnvio.ToShortDateString()</td>
+                    <td>@(item.DataEnvio?.ToShortDateString() ?? "-")</td>
                     <td>@(item.Nota == null ? "Pendente" : "Avaliado")</td>
                     <td>
-                        <button class="btn btn-sm btn-primary" @onclick="() => AbrirAvaliar(item.Id)">
+                        <button class="btn btn-sm btn-primary"
+                                @onclick="() => AbrirAvaliar(item.Id)">
                             Avaliar
                         </button>
                     </td>
@@ -56,90 +52,83 @@ else
 {
     <div class="card p-3 my-3">
         <h5>Avaliar @Selecionado.Tipo - @Selecionado.Titulo</h5>
-        <p><strong>Aluno:</strong> @Selecionado.AlunoId</p>
-        <p><strong>Conteúdo:</strong> @Selecionado.ConteudoTexto</p>
 
         <div class="mb-2">
-            <label>Nota:</label>
-            <input class="form-control" type="number" step="0.01" @bind="Selecionado.Nota" />
-        </div>
-        <div class="mb-2">
-            <label>Feedback:</label>
-            <textarea class="form-control" @bind="Selecionado.Feedback"></textarea>
+            <label>Nota</label>
+            <input class="form-control" type="number" step="0.01"
+                   @bind="Selecionado.Nota" />
         </div>
 
-        <button class="btn btn-success" @onclick="SalvarAvaliacao">Salvar Avaliação</button>
+        <div class="mb-2">
+            <label>Feedback</label>
+            <textarea class="form-control"
+                      @bind="Selecionado.Feedback"></textarea>
+        </div>
+
+        <button class="btn btn-success" @onclick="SalvarAvaliacao">Salvar</button>
         <button class="btn btn-secondary ms-2" @onclick="CancelarAvaliacao">Cancelar</button>
     </div>
 }
 
 @code {
-    public class VertenteViewModel
+    // ViewModel com DataEnvio nullable
+    class VertenteViewModel
     {
         public int Id { get; set; }
         public int TrabalhoId { get; set; }
         public string Titulo { get; set; } = "";
         public string AlunoId { get; set; } = "";
         public string Tipo { get; set; } = "";
-        public DateTime DataEnvio { get; set; }
+        public DateTime? DataEnvio { get; set; }  // <- nullable
         public decimal? Nota { get; set; }
         public string Feedback { get; set; } = "";
         public string ConteudoTexto { get; set; } = "";
     }
 
-    private List<VertenteViewModel> Lista { get; set; } = new();
-    private VertenteViewModel? Selecionado { get; set; }
+    List<VertenteViewModel> Lista = new();
+    VertenteViewModel? Selecionado;
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        var professorId = user.FindFirst(c => c.Type == "sub")?.Value ?? "";
+        var professorId = authState.User.FindFirst("sub")?.Value ?? "";
 
         var trabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(professorId);
 
-        Lista = (
-            from t in trabalhos
-            from v in t.TrabalhoVertentes
-            select new VertenteViewModel
+        Lista = trabalhos
+            .SelectMany(t => t.TrabalhoVertentes.Select(v => new VertenteViewModel
             {
                 Id = v.Id,
                 TrabalhoId = t.Id,
                 Titulo = t.Titulo,
                 AlunoId = t.AlunoId,
                 Tipo = v.Tipo,
-                DataEnvio = v.DataEnvio,
+                DataEnvio = v.DataEnvio,   // Nullable agora
                 Nota = v.Nota,
                 Feedback = v.Feedback,
                 ConteudoTexto = v.ConteudoTexto
-            }
-        ).ToList();
+            }))
+            .ToList();
     }
 
-    private void AbrirAvaliar(int vertenteId)
-    {
-        Selecionado = Lista.FirstOrDefault(v => v.Id == vertenteId);
-    }
+    void AbrirAvaliar(int id) =>
+        Selecionado = Lista.FirstOrDefault(v => v.Id == id);
 
-    private async Task SalvarAvaliacao()
+    async Task SalvarAvaliacao()
     {
-        if (Selecionado != null)
+        if (Selecionado == null) return;
+
+        var vertente = await TrabalhoService.GetVertentePorIdAsync(Selecionado.Id);
+        if (vertente != null)
         {
-            var vertente = await TrabalhoService.GetVertentePorIdAsync(Selecionado.Id);
-            if (vertente != null)
-            {
-                vertente.Nota = Selecionado.Nota;
-                vertente.Feedback = Selecionado.Feedback;
-                await TrabalhoService.AtualizarVertenteAsync(vertente);
-            }
-
-            Selecionado = null;
-            await OnInitializedAsync(); // recarrega lista
+            vertente.Nota = Selecionado.Nota;
+            vertente.Feedback = Selecionado.Feedback;
+            await TrabalhoService.AtualizarVertenteAsync(vertente);
         }
+
+        Selecionado = null;
+        await OnInitializedAsync(); // Recarrega a lista
     }
 
-    private void CancelarAvaliacao()
-    {
-        Selecionado = null;
-    }
+    void CancelarAvaliacao() => Selecionado = null;
 }

@@ -1,4 +1,4 @@
-﻿@page "/professor/AvaliarVertente"
+﻿@page "/professor/AvaliarVertente/{TrabalhoId:int}/{TipoVertente}"
 @using gestaopedagogica.Data
 @using gestaopedagogica.Models
 @inject ApplicationDbContext _context
@@ -16,9 +16,14 @@ else
 
         <p><strong>Tipo:</strong> @Vertente.Tipo</p>
 
-        @if (!string.IsNullOrEmpty(Vertente.FicheiroPath))
+        @* Se houver ficheiro guardado no banco, mostra link para download *@
+        @if (Vertente.FicheiroBytes != null)
         {
-            <p><a href="@Vertente.FicheiroPath" target="_blank">Baixar ficheiro enviado</a></p>
+            <p>
+                <a href="/ficheiro/vertente/@Vertente.Id" target="_blank">
+                    Baixar ficheiro enviado
+                </a>
+            </p>
         }
 
         @if (!string.IsNullOrEmpty(Vertente.ConteudoTexto))
@@ -29,7 +34,7 @@ else
 
         <div class="mt-3">
             <label>Nota</label>
-            <input type="number" class="form-control" style="width:120px" @bind="Vertente.Nota" />
+            <input type="number" class="form-control" style="width:120px" @bind="Vertente.Nota" min="0" max="20" />
         </div>
 
         <div class="mt-3">
@@ -43,14 +48,21 @@ else
 }
 
 @code {
-    [SupplyParameterFromQuery]
-    public int vid { get; set; }
+    [Parameter] public int TrabalhoId { get; set; }
+    [Parameter] public string TipoVertente { get; set; } = "";
 
     private TrabalhoVertente? Vertente { get; set; }
 
     protected override void OnInitialized()
     {
-        Vertente = _context.TrabalhoVertentes.FirstOrDefault(v => v.Id == vid);
+        // Busca a vertente pelo trabalho e tipo
+        Vertente = _context.TrabalhoVertentes
+                    .FirstOrDefault(v => v.TrabalhoId == TrabalhoId && v.Tipo == TipoVertente);
+
+        if (Vertente == null)
+        {
+            Console.WriteLine($"⚠️ Vertente não encontrada: TrabalhoId={TrabalhoId}, Tipo={TipoVertente}");
+        }
     }
 
     private async Task Salvar()
@@ -59,6 +71,8 @@ else
         {
             _context.TrabalhoVertentes.Update(Vertente);
             await _context.SaveChangesAsync();
+
+            // Redireciona de volta ao dashboard do professor
             Nav.NavigateTo("/professor/TrabalhosRecebidos");
         }
     }

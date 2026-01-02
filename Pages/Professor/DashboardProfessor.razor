@@ -1,158 +1,158 @@
 ﻿@page "/professor/DashboardProfessor"
-@namespace gestaopedagogica.Pages.Professor
-@layout MainLayout
-@using gestaopedagogica.Models
 @using gestaopedagogica.Services
-@using Microsoft.AspNetCore.Components.Authorization
-
+@using gestaopedagogica.Models
 @inject TrabalhoService TrabalhoService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
 
-<AuthorizeView Roles="Professor">
-    <Authorized>
-        <h3>Dashboard do Professor</h3>
+<h3>Dashboard do Professor</h3>
 
-        <div class="mb-3">
-            <button class="btn btn-success" @onclick="CriarRoteiro">Criar Novo Roteiro</button>
-        </div>
+<button class="btn btn-success mb-3" @onclick="CriarTrabalho">Criar Novo Trabalho</button>
 
-        <h5>Roteiros Criados</h5>
-        @if (Lista.Count == 0)
-        {
-            <p><em>Nenhum roteiro criado.</em></p>
-        }
-        else
-        {
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Título</th>
-                        <th>Vertentes</th>
-                        <th>Data de Criação</th>
-                        <th>Status Envio</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var item in Lista)
-                    {
-                        <tr>
-                            <td>@item.Titulo</td>
-                            <td>@string.Join(", ", item.Vertentes.Select(v => v.Tipo))</td>
-                            <td>@item.DataCriacao.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                            <td>@(string.IsNullOrEmpty(item.AlunoId) ? "Pendente" : "Enviado")</td>
-                            <td>
-                                <button class="btn btn-sm btn-primary"
-                                        @onclick="() => AvaliarTrabalho(item)"
-                                        disabled="@string.IsNullOrEmpty(item.AlunoId)">
-                                    Avaliar
-                                </button>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        }
-
-        @if (Selecionado != null)
-        {
-            <div class="card p-3 my-3">
-                <h5>Avaliar Roteiro - @Selecionado.Titulo</h5>
-                @foreach (var vert in Selecionado.Vertentes)
-                {
-                    <div class="mb-3">
-                        <strong>@vert.Tipo</strong>
-                        <p>@vert.ConteudoTexto</p>
-                        <div class="mb-2">
-                            <label>Nota:</label>
-                            <input type="number" class="form-control" @bind="vert.Nota" min="0" max="10" step="0.1" />
-                        </div>
-                        <div class="mb-2">
-                            <label>Feedback:</label>
-                            <textarea class="form-control" @bind="vert.Feedback"></textarea>
-                        </div>
-                        <hr />
-                    </div>
-                }
-
-                <button class="btn btn-success" @onclick="SalvarAvaliacao">Salvar Avaliação</button>
-                <button class="btn btn-secondary ms-2" @onclick="CancelarAvaliacao">Cancelar</button>
+@if (Trabalhos == null)
+{
+    <p><em>Carregando trabalhos...</em></p>
+}
+else if (!Trabalhos.Any())
+{
+    <p>Nenhum trabalho criado ainda.</p>
+}
+else
+{
+    @foreach (var trabalho in Trabalhos)
+    {
+        <div class="card mb-3 p-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5>@trabalho.Titulo</h5>
+                <div>
+                    <button class="btn btn-warning btn-sm me-1" @onclick="() => EditarTrabalho(trabalho.Id)">Editar</button>
+                    <button class="btn btn-danger btn-sm" @onclick="() => DeletarTrabalho(trabalho.Id)">Excluir</button>
+                </div>
             </div>
-        }
-    </Authorized>
-    <NotAuthorized>
-        <div class="alert alert-danger mt-5">
-            <h4>Acesso Negado</h4>
-            <p>Você não tem permissão para acessar o dashboard do professor.</p>
-            <p>Por favor, <a href="/Identity/Account/Login">faça login novamente</a> com uma conta de professor.</p>
+
+            <strong>Aluno: @trabalho.AlunoNome</strong>
+            <ul class="list-group list-group-flush">
+                @foreach (var vert in trabalho.Vertentes)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>@vert.Tipo</strong>
+
+                            @if (!string.IsNullOrEmpty(vert.ConteudoTexto))
+                            {
+                                <div class="mt-1"><em>@vert.ConteudoTexto</em></div>
+                            }
+                        </div>
+
+                        <div class="text-end d-flex flex-column align-items-end">
+                            @* Status do envio *@
+                            @if (vert.DataEnvio.HasValue || !string.IsNullOrEmpty(vert.ConteudoTexto) || (vert.FicheiroBytes != null && !string.IsNullOrEmpty(vert.FicheiroNome)))
+                            {
+                                <span class="text-success">✅ Enviado</span>
+
+                                @if (vert.FicheiroBytes != null && !string.IsNullOrEmpty(vert.FicheiroNome))
+                                {
+                                    <a class="btn btn-sm btn-link mt-1"
+                                       href="/ficheiro/vertente/@vert.Id"
+                                       target="_blank">
+                                        Abrir arquivo
+                                    </a>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-danger">❌ Pendente</span>
+                            }
+
+
+                            @* Nota *@
+                            @if (vert.Nota.HasValue)
+                            {
+                                <span class="mt-1">Nota: @vert.Nota.Value</span>
+                            }
+
+                            <button class="btn btn-primary btn-sm mt-1" @onclick="() => AvaliarVertente(trabalho.Id, vert.Tipo)">Avaliar</button>
+                        </div>
+                    </li>
+                }
+            </ul>
         </div>
-    </NotAuthorized>
-</AuthorizeView>
+    }
+}
 
 @code {
-    private List<TrabalhoViewModel> Lista { get; set; } = new();
-    private TrabalhoViewModel? Selecionado { get; set; }
+    private List<TrabalhoViewModel> Trabalhos { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
+    {
+        await CarregarTrabalhos();
+    }
+
+    private async Task CarregarTrabalhos()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var professorId = authState.User.FindFirst(c => c.Type == "sub")?.Value ?? "";
 
-        var trabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(professorId);
+        var trabalhosDb = await TrabalhoService.GetTrabalhosDoProfessorAsync(professorId);
 
-        Lista = trabalhos.Select(t => new TrabalhoViewModel
+        Trabalhos = trabalhosDb.Select(t => new TrabalhoViewModel
         {
             Id = t.Id,
-            Titulo = t.Titulo,
-            AlunoId = string.IsNullOrEmpty(t.AlunoId) ? null : t.AlunoId,
-            DataCriacao = t.DataCriacao,
+            Titulo = t.Titulo ?? "Título não informado",
+            AlunoId = t.AlunoId,
+            AlunoNome = t.AlunoId, // opcional: buscar nome real do Identity
             Vertentes = t.TrabalhoVertentes.Select(v => new VertenteViewModel
             {
                 Id = v.Id,
-                Tipo = v.Tipo,
-                ConteudoTexto = v.ConteudoTexto ?? "",
-                Nota = v.Nota,
-                Feedback = v.Feedback
+                Tipo = v.Tipo ?? "",
+                DataEnvio = v.DataEnvio == default ? null : v.DataEnvio,
+                FicheiroNome = v.FicheiroNome ?? "",
+                FicheiroBytes = v.FicheiroBytes,
+                ConteudoTexto = v.ConteudoTextoAluno ?? "",
+                Nota = v.Nota
             }).ToList()
         }).ToList();
     }
 
-    private void CriarRoteiro() => Nav.NavigateTo("/professor/CriarRoteiro");
-
-    private void AvaliarTrabalho(TrabalhoViewModel item) => Selecionado = item;
-
-    private async Task SalvarAvaliacao()
+    private void CriarTrabalho()
     {
-        if (Selecionado != null)
+        Nav.NavigateTo("/professor/CriarRoteiro");
+    }
+
+    private void EditarTrabalho(int trabalhoId)
+    {
+        Nav.NavigateTo($"/professor/EditarTrabalho/{trabalhoId}");
+    }
+
+    private async Task DeletarTrabalho(int trabalhoId)
+    {
+        bool confirmar = await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza que deseja excluir este trabalho?");
+        if (confirmar)
         {
-            foreach (var vert in Selecionado.Vertentes)
-            {
-                var vertDb = await TrabalhoService.GetVertentePorIdAsync(vert.Id);
-                if (vertDb != null)
-                {
-                    vertDb.Nota = vert.Nota ?? 0;
-                    vertDb.Feedback = vert.Feedback ?? "";
-                    vertDb.ConteudoTexto = vert.ConteudoTexto ?? "";
-                    vertDb.Tipo = vert.Tipo ?? "";
-
-                    await TrabalhoService.AtualizarVertenteAsync(vertDb);
-                }
-            }
-
-            Selecionado = null;
-            await OnInitializedAsync(); // Recarregar lista
+            await TrabalhoService.ApagarTrabalhoAsync(trabalhoId);
+            await CarregarTrabalhos();
         }
     }
 
-    private void CancelarAvaliacao() => Selecionado = null;
+    private void AbrirArquivo(int vertenteId)
+    {
+        // apontando para o controller correto
+        Nav.NavigateTo($"/ficheiro/vertente/{vertenteId}", true);
+    }
 
+    private void AvaliarVertente(int trabalhoId, string tipoVertente)
+    {
+        Nav.NavigateTo($"/professor/AvaliarVertente/{trabalhoId}/{tipoVertente}");
+    }
+
+    // ViewModels
     public class TrabalhoViewModel
     {
         public int Id { get; set; }
         public string Titulo { get; set; } = "";
-        public string? AlunoId { get; set; }
-        public DateTime DataCriacao { get; set; }
+        public string AlunoId { get; set; } = "";
+        public string AlunoNome { get; set; } = "";
         public List<VertenteViewModel> Vertentes { get; set; } = new();
     }
 
@@ -160,8 +160,10 @@
     {
         public int Id { get; set; }
         public string Tipo { get; set; } = "";
+        public DateTime? DataEnvio { get; set; }
+        public string FicheiroNome { get; set; } = "";
+        public byte[]? FicheiroBytes { get; set; }
         public string ConteudoTexto { get; set; } = "";
         public decimal? Nota { get; set; }
-        public string? Feedback { get; set; }
     }
 }
