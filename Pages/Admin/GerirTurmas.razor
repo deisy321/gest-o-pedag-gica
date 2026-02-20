@@ -5,6 +5,7 @@
 @using gestaopedagogica.Services
 
 @inject TurmaService TurmaService
+@inject ProfessorService ProfessorService
 
 <h3>Gerir Turmas</h3>
 
@@ -17,7 +18,7 @@
         <tr>
             <th>Nome</th>
             <th>Ano Letivo</th>
-            <th>Professor Responsável</th>
+            <th>Professores</th>
             <th>Alunos</th>
             <th>Ações</th>
         </tr>
@@ -28,8 +29,17 @@
             <tr>
                 <td>@t.Nome</td>
                 <td>@t.Ano</td>
-                <td>@t.ProfessorResponsavel</td>
-                <td>@t.Alunos.Count</td>
+                <td>
+                    @if (t.Professores != null && t.Professores.Any())
+                    {
+                        @string.Join(", ", t.Professores.Where(tp => tp.Professor != null).Select(tp => tp.Professor.Nome))
+                    }
+                    else
+                    {
+                        @:Não definido
+                    }
+                </td>
+                <td>@(t.Alunos?.Count ?? 0)</td>
                 <td>
                     <button class="btn btn-primary btn-sm" @onclick="() => Editar(t)">Editar</button>
                     <button class="btn btn-info btn-sm" @onclick="() => VerDetalhes(t)">Detalhes</button>
@@ -40,7 +50,6 @@
     </tbody>
 </table>
 
-@* Modal Criar Turma *@
 @if (MostrarModalCriar)
 {
     <div class="modal-bg">
@@ -49,7 +58,27 @@
 
             <input class="form-control mb-2" placeholder="Nome da Turma" @bind="NovaTurma.Nome" />
             <input class="form-control mb-2" placeholder="Ano Letivo" @bind="NovaTurma.Ano" />
-            <input class="form-control mb-2" placeholder="Professor Responsável" @bind="NovaTurma.ProfessorResponsavel" />
+
+            <label>Selecionar Professores:</label>
+            <select class="form-control mb-2" @onchange="AdicionarProfessor">
+                <option value="0">Selecione um professor</option>
+                @foreach (var p in Professores)
+                {
+                    <option value="@p.Id">@p.Nome</option>
+                }
+            </select>
+
+            <div class="mb-2">
+                <b>Professores Selecionados:</b>
+                @if (NovaTurma.Professores != null && NovaTurma.Professores.Any())
+                {
+                    @string.Join(", ", NovaTurma.Professores.Where(tp => tp.Professor != null).Select(tp => tp.Professor.Nome))
+                }
+                else
+                {
+                    @:Nenhum
+                }
+            </div>
 
             <button class="btn btn-success" @onclick="SalvarNovaTurma">Guardar</button>
             <button class="btn btn-secondary" @onclick="() => MostrarModalCriar = false">Cancelar</button>
@@ -57,7 +86,6 @@
     </div>
 }
 
-@* Modal Editar Turma *@
 @if (MostrarModalEditar)
 {
     <div class="modal-bg">
@@ -66,7 +94,27 @@
 
             <input class="form-control mb-2" @bind="EditarTurma.Nome" />
             <input class="form-control mb-2" @bind="EditarTurma.Ano" />
-            <input class="form-control mb-2" @bind="EditarTurma.ProfessorResponsavel" />
+
+            <label>Selecionar Professores:</label>
+            <select class="form-control mb-2" @onchange="AdicionarProfessorEditar">
+                <option value="0">Selecione um professor</option>
+                @foreach (var p in Professores)
+                {
+                    <option value="@p.Id">@p.Nome</option>
+                }
+            </select>
+
+            <div class="mb-2">
+                <b>Professores Selecionados:</b>
+                @if (EditarTurma.Professores != null && EditarTurma.Professores.Any())
+                {
+                    @string.Join(", ", EditarTurma.Professores.Where(tp => tp.Professor != null).Select(tp => tp.Professor.Nome))
+                }
+                else
+                {
+                    @:Nenhum
+                }
+            </div>
 
             <button class="btn btn-primary" @onclick="SalvarEdicao">Guardar</button>
             <button class="btn btn-secondary" @onclick="() => MostrarModalEditar = false">Cancelar</button>
@@ -74,54 +122,59 @@
     </div>
 }
 
-@* Modal Detalhes *@
 @if (MostrarModalDetalhes)
 {
     <div class="modal-bg">
         <div class="modal-card">
             <h4>Detalhes da Turma: @TurmaDetalhes.Nome</h4>
-
             <p><b>Ano:</b> @TurmaDetalhes.Ano</p>
-            <p><b>Professor Responsável:</b> @TurmaDetalhes.ProfessorResponsavel</p>
 
             <h5>Alunos</h5>
             <ul>
-                @foreach (var aluno in TurmaDetalhes.Alunos)
+                @foreach (var aluno in TurmaDetalhes.Alunos ?? new List<Aluno>())
                 {
                     <li>@aluno.Nome</li>
                 }
             </ul>
 
-            <input class="form-control mb-2" placeholder="Adicionar Aluno" @bind="AlunoNovo" />
-            <button class="btn btn-success" @onclick="AdicionarAluno">Adicionar</button>
+            <input class="form-control mb-2" placeholder="Nome do Aluno" @bind="AlunoNovo" />
+            <button class="btn btn-success" @onclick="AdicionarAluno">Adicionar Aluno</button>
 
-            <button class="btn btn-secondary mt-3" @onclick="() => MostrarModalDetalhes = false">
-                Fechar
-            </button>
+            <button class="btn btn-secondary mt-3" @onclick="() => MostrarModalDetalhes = false">Fechar</button>
         </div>
     </div>
 }
 
 @code {
     List<Turma> Turmas = new();
+    List<Professor> Professores = new();
 
     bool MostrarModalCriar = false;
     bool MostrarModalEditar = false;
     bool MostrarModalDetalhes = false;
 
-    Turma NovaTurma = new();
-    Turma EditarTurma = new();
-    Turma TurmaDetalhes = new();
+    Turma NovaTurma = new() { Professores = new() };
+    Turma EditarTurma = new() { Professores = new() };
+    Turma TurmaDetalhes = new() { Alunos = new(), Professores = new() };
     string AlunoNovo = "";
 
     protected override async Task OnInitializedAsync()
     {
-        Turmas = await TurmaService.GetTurmasAsync();
+        try
+        {
+            Turmas = await TurmaService.GetTurmasAsync() ?? new();
+            Professores = await ProfessorService.GetProfessoresAsync() ?? new();
+        }
+        catch
+        {
+            Turmas = new();
+            Professores = new();
+        }
     }
 
     void MostrarCriarTurma()
     {
-        NovaTurma = new Turma();
+        NovaTurma = new Turma { Professores = new(), Alunos = new() };
         MostrarModalCriar = true;
     }
 
@@ -129,7 +182,7 @@
     {
         await TurmaService.AddTurmaAsync(NovaTurma);
         MostrarModalCriar = false;
-        Turmas = await TurmaService.GetTurmasAsync();
+        Turmas = await TurmaService.GetTurmasAsync() ?? new();
     }
 
     void Editar(Turma t)
@@ -139,8 +192,13 @@
             Id = t.Id,
             Nome = t.Nome,
             Ano = t.Ano,
-            ProfessorResponsavel = t.ProfessorResponsavel,
-            Alunos = new List<Aluno>(t.Alunos)
+            Alunos = t.Alunos != null ? new List<Aluno>(t.Alunos) : new(),
+            Professores = t.Professores?.Select(tp => new TurmaProfessor
+            {
+                TurmaId = tp.TurmaId,
+                ProfessorId = tp.ProfessorId,
+                Professor = tp.Professor
+            }).ToList() ?? new()
         };
         MostrarModalEditar = true;
     }
@@ -149,18 +207,19 @@
     {
         await TurmaService.UpdateTurmaAsync(EditarTurma);
         MostrarModalEditar = false;
-        Turmas = await TurmaService.GetTurmasAsync();
+        Turmas = await TurmaService.GetTurmasAsync() ?? new();
     }
 
     async Task Remover(Turma t)
     {
         await TurmaService.RemoveTurmaAsync(t);
-        Turmas = await TurmaService.GetTurmasAsync();
+        Turmas = await TurmaService.GetTurmasAsync() ?? new();
     }
 
     void VerDetalhes(Turma t)
     {
         TurmaDetalhes = t;
+        if (TurmaDetalhes.Alunos == null) TurmaDetalhes.Alunos = new();
         MostrarModalDetalhes = true;
     }
 
@@ -169,9 +228,35 @@
         if (!string.IsNullOrWhiteSpace(AlunoNovo))
         {
             TurmaDetalhes.Alunos.Add(new Aluno { Nome = AlunoNovo });
-            AlunoNovo = "";
             await TurmaService.UpdateTurmaAsync(TurmaDetalhes);
-            Turmas = await TurmaService.GetTurmasAsync();
+            AlunoNovo = "";
+            Turmas = await TurmaService.GetTurmasAsync() ?? new();
+        }
+    }
+
+    void AdicionarProfessor(ChangeEventArgs e)
+    {
+        if (e.Value == null || e.Value.ToString() == "0") return;
+        int professorId = int.Parse(e.Value.ToString()!);
+        var professor = Professores.FirstOrDefault(p => p.Id == professorId);
+
+        if (professor != null && !NovaTurma.Professores.Any(tp => tp.ProfessorId == professorId))
+        {
+            NovaTurma.Professores.Add(new TurmaProfessor { ProfessorId = professor.Id, Professor = professor });
+            StateHasChanged();
+        }
+    }
+
+    void AdicionarProfessorEditar(ChangeEventArgs e)
+    {
+        if (e.Value == null || e.Value.ToString() == "0") return;
+        int professorId = int.Parse(e.Value.ToString()!);
+        var professor = Professores.FirstOrDefault(p => p.Id == professorId);
+
+        if (professor != null && !EditarTurma.Professores.Any(tp => tp.ProfessorId == professorId))
+        {
+            EditarTurma.Professores.Add(new TurmaProfessor { ProfessorId = professor.Id, Professor = professor });
+            StateHasChanged();
         }
     }
 }

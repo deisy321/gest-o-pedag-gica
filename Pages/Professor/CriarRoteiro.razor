@@ -5,8 +5,8 @@
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
 @using Microsoft.AspNetCore.Components.Authorization
-
 @inject TrabalhoService TrabalhoService
+@inject ProfessorService ProfessorService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 
@@ -54,7 +54,7 @@
     private string StatusMessage = "";
     private bool IsSaving = false;
 
-    // vertentes apenas para edição no ecrã
+    // Vertentes apenas para edição no ecrã
     private List<VertenteEditModel> Vertentes = new()
     {
         new VertenteEditModel { Tipo = "Competência" },
@@ -81,28 +81,39 @@
                 return;
             }
 
+            // 1️⃣ pega o UserId do professor logado
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var professorId = authState.User.FindFirst("sub")?.Value ?? "";
+            var userId = authState.User.FindFirst("sub")?.Value ?? "";
 
-            // 1️⃣ cria o trabalho
+            if (string.IsNullOrEmpty(userId))
+            {
+                StatusMessage = "❌ Não foi possível identificar o professor logado.";
+                return;
+            }
+
+            // 2️⃣ busca o Professor correspondente na base
+            var professor = await ProfessorService.GetProfessorByUserIdAsync(userId);
+            if (professor == null)
+            {
+                StatusMessage = "❌ Professor não encontrado na base de dados.";
+                return;
+            }
+
+            // 3️⃣ cria o trabalho com ProfessorId convertido para string
             var trabalho = new Trabalho
             {
                 Titulo = Titulo.Trim(),
-                ProfessorId = professorId,
+                ProfessorId = professor.Id.ToString(),   // ✅ converte int para string
                 DataCriacao = DateTime.UtcNow,
-                PrazoEntrega = DateTime.SpecifyKind(
-                    PrazoEntrega.Value,
-                    DateTimeKind.Utc
-                )
+                PrazoEntrega = DateTime.SpecifyKind(PrazoEntrega.Value, DateTimeKind.Utc)
             };
 
             await TrabalhoService.AddTrabalhoAsync(trabalho);
 
-            // 2️⃣ buscar vertentes criadas automaticamente
-            var vertentesDb =
-                await TrabalhoService.GetVertentesDoTrabalhoAsync(trabalho.Id);
+            // 4️⃣ busca vertentes criadas automaticamente
+            var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(trabalho.Id);
 
-            // 3️⃣ atualizar apenas o texto do professor
+            // 5️⃣ atualiza apenas o texto do professor
             foreach (var vertDb in vertentesDb)
             {
                 var local = Vertentes.First(v => v.Tipo == vertDb.Tipo);

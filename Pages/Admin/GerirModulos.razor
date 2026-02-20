@@ -4,7 +4,9 @@
 
 @using gestaopedagogica.Services
 @using gestaopedagogica.Models
+
 @inject ModuloService ModuloService
+@inject ProfessorService ProfessorService
 
 <h3>Gerir Módulos</h3>
 
@@ -31,7 +33,7 @@
         {
             <tr>
                 <td>@m.Nome</td>
-                <td>@m.Professor</td>
+                <td>@m.Professor?.Nome ?? "Não definido"</td>
                 <td>
                     <button class="btn btn-primary btn-sm" @onclick="() => Editar(m)">Editar</button>
                     <button class="btn btn-danger btn-sm" @onclick="() => Remover(m.Id)">Remover</button>
@@ -48,7 +50,15 @@
             <h4>@(EditarModulo.Id == 0 ? "Novo Módulo" : "Editar Módulo")</h4>
 
             <input class="form-control mb-2" placeholder="Nome" @bind="EditarModulo.Nome" />
-            <input class="form-control mb-2" placeholder="Professor" @bind="EditarModulo.Professor" />
+
+            <label>Professor</label>
+            <select class="form-control mb-2" @bind="EditarModulo.ProfessorId">
+                <option value="0">Selecione um professor</option>
+                @foreach (var p in Professores)
+                {
+                    <option value="@p.Id">@p.Nome</option>
+                }
+            </select>
 
             <button class="btn btn-success" @onclick="Salvar">Guardar</button>
             <button class="btn btn-secondary ms-2" @onclick="Cancelar">Cancelar</button>
@@ -58,18 +68,21 @@
 
 @code {
     private List<Modulo> Modulos = new();
+    private List<Professor> Professores = new();
     private Modulo EditarModulo = new();
     private bool MostrarModal = false;
     private string? Message;
 
     protected override async Task OnInitializedAsync()
     {
+        Professores = await ProfessorService.GetProfessoresAsync();
         await CarregarModulos();
     }
 
     private async Task CarregarModulos()
     {
-        Modulos = await ModuloService.GetModulosAsync();
+        // Incluindo o Professor para poder mostrar o nome
+        Modulos = await ModuloService.GetModulosComProfessorAsync();
     }
 
     private void MostrarCriar()
@@ -84,14 +97,14 @@
         {
             Id = m.Id,
             Nome = m.Nome,
-            Professor = m.Professor
+            ProfessorId = m.ProfessorId
         };
         MostrarModal = true;
     }
 
     private async Task Salvar()
     {
-        if (string.IsNullOrWhiteSpace(EditarModulo.Nome) || string.IsNullOrWhiteSpace(EditarModulo.Professor))
+        if (string.IsNullOrWhiteSpace(EditarModulo.Nome) || EditarModulo.ProfessorId == 0)
         {
             Message = "Preencha todos os campos!";
             return;

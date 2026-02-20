@@ -14,6 +14,14 @@ namespace gestaopedagogica.Services
             return await _context.Modulos.ToListAsync();
         }
 
+        // Método que inclui o Professor para mostrar o nome
+        public async Task<List<Modulo>> GetModulosComProfessorAsync()
+        {
+            return await _context.Modulos
+                                 .Include(m => m.Professor)
+                                 .ToListAsync();
+        }
+
         public async Task AddModuloAsync(Modulo modulo)
         {
             _context.Modulos.Add(modulo);

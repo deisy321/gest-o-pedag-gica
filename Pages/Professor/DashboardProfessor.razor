@@ -38,7 +38,6 @@ else
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <div>
                             <strong>@vert.Tipo</strong>
-
                             @if (!string.IsNullOrEmpty(vert.ConteudoTexto))
                             {
                                 <div class="mt-1"><em>@vert.ConteudoTexto</em></div>
@@ -64,7 +63,6 @@ else
                             {
                                 <span class="text-danger">❌ Pendente</span>
                             }
-
 
                             @* Nota *@
                             @if (vert.Nota.HasValue)
@@ -100,8 +98,9 @@ else
         {
             Id = t.Id,
             Titulo = t.Titulo ?? "Título não informado",
-            AlunoId = t.AlunoId,
-            AlunoNome = t.AlunoId, // opcional: buscar nome real do Identity
+            AlunoId = t.AlunoId?.ToString() ?? "",
+            // Aqui usamos UserName no lugar de Nome
+            AlunoNome = t.Aluno?.UserName ?? "Aluno não definido",
             Vertentes = t.TrabalhoVertentes.Select(v => new VertenteViewModel
             {
                 Id = v.Id,
@@ -137,7 +136,6 @@ else
 
     private void AbrirArquivo(int vertenteId)
     {
-        // apontando para o controller correto
         Nav.NavigateTo($"/ficheiro/vertente/{vertenteId}", true);
     }
 

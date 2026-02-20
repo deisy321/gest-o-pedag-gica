@@ -6,7 +6,7 @@
 }
 
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-pt">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -14,8 +14,13 @@
 
     <base href="/" />
 
-    <!-- CSS correto (sem ~) -->
+    <!-- Bootstrap -->
     <link href="bootstrap/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- CSS custom para o dashboard -->
+    <link href="css/custom.css" rel="stylesheet" />
+
+    <!-- Outros estilos do projeto -->
     <link href="app.css" rel="stylesheet" />
 
     <style>
@@ -25,6 +30,7 @@
             padding: 0;
         }
 
+        /* Loading screen opcional */
         .loading-screen {
             padding: 20px;
             text-align: center;
@@ -44,11 +50,11 @@
     </app>
 
     <div class="loading-screen">
-        <h3></h3>
-        <p> </p>
+        <h3>A carregar...</h3>
+        <p>Aguarde um momento</p>
     </div>
 
-    <!-- Scripts corretos (sem ~) -->
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/site.js"></script>
     <script src="_framework/blazor.server.js"></script>

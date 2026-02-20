@@ -2,6 +2,9 @@ using gestaopedagogica.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+using System.Threading.Tasks;
 
 namespace gestaopedagogica.Pages.Identity.Account
 {
@@ -9,117 +12,66 @@ namespace gestaopedagogica.Pages.Identity.Account
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly ILogger<LoginModel> _logger;
 
-        public LoginModel(
-            SignInManager<ApplicationUser> signInManager, 
-            UserManager<ApplicationUser> userManager,
-            ILogger<LoginModel> logger)
-    {
+        public LoginModel(SignInManager<ApplicationUser> signInManager,
+                          UserManager<ApplicationUser> userManager)
+        {
             _signInManager = signInManager;
-        _userManager = userManager;
-         _logger = logger;
+            _userManager = userManager;
         }
 
         [BindProperty]
-        public LoginInputModel Input { get; set; } = new();
+        public InputModel Input { get; set; } = new();
 
-   public void OnGet()
+        public class InputModel
         {
-            _logger.LogInformation("Página de login acessada");
+            [Required(ErrorMessage = "O campo Email/Utilizador é obrigatório.")]
+            public string Username { get; set; } = "";
+
+            [Required(ErrorMessage = "O campo Senha é obrigatório.")]
+            [DataType(DataType.Password)]
+            public string Password { get; set; } = "";
+
+            public bool RememberMe { get; set; }
         }
 
-      public async Task<IActionResult> OnPostAsync()
+        public void OnGet()
         {
-          _logger.LogInformation($"Tentativa de login com username: {Input?.Username}");
-
-     if (!ModelState.IsValid)
-            {
-            _logger.LogWarning($"ModelState inválido. Erros: {string.Join(", ", ModelState.Values.SelectMany(v => v.Errors))}");
-    return Page();
-            }
-
-      try
-  {
-           // Procura pelo username primeiro
-           var user = await _userManager.FindByNameAsync(Input.Username);
-
-           // Se não encontrar, procura pelo email
-        if (user == null)
-         {
-      user = await _userManager.FindByEmailAsync(Input.Username);
-        _logger.LogInformation($"Utilizador não encontrado por username, tentando email");
+            // Apenas exibe a página de login
         }
 
-   if (user == null)
-              {
-         _logger.LogWarning($"Utilizador '{Input.Username}' não encontrado");
-     ModelState.AddModelError(string.Empty, "Utilizador ou email não encontrado.");
-           return Page();
-           }
+        public async Task<IActionResult> OnPostAsync()
+        {
+            if (!ModelState.IsValid)
+                return Page();
 
-    _logger.LogInformation($"Utilizador encontrado: {user.UserName}. Tentando autenticar...");
+            // Normaliza para minúsculas para evitar problemas de case-sensitive
+            var usernameOrEmail = Input.Username.Trim().ToLower();
 
-                // Tenta fazer signin
-   var result = await _signInManager.PasswordSignInAsync(
-     user,
-    Input.Password,
-    Input.RememberMe,
-    lockoutOnFailure: false);
+            // Busca usuário pelo Email ou UserName (insensível a maiúsculas)
+            var user = await _userManager.Users
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == usernameOrEmail
+                                       || u.UserName.ToLower() == usernameOrEmail);
 
-           if (result.Succeeded)
- {
-   _logger.LogInformation($"Utilizador {user.UserName} autenticado com sucesso");
-
-      // Obtém as roles
-           var roles = await _userManager.GetRolesAsync(user);
-      _logger.LogInformation($"Roles do utilizador: {string.Join(", ", roles)}");
-
-   // Redireciona baseado na role
- if (roles.Contains("Administrador"))
-         {
-  _logger.LogInformation("Redirecionando para Dashboard Admin");
-         return Redirect("/admin/DashboardAdmin");
-             }
-        else if (roles.Contains("Professor"))
-         {
-            _logger.LogInformation("Redirecionando para Dashboard Professor");
-             return Redirect("/professor/DashboardProfessor");
- }
-     else if (roles.Contains("Aluno"))
-         {
-         _logger.LogInformation("Redirecionando para Dashboard Aluno");
-           return Redirect("/aluno/DashboardAluno");
- }
-
-         _logger.LogWarning("Utilizador sem role definida. Redirecionando para home");
-         return Redirect("/");
-     }
-
-          if (result.IsLockedOut)
-       {
-        _logger.LogWarning($"Conta bloqueada: {user.UserName}");
-     ModelState.AddModelError(string.Empty, "Conta bloqueada. Contacte o administrador.");
-               return Page();
-          }
-
-   _logger.LogWarning($"Senha incorreta para {user.UserName}");
-       ModelState.AddModelError(string.Empty, "Senha incorreta.");
-  return Page();
-            }
-            catch (Exception ex)
+            if (user == null)
             {
-   _logger.LogError(ex, "Exceção ao processar login");
-             ModelState.AddModelError(string.Empty, "Ocorreu um erro ao processar o login.");
-     return Page();
-   }
-     }
+                ModelState.AddModelError(string.Empty, "Utilizador não encontrado.");
+                return Page();
+            }
 
-    public class LoginInputModel
-      {
-    public string Username { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
-    public bool RememberMe { get; set; }
-      }
+            // Verifica se a senha está correta
+            var passwordValid = await _userManager.CheckPasswordAsync(user, Input.Password);
+            if (!passwordValid)
+            {
+                ModelState.AddModelError(string.Empty, "Senha incorreta.");
+                return Page();
+            }
+
+            // Efetua login
+            await _signInManager.SignInAsync(user, Input.RememberMe);
+
+            // Redireciona para página inicial
+            return Redirect("/");
+        }
     }
 }

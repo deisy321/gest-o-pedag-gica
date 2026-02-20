@@ -1,0 +1,100 @@
+﻿@page "/admin/AtribuirTurma"
+@namespace gestaopedagogica.Pages.Admin
+@layout MainLayout
+@using gestaopedagogica.Data
+@using gestaopedagogica.Services
+@inject AdminService AdminService
+@inject NavigationManager NavigationManager
+
+<div class="container mt-4">
+    <div class="card shadow-sm border-0" style="border-radius: 15px;">
+        <div class="card-header bg-primary text-white p-3" style="border-radius: 15px 15px 0 0;">
+            <h4 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Vincular Professor a Turma</h4>
+        </div>
+        <div class="card-body p-4">
+            <EditForm Model="@atribuicao" OnValidSubmit="HandleAtribuicao">
+                <DataAnnotationsValidator />
+
+                <div class="row g-3">
+                    <!-- Selecionar Professor -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Professor</label>
+                        <select class="form-select rounded-pill" @bind="atribuicao.ProfessorId">
+                            <option value="">Selecione um professor...</option>
+                            @foreach (var prof in Professores)
+                            {
+                                <option value="@prof.Id">@prof.UserName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Selecionar Turma -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Turma</label>
+                        <select class="form-select rounded-pill" @bind="atribuicao.TurmaId">
+                            <option value="">Selecione a turma...</option>
+                            @foreach (var turma in Turmas)
+                            {
+                                <option value="@turma.Id">@turma.Nome</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Selecionar Módulos (Exemplo Multi-select simples) -->
+                    <div class="col-md-12 mt-3">
+                        <label class="form-label fw-bold">Módulos/Disciplinas</label>
+                        <div class="border rounded p-3 bg-light" style="max-height: 150px; overflow-y: auto;">
+                            @foreach (var modulo in ModulosDisponiveis)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="@modulo.Id" id="mod_@modulo.Id">
+                                    <label class="form-check-label" for="mod_@modulo.Id">@modulo.Nome</label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-success rounded-pill px-4">Gravar Atribuição</button>
+                    <a href="/admin/DashboardAdmin" class="btn btn-outline-secondary rounded-pill px-4">Cancelar</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private AtribuicaoModel atribuicao = new();
+    private List<ApplicationUser> Professores = new();
+    private List<Turma> Turmas = new(); // Assume que tens uma classe Turma
+    private List<Modulo> ModulosDisponiveis = new(); // Assume que tens uma classe Modulo
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Carrega os dados do teu AdminService
+        Professores = await AdminService.GetProfessoresAsync();
+
+        // Exemplo de dados manuais para não dar erro enquanto não crias as tabelas
+        Turmas = new List<Turma> { new Turma { Id = 1, Nome = "10º A" }, new Turma { Id = 2, Nome = "12º C" } };
+        ModulosDisponiveis = new List<Modulo> { new Modulo { Id = 1, Nome = "Matemática" }, new Modulo { Id = 2, Nome = "Programação" } };
+    }
+
+    private async Task HandleAtribuicao()
+    {
+        // Aqui chamas o serviço para gravar na BD
+        // await AdminService.AtribuirProfessor(atribuicao);
+        NavigationManager.NavigateTo("/admin/DashboardAdmin");
+    }
+
+    public class AtribuicaoModel
+    {
+        public string? ProfessorId { get; set; }
+        public int TurmaId { get; set; }
+        public List<int> ModulosIds { get; set; } = new();
+    }
+
+    // Classes temporárias para o código compilar
+    public class Turma { public int Id { get; set; } public string Nome { get; set; } }
+    public class Modulo { public int Id { get; set; } public string Nome { get; set; } }
+}

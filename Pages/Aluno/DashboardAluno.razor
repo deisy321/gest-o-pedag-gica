@@ -21,62 +21,80 @@
         {
             @foreach (var t in Trabalhos)
             {
-                <div class="card mb-3 p-3 shadow-sm">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <strong>@t.Titulo</strong>
-                        <div>
-                            <a class="btn btn-sm btn-primary" href="/aluno/EnviarTrabalho/@t.Id">
-                                Enviar / Editar
-                            </a>
-                        </div>
+                <div class="card mb-3 shadow-sm">
+                    <!-- Cabeçalho -->
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <strong>@t.Titulo</strong>
+                        </h5>
                     </div>
 
-                    <ul class="list-group list-group-flush">
-                        @foreach (var vert in t.Vertentes)
-                        {
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>@vert.Tipo</strong>
-                                    @if (!string.IsNullOrEmpty(vert.ConteudoTexto))
-                                    {
-                                        <div class="mt-1"><em>@vert.ConteudoTexto</em></div>
-                                    }
-                                    @if (!string.IsNullOrEmpty(vert.Feedback))
-                                    {
-                                        <div class="mt-1 text-info"><em>Feedback do professor: @vert.Feedback</em></div>
-                                    }
-                                </div>
+                    <!-- Corpo -->
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush">
+                            @foreach (var vert in t.Vertentes)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>@vert.Tipo</strong>
 
-                                <div class="text-end d-flex flex-column align-items-end">
-                                    @* Status envio *@
-                                    @if (vert.DataEnvio.HasValue || !string.IsNullOrEmpty(vert.ConteudoTexto) || (vert.FicheiroBytes != null && !string.IsNullOrEmpty(vert.FicheiroNome)))
-                                    {
-                                        <span class="text-success">✅ Enviado</span>
-
-                                        @if (vert.FicheiroBytes != null && !string.IsNullOrEmpty(vert.FicheiroNome))
+                                        @if (!string.IsNullOrEmpty(vert.ConteudoTexto))
                                         {
-                                            <a class="btn btn-sm btn-link mt-1"
-                                               href="/ficheiro/vertente/@vert.Id"
-                                               target="_blank">
-                                                Abrir arquivo
-                                            </a>
+                                            <div class="mt-1">
+                                                <em>@vert.ConteudoTexto</em>
+                                            </div>
                                         }
-                                    }
-                                    else
-                                    {
-                                        <span class="text-danger">❌ Pendente</span>
-                                    }
 
+                                        @if (!string.IsNullOrEmpty(vert.Feedback))
+                                        {
+                                            <div class="mt-1 text-info">
+                                                <em>Feedback do professor: @vert.Feedback</em>
+                                            </div>
+                                        }
+                                    </div>
 
-                                    @* Nota *@
-                                    @if (vert.Nota.HasValue)
-                                    {
-                                        <span class="mt-1">Nota: @vert.Nota.Value</span>
-                                    }
-                                </div>
-                            </li>
-                        }
-                    </ul>
+                                    <div class="text-end d-flex flex-column align-items-end">
+                                        @* Estado do envio *@
+                                        @if (vert.DataEnvio.HasValue ||
+                                                                    !string.IsNullOrEmpty(vert.ConteudoTexto) ||
+                                                                    (vert.FicheiroBytes != null && !string.IsNullOrEmpty(vert.FicheiroNome)))
+                                        {
+                                            <span class="text-success">✅ Enviado</span>
+
+                                            @if (vert.FicheiroBytes != null && !string.IsNullOrEmpty(vert.FicheiroNome))
+                                            {
+                                                <a class="btn btn-sm btn-link mt-1"
+                                                   href="/ficheiro/vertente/@vert.Id"
+                                                   target="_blank">
+                                                    Abrir arquivo
+                                                </a>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-danger">❌ Pendente</span>
+                                        }
+
+                                        @* Nota *@
+                                        @if (vert.Nota.HasValue)
+                                        {
+                                            <span class="mt-1">
+                                                Nota: @vert.Nota.Value
+                                            </span>
+                                        }
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+
+                    <!-- Rodapé -->
+                    <div class="card-footer text-end">
+                        <a class="btn btn-sm btn-primary"
+                           href="/aluno/EnviarTrabalho/@t.Id">
+                            Enviar / Editar
+                        </a>
+                    </div>
                 </div>
             }
         }
@@ -91,14 +109,19 @@
 </AuthorizeView>
 
 @code {
+
     private List<TrabalhoAlunoViewModel> Trabalhos { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
     {
+        // ID do aluno logado
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var alunoId = authState.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? "";
+        var alunoId = authState.User
+            .FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? "";
 
-        var trabalhosDb = await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(alunoId);
+        // Trabalhos disponíveis para o aluno
+        var trabalhosDb =
+            await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(alunoId);
 
         Trabalhos = trabalhosDb.Select(t => new TrabalhoAlunoViewModel
         {
@@ -111,7 +134,7 @@
                 ConteudoTexto = v.ConteudoTextoAluno ?? v.ConteudoTexto,
                 FicheiroNome = v.FicheiroNome,
                 FicheiroBytes = v.FicheiroBytes,
-                DataEnvio = v.DataEnvio == default(DateTime) ? null : v.DataEnvio,
+                DataEnvio = v.DataEnvio == default ? null : v.DataEnvio,
                 Nota = v.Nota,
                 Feedback = v.Feedback
             }).ToList()

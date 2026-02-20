@@ -1,11 +1,22 @@
-@page
+@page "/Identity/Account/Logout"
 @model gestaopedagogica.Pages.Identity.Account.LogoutModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Sair</title>
+</head>
+<body>
+    <h3>Sessão terminada com sucesso!</h3>
+    <p>Será redirecionado para a página de login em 3 segundos...</p>
 
-<h3>Sessão terminada com sucesso!</h3>
-<p>Será redirecionado para a página de login em 3 segundos...</p>
-
-<script>
-    setTimeout(function() {
-        window.location.href = '/Identity/Account/Login';
-    }, 3000); // 3 segundos
-</script>
+    <script>
+        setTimeout(function() {
+            window.location.href = '/Identity/Account/Login';
+        }, 3000);
+    </script>
+</body>
+</html>

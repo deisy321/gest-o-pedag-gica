@@ -53,6 +53,7 @@ namespace gestaopedagogica.Services
         {
             return await _context.Trabalhos
                 .Include(t => t.TrabalhoVertentes)
+                .Where(t => t.AlunoId == alunoId)
                 .OrderByDescending(t => t.DataCriacao)
                 .ToListAsync();
         }
@@ -82,7 +83,6 @@ namespace gestaopedagogica.Services
         // ------------------------------
         public async Task AtualizarVertenteAsync(TrabalhoVertente vertente)
         {
-            // Marca como enviado automaticamente se houver conteúdo
             if ((vertente.FicheiroBytes != null && vertente.FicheiroBytes.Length > 0)
                 || !string.IsNullOrEmpty(vertente.ConteudoTextoAluno))
             {
@@ -113,7 +113,6 @@ namespace gestaopedagogica.Services
                 vertente.ConteudoTextoAluno = conteudoTexto;
             }
 
-            // Marca como enviado
             vertente.DataEnvio ??= DateTime.UtcNow;
 
             _context.TrabalhoVertentes.Update(vertente);

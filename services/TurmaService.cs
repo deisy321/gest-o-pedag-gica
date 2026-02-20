@@ -15,16 +15,27 @@ namespace gestaopedagogica.Services
 
         public async Task<List<Turma>> GetTurmasAsync()
         {
-            return await _context.Turmas.Include(t => t.Alunos).ToListAsync();
+            // CORREÇÃO: Adicionado Include para Professores e o ThenInclude para carregar o NOME do professor
+            return await _context.Turmas
+                .Include(t => t.Alunos)
+                .Include(t => t.Professores)
+                    .ThenInclude(tp => tp.Professor)
+                .AsNoTracking() // Melhora a performance e garante dados frescos
+                .ToListAsync();
         }
 
         public async Task<Turma?> GetTurmaByIdAsync(int id)
         {
-            return await _context.Turmas.Include(t => t.Alunos).FirstOrDefaultAsync(t => t.Id == id);
+            return await _context.Turmas
+                .Include(t => t.Alunos)
+                .Include(t => t.Professores)
+                    .ThenInclude(tp => tp.Professor)
+                .FirstOrDefaultAsync(t => t.Id == id);
         }
 
         public async Task AddTurmaAsync(Turma turma)
         {
+            // Garante que o EF não tente criar professores duplicados, apenas a ligação
             _context.Turmas.Add(turma);
             await _context.SaveChangesAsync();
         }

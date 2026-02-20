@@ -31,6 +31,7 @@ builder.Services.AddScoped<ModuloService>();
 builder.Services.AddScoped<TurmaService>();
 builder.Services.AddScoped<TrabalhoService>();
 builder.Services.AddScoped<AdminService>();
+builder.Services.AddScoped<ProfessorService>(); // <--- ADICIONE ESTA (NOVA)
 
 // Configure Identity using AddIdentity (supports roles)
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>

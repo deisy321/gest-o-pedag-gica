@@ -1,10 +1,13 @@
+using gestaopedagogica.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using gestaopedagogica.Data;
+using System.Threading.Tasks;
 
 namespace gestaopedagogica.Pages.Identity.Account
 {
+    // Adiciona este atributo para evitar o erro 400 de validação de token
+    [IgnoreAntiforgeryToken]
     public class LogoutModel : PageModel
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
@@ -14,24 +17,16 @@ namespace gestaopedagogica.Pages.Identity.Account
             _signInManager = signInManager;
         }
 
-        // Mensagem que será exibida na página
-        [TempData]
-        public string StatusMessage { get; set; }
-
-        // Permite logout via GET
         public async Task<IActionResult> OnGetAsync()
         {
             await _signInManager.SignOutAsync();
-            StatusMessage = "Sessão terminada com sucesso! A redirecionar para login...";
-            return Page();
+            return Page(); // Isto vai carregar o teu HTML com o JavaScript
         }
 
-        // Permite logout via POST
         public async Task<IActionResult> OnPostAsync()
         {
             await _signInManager.SignOutAsync();
-            StatusMessage = "Sessão terminada com sucesso! A redirecionar para login...";
-            return Page();
+            return RedirectToPage("/Identity/Account/Login");
         }
     }
 }

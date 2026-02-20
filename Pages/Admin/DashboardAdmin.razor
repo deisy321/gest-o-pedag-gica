@@ -3,81 +3,179 @@
 @layout MainLayout
 @using Microsoft.AspNetCore.Components.Authorization
 @using gestaopedagogica.Services
+@using gestaopedagogica.Models
 
 @inject AdminService AdminService
 @inject AuthenticationStateProvider AuthStateProvider
 
 <AuthorizeView Roles="Administrador">
     <Authorized>
-        @if (!string.IsNullOrEmpty(successMessage))
-        {
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                @((MarkupString)successMessage)
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        }
+        <div class="container-fluid bg-light p-4">
 
-        <h3 class="mb-4">Dashboard do Administrador</h3>
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    @((MarkupString)successMessage)
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
 
-        <div class="row mb-3">
-            <div class="col-md-12">
-                <a href="/admin/ListarUtilizadores" class="btn btn-info btn-custom mb-3">
-                    📋 Gerir Utilizadores
-                </a>
-            </div>
-        </div>
-
-        <div class="row g-3">
-            <!-- Total de Alunos -->
-            <div class="col-md-4">
-                <div class="card card-custom p-3">
-                    <h5 class="mb-2">Total de Alunos</h5>
-                    <p>@TotalAlunos</p>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold">Dashboard do Administrador</h2>
+                <div class="search-bar w-25">
+                    <input type="text" class="form-control rounded-pill shadow-sm" placeholder="Pesquisar...">
                 </div>
             </div>
 
-            <!-- Total de Professores -->
-            <div class="col-md-4">
-                <div class="card card-custom p-3">
-                    <h5 class="mb-2">Total de Professores</h5>
-                    <p>@TotalProfessores</p>
+            <!-- CARDS DE RESUMO -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm p-3 text-white h-100" style="background-color: #f6c23e; border-radius: 15px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1 opacity-75">Total de Alunos</h6>
+                                <h2 class="fw-bold mb-0">@TotalAlunos</h2>
+                            </div>
+                            <i class="bi bi-people-fill fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm p-3 text-white h-100" style="background-color: #4e73df; border-radius: 15px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1 opacity-75">Total de Professores</h6>
+                                <h2 class="fw-bold mb-0">@TotalProfessores</h2>
+                            </div>
+                            <i class="bi bi-person-badge fs-1 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm p-3 bg-white border-start border-warning border-4 h-100" style="border-radius: 15px;">
+                        <h6 class="text-muted mb-1">Gestão de Turmas</h6>
+                        <p class="small text-secondary mb-2">Criar turmas e alunos</p>
+                        <a href="/admin/GerirTurmas" class="btn btn-outline-warning btn-sm rounded-pill w-75">Ir para Turmas</a>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm p-3 bg-white border-start border-primary border-4 h-100" style="border-radius: 15px;">
+                        <h6 class="text-muted mb-1">Nova Atribuição</h6>
+                        <p class="small text-secondary mb-2">Vincular Prof. a Módulos</p>
+                        <a href="/admin/AtribuirTurma" class="btn btn-outline-primary btn-sm rounded-pill w-75">Configurar</a>
+                    </div>
                 </div>
             </div>
 
-            <!-- Registar Utilizador -->
-            <div class="col-md-4">
-                <div class="card card-custom p-3">
-                    <h5 class="mb-2">Registar Utilizador</h5>
-                    <p>Criar nova conta de utilizador</p>
-                    <a href="/admin/RegisterAdmin" class="btn btn-primary btn-custom btn-sm">Registar</a>
+            <!-- ÁREA DE GESTÃO E ATIVIDADES -->
+            <div class="row g-4">
+                <div class="col-md-8">
+                    <div class="card border-0 shadow-sm p-4 h-100" style="border-radius: 15px;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold">Professores e Módulos Ativos</h5>
+                            <span class="badge bg-light text-dark">Atualizado agora</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Professor</th>
+                                        <th>Turma</th>
+                                        <th>Módulo/Disciplina</th>
+                                        <th class="text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (ListaAtribuicoes != null && ListaAtribuicoes.Any())
+                                    {
+                                        @foreach (var item in ListaAtribuicoes)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="bg-secondary text-white rounded-circle me-2 p-1 px-2" style="font-size: 0.8rem;">Prof</div>
+                                                        <span class="fw-bold">@item.ProfessorNome</span>
+                                                    </div>
+                                                </td>
+                                                <td><span class="badge bg-light text-dark border">@item.TurmaNome</span></td>
+                                                <td><span class="text-primary">@item.ModuloNome</span></td>
+                                                <td class="text-center">
+                                                    <a href="/admin/GerirTurmas" class="btn btn-sm btn-light border"><i class="bi bi-pencil-square"></i></a>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted p-4">Nenhuma atribuição encontrada. Vá a "Atribuir Turma" para começar.</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm p-4 h-100" style="border-radius: 15px;">
+                        <h5 class="fw-bold mb-4">Ações Rápidas</h5>
+                        <div class="d-grid gap-3">
+                            <a href="/admin/RegisterAdmin" class="btn btn-primary p-3 text-start shadow-sm d-flex align-items-center" style="border-radius: 12px;">
+                                <i class="bi bi-person-plus-fill me-3 fs-4"></i>
+                                <div>
+                                    <div class="fw-bold">Registar Utilizador</div>
+                                    <div class="small opacity-75">Criar Admin ou Professor</div>
+                                </div>
+                            </a>
+
+                            <a href="/admin/ListarUtilizadores" class="btn btn-info p-3 text-start text-white shadow-sm d-flex align-items-center" style="border-radius: 12px; background-color: #36b9cc;">
+                                <i class="bi bi-people me-3 fs-4"></i>
+                                <div>
+                                    <div class="fw-bold">Gerir Utilizadores</div>
+                                    <div class="small opacity-75">Editar ou Remover</div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </Authorized>
     <NotAuthorized>
-        <div class="alert alert-danger mt-5 card-custom">
-            <h4>Acesso Negado</h4>
-            <p>Você não tem permissão para acessar o dashboard do administrador.</p>
-            <p>Por favor, <a href="/login">faça login novamente</a> com uma conta de administrador.</p>
+        <div class="container text-center mt-5">
+            <div class="alert alert-danger shadow-lg p-5" style="border-radius: 20px;">
+                <i class="bi bi-shield-lock fs-1"></i>
+                <h4 class="mt-3">Acesso Negado</h4>
+                <p>Você não tem permissão para acessar o dashboard do administrador.</p>
+                <hr>
+                <p class="mb-0">Por favor, faça login novamente com uma conta autorizada.</p>
+            </div>
         </div>
     </NotAuthorized>
 </AuthorizeView>
 
 @code {
-    // Inicializa como vazio para evitar aviso de campo não atribuído
     private string? successMessage = "";
-
     private int TotalAlunos { get; set; }
     private int TotalProfessores { get; set; }
+    private List<gestaopedagogica.Services.ResumoAtribuicao> ListaAtribuicoes = new();
 
     protected override async Task OnInitializedAsync()
     {
-        // Carregar totais do AdminService
         TotalAlunos = await AdminService.GetTotalAlunosAsync();
         TotalProfessores = await AdminService.GetTotalProfessoresAsync();
+
+        var result = await AdminService.GetResumoAtribuicoesAsync();
+        if (result != null)
+        {
+            ListaAtribuicoes = result;
+        }
     }
 
-    // Exemplo de método para atualizar sucesso, se necessário
     private void MostrarSucesso(string mensagem)
     {
         successMessage = mensagem;
