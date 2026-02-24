@@ -1,14 +1,14 @@
 ﻿using gestaopedagogica.Data;
 using gestaopedagogica.Models;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore; // IMPORTANTE para o ToListAsync
+using Microsoft.EntityFrameworkCore;
 
 namespace gestaopedagogica.Services
 {
     public class AdminService
     {
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly ApplicationDbContext _context; // Adicionado para gerir tabelas de Turmas
+        private readonly ApplicationDbContext _context;
 
         public AdminService(UserManager<ApplicationUser> userManager, ApplicationDbContext context)
         {
@@ -16,9 +16,10 @@ namespace gestaopedagogica.Services
             _context = context;
         }
 
-        // 1. Totais para os Cards do Dashboard
+        // 1. Totais para os Cards
         public async Task<int> GetTotalAlunosAsync()
         {
+            // Se tiveres uma tabela Alunos, é mais rápido usar: await _context.Alunos.CountAsync();
             var alunos = await _userManager.GetUsersInRoleAsync("Aluno");
             return alunos.Count;
         }
@@ -29,25 +30,27 @@ namespace gestaopedagogica.Services
             return professores.Count;
         }
 
-        // 2. Métodos que o seu Dashboard está a pedir e não encontrava
-        public async Task<List<ResumoAtribuicao>> GetResumoAtribuicoesAsync()
+        // 2. MÉTODO CORRIGIDO (Nome alterado para bater certo com a Dashboard)
+        public async Task<List<ResumoAtribuicao>> GetAtribuicoesAtivasAsync()
         {
             try
             {
-                // Verifica se a tabela existe antes de consultar para não crashar o Blazor
                 return await _context.TurmaProfessores
                     .Include(tp => tp.Professor)
                     .Include(tp => tp.Turma)
+                    .Include(tp => tp.Disciplina) // Inclui a nova relação de Disciplina
                     .Select(tp => new ResumoAtribuicao
                     {
                         ProfessorNome = tp.Professor.Nome ?? "Sem Nome",
                         TurmaNome = tp.Turma.Nome ?? "Sem Turma",
-                        ModuloNome = tp.Modulo ?? "Sem Módulo"
+                        // Lógica: Se houver Disciplina, mostra o Nome dela, senão mostra o campo Modulo (string)
+                        ModuloNome = tp.Disciplina != null ? tp.Disciplina.Nome : (tp.Modulo ?? "Sem Disciplina")
                     }).ToListAsync();
             }
-            catch
+            catch (Exception ex)
             {
-                return new List<ResumoAtribuicao>(); // Retorna lista vazia se a tabela não existir
+                Console.WriteLine($"Erro ao carregar atribuições: {ex.Message}");
+                return new List<ResumoAtribuicao>();
             }
         }
 
@@ -57,14 +60,13 @@ namespace gestaopedagogica.Services
             return professores.ToList();
         }
 
-        // 3. Gestão de Utilizadores (Corrigido para Async)
         public async Task<List<ApplicationUser>> GetTodosUsuariosAsync()
         {
             return await _userManager.Users.ToListAsync();
         }
     }
 
-    // 4. Classe de suporte (Tem de estar aqui para o Blazor a ver)
+    // Classe de suporte
     public class ResumoAtribuicao
     {
         public string ProfessorNome { get; set; } = string.Empty;

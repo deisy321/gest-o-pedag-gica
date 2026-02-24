@@ -5,6 +5,7 @@
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @inject TrabalhoService TrabalhoService
 @inject ProfessorService ProfessorService
 @inject AuthenticationStateProvider AuthStateProvider
@@ -81,44 +82,55 @@
                 return;
             }
 
-            // 1️⃣ pega o UserId do professor logado
+            // 1️⃣ Pega a identidade do professor logado pelo Nome/Email (prof@local)
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var userId = authState.User.FindFirst("sub")?.Value ?? "";
+            var user = authState.User;
 
-            if (string.IsNullOrEmpty(userId))
+            // O Identity do Blazor geralmente coloca o email/username aqui:
+            var emailIdentificado = user.Identity?.Name;
+
+            if (string.IsNullOrEmpty(emailIdentificado))
             {
-                StatusMessage = "❌ Não foi possível identificar o professor logado.";
+                StatusMessage = "❌ Não foi possível identificar o utilizador logado na sessão.";
                 return;
             }
 
-            // 2️⃣ busca o Professor correspondente na base
-            var professor = await ProfessorService.GetProfessorByUserIdAsync(userId);
+            // 2️⃣ Busca o Professor correspondente na base de dados pelo EMAIL
+            // Usamos o novo método GetProfessorByEmailAsync para evitar o erro do ID longo
+            var professor = await ProfessorService.GetProfessorByEmailAsync(emailIdentificado);
+
             if (professor == null)
             {
-                StatusMessage = "❌ Professor não encontrado na base de dados.";
+                StatusMessage = $"❌ O professor com o email '{emailIdentificado}' não foi encontrado na base de dados.";
                 return;
             }
 
-            // 3️⃣ cria o trabalho com ProfessorId convertido para string
+            // 3️⃣ Cria o trabalho com ProfessorId convertido para string
             var trabalho = new Trabalho
             {
                 Titulo = Titulo.Trim(),
-                ProfessorId = professor.Id.ToString(),   // ✅ converte int para string
+                ProfessorId = professor.Id.ToString(),   // ✅ Agora usa o ID numérico curto (ex: 1, 2)
                 DataCriacao = DateTime.UtcNow,
                 PrazoEntrega = DateTime.SpecifyKind(PrazoEntrega.Value, DateTimeKind.Utc)
             };
 
             await TrabalhoService.AddTrabalhoAsync(trabalho);
 
-            // 4️⃣ busca vertentes criadas automaticamente
+            // 4️⃣ Busca vertentes criadas automaticamente
             var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(trabalho.Id);
 
-            // 5️⃣ atualiza apenas o texto do professor
-            foreach (var vertDb in vertentesDb)
+            // 5️⃣ Atualiza apenas o texto do professor
+            if (vertentesDb != null)
             {
-                var local = Vertentes.First(v => v.Tipo == vertDb.Tipo);
-                vertDb.ConteudoTexto = local.ConteudoTexto ?? "";
-                await TrabalhoService.AtualizarVertenteAsync(vertDb);
+                foreach (var vertDb in vertentesDb)
+                {
+                    var local = Vertentes.FirstOrDefault(v => v.Tipo == vertDb.Tipo);
+                    if (local != null)
+                    {
+                        vertDb.ConteudoTexto = local.ConteudoTexto ?? "";
+                        await TrabalhoService.AtualizarVertenteAsync(vertDb);
+                    }
+                }
             }
 
             Nav.NavigateTo("/professor/DashboardProfessor");
@@ -126,6 +138,8 @@
         catch (Exception ex)
         {
             StatusMessage = "❌ Erro: " + ex.Message;
+            // Log para o console para ajudar na depuração
+            Console.WriteLine(ex.ToString());
         }
         finally
         {

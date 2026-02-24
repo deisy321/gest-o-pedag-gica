@@ -1,0 +1,180 @@
+﻿@page "/admin/CriarModulo"
+@namespace gestaopedagogica.Pages.Admin
+@layout MainLayout
+
+@using gestaopedagogica.Models
+@using gestaopedagogica.Services
+@inject ModuloService ModuloService
+@inject ProfessorService ProfessorService
+@inject TurmaService TurmaService
+@inject DisciplinaService DisciplinaService
+@inject NavigationManager Nav
+
+<div class="container mt-4">
+    <div class="card shadow border-0" style="border-radius: 15px;">
+        <div class="card-header bg-dark text-white p-3">
+            <h4 class="mb-0"><i class="bi bi-journal-plus me-2"></i>Novo Módulo</h4>
+        </div>
+        <div class="card-body p-4">
+            @if (IsLoading)
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">Carregando dados...</p>
+                </div>
+            }
+            else
+            {
+                <EditForm Model="novoModulo" OnValidSubmit="SalvarModulo">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="row g-3">
+                        <!-- Seleção de Disciplina (Obrigatório para a hierarquia) -->
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold text-primary">Disciplina Pertencente</label>
+                            <InputSelect @bind-Value="SelectedDisciplinaId" class="form-select rounded-pill border-primary">
+                                <option value="0">-- Selecione a Disciplina --</option>
+                                @foreach (var disc in ListaDisciplinas)
+                                {
+                                    <option value="@disc.Id">@disc.Nome</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Nome do Módulo</label>
+                            <InputText @bind-Value="novoModulo.Nome" class="form-control rounded-pill" placeholder="Ex: Programação C#" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Número/UFCD</label>
+                            <InputText @bind-Value="novoModulo.Numero" class="form-control rounded-pill" placeholder="Ex: 0778" />
+                        </div>
+
+                        <div class="col-md-6 mt-3">
+                            <label class="form-label fw-bold">Professor Responsável (Opcional)</label>
+                            <InputSelect @bind-Value="SelectedProfessorId" class="form-select rounded-pill">
+                                <option value="0">Selecione depois...</option>
+                                @foreach (var prof in ListaProfessores)
+                                {
+                                    <option value="@prof.Id">@prof.Nome</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="col-md-6 mt-3">
+                            <label class="form-label fw-bold">Vincular à Turma (Opcional)</label>
+                            <InputSelect @bind-Value="SelectedTurmaId" class="form-select rounded-pill">
+                                <option value="0">Vincular depois...</option>
+                                @foreach (var turma in ListaTurmas)
+                                {
+                                    <option value="@turma.Id">@turma.Nome</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(ErrorMessage))
+                    {
+                        <div class="alert alert-danger mt-3">@ErrorMessage</div>
+                    }
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary rounded-pill px-5" disabled="@(IsSaving || SelectedDisciplinaId == 0)">
+                            @(IsSaving ? "Gravando..." : "Criar Módulo")
+                        </button>
+                        @if (SelectedDisciplinaId == 0)
+                        {
+                            <small class="text-muted d-block mt-2">Selecione uma disciplina para habilitar o botão.</small>
+                        }
+                    </div>
+                </EditForm>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private Modulo novoModulo = new();
+    private List<Professor> ListaProfessores = new();
+    private List<Turma> ListaTurmas = new();
+    private List<Disciplina> ListaDisciplinas = new();
+
+    private int SelectedTurmaId;
+    private int SelectedProfessorId;
+    private int SelectedDisciplinaId;
+
+    private bool IsLoading = true;
+    private bool IsSaving = false;
+    private string ErrorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Carrega todas as listas necessárias
+            ListaProfessores = await ProfessorService.GetProfessoresAsync() ?? new();
+            ListaTurmas = await TurmaService.GetTurmasSimplesAsync() ?? new();
+            ListaDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Erro ao carregar dados da base de dados.";
+            Console.WriteLine(ex.Message);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SalvarModulo()
+    {
+        if (SelectedDisciplinaId == 0)
+        {
+            ErrorMessage = "Deve selecionar uma disciplina obrigatoriamente.";
+            return;
+        }
+
+        try
+        {
+            IsSaving = true;
+            ErrorMessage = "";
+
+            // Atribui a Disciplina selecionada
+            novoModulo.DisciplinaId = SelectedDisciplinaId;
+
+            // Atribui o Professor apenas se um foi selecionado
+            if (SelectedProfessorId > 0)
+            {
+                novoModulo.ProfessorId = SelectedProfessorId;
+            }
+            else
+            {
+                novoModulo.ProfessorId = null;
+            }
+
+            // 1. Criar o Módulo na base de dados
+            await ModuloService.AddModuloAsync(novoModulo);
+
+            // 2. Vincula à Turma APENAS se o Admin selecionou uma
+            if (SelectedTurmaId > 0 && novoModulo.Id > 0)
+            {
+                await TurmaService.AddTurmaModuloAsync(SelectedTurmaId, novoModulo.Id);
+            }
+
+            Nav.NavigateTo("/admin/GerirModulos");
+        }
+        catch (Exception ex)
+        {
+            var inner = ex.InnerException?.Message ?? ex.Message;
+            ErrorMessage = $"Erro ao salvar: {inner}";
+            Console.WriteLine($"[ERRO_SALVAR] {inner}");
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+}

@@ -10,6 +10,7 @@ namespace gestaopedagogica.Models
         // Ligação com Identity
         public string UserId { get; set; } = "";
         public ApplicationUser User { get; set; } = null!;
+        public string? Email { get; set; }
 
         // Relacionamentos
         public List<TurmaProfessor> Turmas { get; set; } = new();

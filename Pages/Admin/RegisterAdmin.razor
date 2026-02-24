@@ -2,11 +2,16 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Identity
 @using gestaopedagogica.Data
+@using gestaopedagogica.Models
+@using gestaopedagogica.Services
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components.Forms
+@using System.Text.RegularExpressions
 @attribute [Authorize(Roles = "Administrador")]
 @inject UserManager<ApplicationUser> UserManager
 @inject RoleManager<IdentityRole> RoleManager
+@inject ProfessorService ProfessorService
+@inject AlunoService AlunoService
 @inject NavigationManager Navigation
 @inject ILogger<RegisterAdmin> Logger
 @namespace gestaopedagogica.Pages.Admin
@@ -41,6 +46,11 @@
                             <EditForm EditContext="new EditContext(Input)" OnValidSubmit="HandleRegisterAsync">
                                 <DataAnnotationsValidator />
                                 <ValidationSummary class="text-danger" />
+
+                                <div class="mb-3">
+                                    <label for="nome" class="form-label">Nome Completo <span class="text-danger">*</span></label>
+                                    <InputText id="nome" @bind-Value="Input.Nome" class="form-control form-control-lg" placeholder="Ex: João Silva" />
+                                </div>
 
                                 <div class="mb-3">
                                     <label for="email" class="form-label">Email do Utilizador <span class="text-danger">*</span></label>
@@ -96,7 +106,7 @@
                 border-radius: 5px;
                 font-size: 12px;
                 font-weight: bold;
-                margin: 5px 5px 5px 0;
+                margin: 5px 0;
             }
 
             .role-admin {
@@ -115,14 +125,6 @@
             }
         </style>
     </Authorized>
-
-    <NotAuthorized>
-        <div class="alert alert-danger mt-5">
-            <h4>Acesso Negado</h4>
-            <p>Você não tem permissão para registar utilizadores.</p>
-            <p>Por favor, <a href="/login">faça login novamente</a> com uma conta de administrador.</p>
-        </div>
-    </NotAuthorized>
 </AuthorizeView>
 
 @code {
@@ -132,12 +134,27 @@
     private bool ShowSuccessMessage { get; set; } = false;
     private bool IsSubmitting { get; set; } = false;
 
+    public class RegisterAdminInputModel
+    {
+        [Required(ErrorMessage = "O nome é obrigatório.")]
+        public string Nome { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "O email é obrigatório.")]
+        [EmailAddress(ErrorMessage = "Email inválido.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "A senha é obrigatória.")]
+        [MinLength(6, ErrorMessage = "A senha deve ter pelo menos 6 caracteres.")]
+        public string Password { get; set; } = string.Empty;
+
+        [Compare("Password", ErrorMessage = "As senhas não correspondem.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+
     public static class UserRoles
     {
         public record RoleInfo(string DisplayName, string CssClass);
-
-        public static readonly Dictionary<string, RoleInfo> AllRoles = new()
-        {
+        public static readonly Dictionary<string, RoleInfo> AllRoles = new() {
             { "Aluno", new RoleInfo("Aluno", "role-aluno") },
             { "Professor", new RoleInfo("Professor", "role-professor") },
             { "Administrador", new RoleInfo("Administrador", "role-admin") }
@@ -150,75 +167,52 @@
         ErrorMessage = string.Empty;
         ShowSuccessMessage = false;
 
-        if (string.IsNullOrWhiteSpace(Input.Email))
+        try
         {
-            ErrorMessage = "Email é obrigatório.";
+            // Gera um UserName limpo (sem espaços, acentos ou símbolos)
+            // Ex: "João Silva" vira "JoaoSilva"
+            string cleanUserName = Regex.Replace(Input.Nome.Normalize(System.Text.NormalizationForm.FormD), @"[^a-zA-z0-9]", "");
+
+            // 1. Criar a conta de Login no Identity
+            var user = new ApplicationUser
+            {
+                UserName = cleanUserName,
+                Email = Input.Email,
+                EmailConfirmed = true
+            };
+
+            var result = await UserManager.CreateAsync(user, Input.Password);
+
+            if (result.Succeeded)
+            {
+                await UserManager.AddToRoleAsync(user, SelectedRole);
+
+                if (SelectedRole == "Professor")
+                {
+                    var novoProf = new Professor { Nome = Input.Nome, Email = Input.Email, UserId = user.Id };
+                    await ProfessorService.AddProfessorAsync(novoProf);
+                }
+                else if (SelectedRole == "Aluno")
+                {
+                    var novoAluno = new Aluno { Nome = Input.Nome, Email = Input.Email, UserId = user.Id, TurmaId = null };
+                    await AlunoService.AddAlunoAsync(novoAluno);
+                }
+
+                ShowSuccessMessage = true;
+                Input = new RegisterAdminInputModel();
+            }
+            else
+            {
+                ErrorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Erro inesperado: " + ex.Message;
+        }
+        finally
+        {
             IsSubmitting = false;
-            return;
         }
-
-        if (!UserRoles.AllRoles.ContainsKey(SelectedRole))
-        {
-            ErrorMessage = "Tipo de utilizador inválido.";
-            IsSubmitting = false;
-            return;
-        }
-
-        if (Input.Password != Input.ConfirmPassword)
-        {
-            ErrorMessage = "As senhas não correspondem.";
-            IsSubmitting = false;
-            return;
-        }
-
-        if (Input.Password.Length < 6)
-        {
-            ErrorMessage = "A senha deve ter pelo menos 6 caracteres.";
-            IsSubmitting = false;
-            return;
-        }
-
-        var existingUser = await UserManager.FindByEmailAsync(Input.Email);
-        if (existingUser != null)
-        {
-            ErrorMessage = "Este email já está registado no sistema.";
-            IsSubmitting = false;
-            return;
-        }
-
-        var user = new ApplicationUser { UserName = Input.Email, Email = Input.Email, EmailConfirmed = true };
-        var result = await UserManager.CreateAsync(user, Input.Password);
-
-        if (result.Succeeded)
-        {
-            await UserManager.AddToRoleAsync(user, SelectedRole);
-            ShowSuccessMessage = true;
-            Input = new RegisterAdminInputModel();
-            SelectedRole = "Aluno";
-
-            await Task.Delay(2000);
-            Navigation.NavigateTo("/admin/DashboardAdmin", true);
-        }
-        else
-        {
-            ErrorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
-        }
-
-        IsSubmitting = false;
-    }
-
-    public class RegisterAdminInputModel
-    {
-        [Required(ErrorMessage = "O email é obrigatório")]
-        [EmailAddress(ErrorMessage = "Email inválido")]
-        public string Email { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "A senha é obrigatória")]
-        [StringLength(100, MinimumLength = 6, ErrorMessage = "A senha deve ter pelo menos 6 caracteres.")]
-        public string Password { get; set; } = string.Empty;
-
-        [DataType(DataType.Password)]
-        [Compare(nameof(Password), ErrorMessage = "A senha e a confirmação não correspondem.")]
-        public string ConfirmPassword { get; set; } = string.Empty;
     }
 }

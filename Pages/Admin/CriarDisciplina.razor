@@ -1,0 +1,85 @@
+﻿@page "/admin/CriarDisciplina"
+@using gestaopedagogica.Services
+@using gestaopedagogica.Models
+@inject DisciplinaService DisciplinaService
+@inject NavigationManager Nav
+
+<div class="container mt-4">
+    <div class="card shadow border-0" style="border-radius: 15px;">
+        <div class="card-header bg-primary text-white p-3" style="border-radius: 15px 15px 0 0;">
+            <h4 class="mb-0">Nova Disciplina</h4>
+        </div>
+        <div class="card-body p-4">
+            <EditForm Model="novaDisciplina" OnValidSubmit="SalvarDisciplina">
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Nome da Disciplina (Ex: Programação)</label>
+                    <InputText @bind-Value="novaDisciplina.Nome" class="form-control rounded-pill" placeholder="Digite o nome..." />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Curso Associado</label>
+                    <select class="form-select rounded-pill" @bind="novaDisciplina.CursoId">
+                        <option value="0">Selecione um curso...</option>
+                        @if (ListaCursos != null)
+                        {
+                            @foreach (var curso in ListaCursos)
+                            {
+                                <option value="@curso.Id">@curso.Nome</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <div class="alert alert-danger mt-3">@ErrorMessage</div>
+                }
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary rounded-pill px-5">Criar Disciplina</button>
+                    <a href="/admin/GerirDisciplinas" class="btn btn-outline-secondary rounded-pill px-4 ms-2">Cancelar</a>
+                </div>
+
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private Disciplina novaDisciplina = new Disciplina();
+    private List<Curso> ListaCursos = new();
+    private string ErrorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // ✅ Usa o DisciplinaService para carregar os cursos
+            ListaCursos = await DisciplinaService.GetCursosAsync() ?? new List<Curso>();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "⚠️ Erro ao carregar cursos: " + ex.Message;
+        }
+    }
+
+    private async Task SalvarDisciplina()
+    {
+        if (novaDisciplina.CursoId == 0)
+        {
+            ErrorMessage = "⚠️ Por favor, selecione um curso.";
+            return;
+        }
+
+        try
+        {
+            await DisciplinaService.AddDisciplinaAsync(novaDisciplina);
+            Nav.NavigateTo("/admin/GerirDisciplinas");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "⚠️ Erro ao salvar disciplina: " + ex.Message;
+        }
+    }
+}

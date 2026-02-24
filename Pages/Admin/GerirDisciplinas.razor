@@ -1,0 +1,72 @@
+﻿@page "/admin/GerirDisciplinas"
+@using gestaopedagogica.Models
+@using gestaopedagogica.Services
+@inject DisciplinaService DisciplinaService
+@inject NavigationManager Nav
+
+<div class="container mt-4">
+    <div class="card shadow border-0" style="border-radius:15px;">
+        <div class="card-header bg-indigo text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Gerir Disciplinas</h4>
+
+            <button class="btn btn-light rounded-pill"
+                    @onclick='() => Nav.NavigateTo("/admin/CriarDisciplina")'>
+                + Nova Disciplina
+            </button>
+        </div>
+
+        <div class="card-body">
+
+            @if (!disciplinas.Any())
+            {
+                <div class="alert alert-info">
+                    Nenhuma disciplina registada.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nome</th>
+                                <th class="text-end">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var disc in disciplinas)
+                            {
+                                <tr>
+                                    <td>@disc.Nome</td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-danger rounded-pill"
+                                                @onclick="() => EliminarDisciplina(disc.Id)">
+                                            Eliminar
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+        </div>
+    </div>
+</div>
+
+@code {
+
+    private List<Disciplina> disciplinas = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        disciplinas = await DisciplinaService.GetDisciplinasAsync();
+    }
+
+    private async Task EliminarDisciplina(int id)
+    {
+        await DisciplinaService.DeleteDisciplinaAsync(id);
+        disciplinas = await DisciplinaService.GetDisciplinasAsync();
+    }
+}

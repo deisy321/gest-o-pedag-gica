@@ -1,100 +1,234 @@
 ﻿@page "/admin/AtribuirTurma"
 @namespace gestaopedagogica.Pages.Admin
 @layout MainLayout
-@using gestaopedagogica.Data
+@using gestaopedagogica.Models
 @using gestaopedagogica.Services
-@inject AdminService AdminService
+@inject TurmaService TurmaService
+@inject ProfessorService ProfessorService
+@inject AlunoService AlunoService
+@inject ModuloService ModuloService
+@inject DisciplinaService DisciplinaService
 @inject NavigationManager NavigationManager
 
 <div class="container mt-4">
     <div class="card shadow-sm border-0" style="border-radius: 15px;">
         <div class="card-header bg-primary text-white p-3" style="border-radius: 15px 15px 0 0;">
-            <h4 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Vincular Professor a Turma</h4>
+            <h4 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Vincular à Turma</h4>
         </div>
         <div class="card-body p-4">
-            <EditForm Model="@atribuicao" OnValidSubmit="HandleAtribuicao">
-                <DataAnnotationsValidator />
+            @if (IsLoading)
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">Carregando dados do sistema...</p>
+                </div>
+            }
+            else
+            {
+                <!-- Seletor de Tipo -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">O que deseja vincular?</label>
+                    <div class="btn-group w-100" role="group">
+                        <button type="button" class="btn @(TipoVinculo == "Professor" ? "btn-primary" : "btn-outline-primary")" @onclick='() => SetTipo("Professor")'>Professor</button>
+                        <button type="button" class="btn @(TipoVinculo == "Aluno" ? "btn-primary" : "btn-outline-primary")" @onclick='() => SetTipo("Aluno")'>Aluno</button>
+                        <button type="button" class="btn @(TipoVinculo == "Modulo" ? "btn-success" : "btn-outline-success")" @onclick='() => SetTipo("Modulo")'>Módulo</button>
+                    </div>
+                </div>
 
                 <div class="row g-3">
-                    <!-- Selecionar Professor -->
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">Professor</label>
-                        <select class="form-select rounded-pill" @bind="atribuicao.ProfessorId">
-                            <option value="">Selecione um professor...</option>
-                            @foreach (var prof in Professores)
-                            {
-                                <option value="@prof.Id">@prof.UserName</option>
-                            }
-                        </select>
-                    </div>
+                    @if (TipoVinculo == "Professor")
+                    {
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Professor</label>
+                            <select class="form-select rounded-pill" @bind="SelectedProfessorId">
+                                <option value="0">Selecione o professor...</option>
+                                @foreach (var prof in ListaProfessores)
+                                {
+                                    <option value="@prof.Id">@prof.Nome</option>
+                                }
+                            </select>
+                        </div>
 
-                    <!-- Selecionar Turma -->
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">Turma</label>
-                        <select class="form-select rounded-pill" @bind="atribuicao.TurmaId">
-                            <option value="">Selecione a turma...</option>
-                            @foreach (var turma in Turmas)
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-primary">Disciplina a Lecionar</label>
+                            <select class="form-select rounded-pill border-primary" @bind="SelectedDisciplinaId">
+                                <option value="0">Selecione a disciplina...</option>
+                                @foreach (var disc in ListaDisciplinas)
+                                {
+                                    <option value="@disc.Id">@disc.Nome</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    else if (TipoVinculo == "Aluno")
+                    {
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Aluno</label>
+                            <select class="form-select rounded-pill" @bind="SelectedAlunoId">
+                                <option value="0">Selecione um aluno...</option>
+                                @foreach (var aluno in ListaAlunos)
+                                {
+                                    <option value="@aluno.Id">@aluno.Nome (@(aluno.Turma?.Nome ?? "Sem Turma"))</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    else if (TipoVinculo == "Modulo")
+                    {
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Módulo</label>
+                            <select class="form-select rounded-pill" @bind="SelectedModuloId">
+                                <option value="0">Selecione um módulo...</option>
+                                @foreach (var modulo in ListaModulos)
+                                {
+                                    <option value="@modulo.Id">@modulo.Nome</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Turma Destino</label>
+                        <select class="form-select rounded-pill" @bind="SelectedTurmaId">
+                            <option value="0">Selecione a turma...</option>
+                            @foreach (var turma in ListaTurmas)
                             {
                                 <option value="@turma.Id">@turma.Nome</option>
                             }
                         </select>
                     </div>
-
-                    <!-- Selecionar Módulos (Exemplo Multi-select simples) -->
-                    <div class="col-md-12 mt-3">
-                        <label class="form-label fw-bold">Módulos/Disciplinas</label>
-                        <div class="border rounded p-3 bg-light" style="max-height: 150px; overflow-y: auto;">
-                            @foreach (var modulo in ModulosDisponiveis)
-                            {
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="@modulo.Id" id="mod_@modulo.Id">
-                                    <label class="form-check-label" for="mod_@modulo.Id">@modulo.Nome</label>
-                                </div>
-                            }
-                        </div>
-                    </div>
                 </div>
+
+                @if (!string.IsNullOrEmpty(Message))
+                {
+                    <div class="alert @(Message.Contains("✅") ? "alert-success" : "alert-warning") mt-3">
+                        @Message
+                    </div>
+                }
 
                 <div class="mt-4 d-flex gap-2">
-                    <button type="submit" class="btn btn-success rounded-pill px-4">Gravar Atribuição</button>
-                    <a href="/admin/DashboardAdmin" class="btn btn-outline-secondary rounded-pill px-4">Cancelar</a>
+                    <button class="btn btn-success rounded-pill px-4" @onclick="HandleAtribuicao" disabled="@IsSaving">
+                        @(IsSaving ? "Gravando..." : "Gravar Atribuição")
+                    </button>
+                    <a href="/admin/Dashboard" class="btn btn-outline-secondary rounded-pill px-4">Cancelar</a>
                 </div>
-            </EditForm>
+            }
         </div>
     </div>
 </div>
 
 @code {
-    private AtribuicaoModel atribuicao = new();
-    private List<ApplicationUser> Professores = new();
-    private List<Turma> Turmas = new(); // Assume que tens uma classe Turma
-    private List<Modulo> ModulosDisponiveis = new(); // Assume que tens uma classe Modulo
+    private List<Professor> ListaProfessores = new();
+    private List<Aluno> ListaAlunos = new();
+    private List<Turma> ListaTurmas = new();
+    private List<Modulo> ListaModulos = new();
+    private List<Disciplina> ListaDisciplinas = new();
+
+    private int SelectedProfessorId;
+    private int SelectedAlunoId;
+    private int SelectedTurmaId;
+    private int SelectedModuloId;
+    private int SelectedDisciplinaId;
+
+    private string TipoVinculo = "Professor";
+    private bool IsLoading = true;
+    private bool IsSaving = false;
+    private string Message = "";
 
     protected override async Task OnInitializedAsync()
     {
-        // Carrega os dados do teu AdminService
-        Professores = await AdminService.GetProfessoresAsync();
+        IsLoading = true;
+        Message = "";
 
-        // Exemplo de dados manuais para não dar erro enquanto não crias as tabelas
-        Turmas = new List<Turma> { new Turma { Id = 1, Nome = "10º A" }, new Turma { Id = 2, Nome = "12º C" } };
-        ModulosDisponiveis = new List<Modulo> { new Modulo { Id = 1, Nome = "Matemática" }, new Modulo { Id = 2, Nome = "Programação" } };
+        // 1. Disciplinas
+        try { ListaDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new(); }
+        catch (Exception ex) { Console.WriteLine("Erro Disciplinas: " + ex.Message); }
+
+        // 2. Professores
+        try { ListaProfessores = await ProfessorService.GetProfessoresAsync() ?? new(); }
+        catch (Exception ex) { Console.WriteLine("Erro Professores: " + ex.Message); }
+
+        // 3. Alunos
+        try { ListaAlunos = await AlunoService.GetAlunosAsync() ?? new(); }
+        catch (Exception ex) { Console.WriteLine("Erro Alunos: " + ex.Message); }
+
+        // 4. Módulos
+        try { ListaModulos = await ModuloService.GetModulosAsync() ?? new(); }
+        catch (Exception ex) { Console.WriteLine("Erro Modulos: " + ex.Message); }
+
+        // 5. Turmas (Usando método simples para garantir o carregamento do Select)
+        try { ListaTurmas = await TurmaService.GetTurmasSimplesAsync() ?? new(); }
+        catch (Exception ex)
+        {
+            Message = "⚠️ Alguns dados das turmas falharam ao carregar. " + ex.Message;
+        }
+
+        IsLoading = false;
+    }
+
+    private void SetTipo(string tipo)
+    {
+        TipoVinculo = tipo;
+        Message = "";
+        StateHasChanged();
     }
 
     private async Task HandleAtribuicao()
     {
-        // Aqui chamas o serviço para gravar na BD
-        // await AdminService.AtribuirProfessor(atribuicao);
-        NavigationManager.NavigateTo("/admin/DashboardAdmin");
-    }
+        if (SelectedTurmaId == 0) { Message = "⚠️ Selecione uma turma destino."; return; }
+        IsSaving = true;
+        Message = "";
 
-    public class AtribuicaoModel
-    {
-        public string? ProfessorId { get; set; }
-        public int TurmaId { get; set; }
-        public List<int> ModulosIds { get; set; } = new();
+        try
+        {
+            if (TipoVinculo == "Professor")
+            {
+                if (SelectedProfessorId == 0 || SelectedDisciplinaId == 0)
+                {
+                    Message = "⚠️ Selecione o Professor e a Disciplina.";
+                }
+                else
+                {
+                    await TurmaService.AddTurmaProfessorAsync(SelectedTurmaId, SelectedProfessorId, SelectedDisciplinaId);
+                    Message = "✅ Professor vinculado com sucesso!";
+                }
+            }
+            else if (TipoVinculo == "Aluno")
+            {
+                if (SelectedAlunoId == 0) { Message = "⚠️ Selecione um aluno."; }
+                else
+                {
+                    var aluno = await AlunoService.GetAlunoByIdAsync(SelectedAlunoId);
+                    if (aluno != null)
+                    {
+                        aluno.TurmaId = SelectedTurmaId;
+                        await AlunoService.UpdateAlunoAsync(aluno);
+                        Message = "✅ Aluno movido para a turma com sucesso!";
+                    }
+                }
+            }
+            else if (TipoVinculo == "Modulo")
+            {
+                if (SelectedModuloId == 0) { Message = "⚠️ Selecione um módulo."; }
+                else
+                {
+                    await TurmaService.AddTurmaModuloAsync(SelectedTurmaId, SelectedModuloId);
+                    Message = "✅ Módulo adicionado à turma!";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Message = "⚠️ Erro ao gravar: " + ex.Message;
+        }
+        finally
+        {
+            IsSaving = false;
+            // Limpar seleções após tentativa
+            if (Message.Contains("✅"))
+            {
+                SelectedProfessorId = SelectedAlunoId = SelectedModuloId = SelectedDisciplinaId = 0;
+            }
+        }
     }
-
-    // Classes temporárias para o código compilar
-    public class Turma { public int Id { get; set; } public string Nome { get; set; } }
-    public class Modulo { public int Id { get; set; } public string Nome { get; set; } }
 }

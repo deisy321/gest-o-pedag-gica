@@ -4,17 +4,19 @@
 
 namespace gestaopedagogica.Migrations
 {
-    public partial class RemoverTurmaDoIdentity : Migration
+    /// <inheritdoc />
+    public partial class InitialFinalFix : Migration
     {
+        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Método esvaziado para ignorar erros de elementos que já não existem no Postgres.
-            // Isto permite que a fila de migrações avance para criar as colunas do Módulo.
+
         }
 
+        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Pode ficar vazio.
+
         }
     }
 }

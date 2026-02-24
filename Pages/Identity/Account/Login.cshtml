@@ -10,16 +10,16 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login - Gestão Pedagógica</title>
+    <title>Login - TriadeLearn</title>
     <link href="~/bootstrap/bootstrap.min.css" rel="stylesheet" />
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1e3a8a 0%, #0d9488 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: 'Segoe UI', Roboto, sans-serif;
         }
 
         .login-container {
@@ -30,7 +30,7 @@
 
         .card {
             border: none;
-            border-radius: 10px;
+            border-radius: 15px;
             overflow: hidden;
         }
 
@@ -38,8 +38,32 @@
             padding: 40px;
         }
 
-        .btn:disabled {
-            opacity: 0.7;
+        .logo-wrapper {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo-img {
+            max-width: 180px;
+            height: auto;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .btn-primary {
+            background-color: #1e3a8a;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+            .btn-primary:hover {
+                background-color: #0d9488;
+                transform: translateY(-1px);
+            }
+
+        .form-control:focus {
+            border-color: #0d9488;
+            box-shadow: 0 0 0 0.25rem rgba(13, 148, 136, 0.25);
         }
     </style>
 </head>
@@ -47,8 +71,12 @@
     <div class="login-container">
         <div class="card shadow-lg">
             <div class="card-body">
-                <h2 class="text-center mb-2">Gestão Pedagógica</h2>
-                <p class="text-center text-muted mb-4">Sistema de Avaliação</p>
+
+                <!-- Logótipo e Título Atualizados -->
+                <div class="logo-wrapper">
+                    <img src="~/images/logo_triadelearn.png" alt="TriadeLearn Logo" class="logo-img" />
+                    <h5 class="text-center text-muted mt-3" style="font-weight: 400; letter-spacing: 0.5px;">Gestão Pedagógica</h5>
+                </div>
 
                 @if (!ModelState.IsValid)
                 {
@@ -78,16 +106,16 @@
 
                     <div class="mb-3 form-check">
                         <input type="checkbox" id="Input_RememberMe" name="Input.RememberMe" class="form-check-input" @(Model.Input.RememberMe ? "checked" : "") />
-                        <label class="form-check-label" for="Input_RememberMe">Lembrar-me neste computador</label>
+                        <label class="form-check-label" for="Input_RememberMe">Manter sessão iniciada</label>
                     </div>
 
-                    <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">Entrar</button>
+                    <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">Entrar no Sistema</button>
                 </form>
 
                 <hr />
 
                 <div class="text-center text-muted">
-                    <small>Se não tem credenciais, contacte o administrador do sistema.</small>
+                    <small>Suporte: contacte o administrador do TriadeLearn.</small>
                 </div>
             </div>
         </div>
@@ -97,6 +125,7 @@
             <p class="small">Admin: admin@local / Admin123!</p>
             <p class="small">Professor: prof@local / Prof123!</p>
             <p class="small">Aluno: aluno@local / Aluno123!</p>
+
         </div>
     </div>
 </body>
