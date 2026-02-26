@@ -13,7 +13,6 @@
     <div class="card shadow-sm border-0" style="border-radius: 15px;">
         <div class="card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center" style="border-radius: 15px 15px 0 0;">
             <h4 class="mb-0"><i class="bi bi-journal-text me-2"></i>Gestão de Módulos</h4>
-            <!-- Redireciona para a página de criação que já configurámos -->
             <button class="btn btn-success rounded-pill px-4" @onclick='() => Nav.NavigateTo("/admin/CriarModulo")'>
                 <i class="bi bi-plus-circle me-2"></i>Novo Módulo
             </button>
@@ -60,10 +59,10 @@
                                     <td class="text-center">
                                         <div class="btn-group">
                                             <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(m)">
-                                                <i class="bi bi-pencil"></i>
+                                                <i class="bi bi-pencil me-1"></i>Editar
                                             </button>
                                             <button class="btn btn-sm btn-outline-danger" @onclick="() => Remover(m.Id)">
-                                                <i class="bi bi-trash"></i>
+                                                <i class="bi bi-trash me-1"></i>Eliminar
                                             </button>
                                         </div>
                                     </td>
@@ -132,7 +131,6 @@
 
     private async Task CarregarModulos()
     {
-        // Usa o método com Include para mostrar os nomes dos professores
         Modulos = await ModuloService.GetModulosComProfessorAsync() ?? new();
     }
 
@@ -158,7 +156,6 @@
 
         try
         {
-            // Como é edição, o Id já existe (> 0)
             await ModuloService.UpdateModuloAsync(EditarModulo);
             Message = "Módulo atualizado com sucesso!";
             MostrarModal = false;

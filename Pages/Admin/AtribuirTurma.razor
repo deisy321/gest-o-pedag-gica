@@ -140,28 +140,11 @@
         IsLoading = true;
         Message = "";
 
-        // 1. Disciplinas
-        try { ListaDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new(); }
-        catch (Exception ex) { Console.WriteLine("Erro Disciplinas: " + ex.Message); }
-
-        // 2. Professores
-        try { ListaProfessores = await ProfessorService.GetProfessoresAsync() ?? new(); }
-        catch (Exception ex) { Console.WriteLine("Erro Professores: " + ex.Message); }
-
-        // 3. Alunos
-        try { ListaAlunos = await AlunoService.GetAlunosAsync() ?? new(); }
-        catch (Exception ex) { Console.WriteLine("Erro Alunos: " + ex.Message); }
-
-        // 4. Módulos
-        try { ListaModulos = await ModuloService.GetModulosAsync() ?? new(); }
-        catch (Exception ex) { Console.WriteLine("Erro Modulos: " + ex.Message); }
-
-        // 5. Turmas (Usando método simples para garantir o carregamento do Select)
-        try { ListaTurmas = await TurmaService.GetTurmasSimplesAsync() ?? new(); }
-        catch (Exception ex)
-        {
-            Message = "⚠️ Alguns dados das turmas falharam ao carregar. " + ex.Message;
-        }
+        try { ListaDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new(); } catch { }
+        try { ListaProfessores = await ProfessorService.GetProfessoresAsync() ?? new(); } catch { }
+        try { ListaAlunos = await AlunoService.GetAlunosAsync() ?? new(); } catch { }
+        try { ListaModulos = await ModuloService.GetModulosAsync() ?? new(); } catch { }
+        try { ListaTurmas = await TurmaService.GetTurmasSimplesAsync() ?? new(); } catch { }
 
         IsLoading = false;
     }
@@ -185,19 +168,24 @@
             {
                 if (SelectedProfessorId == 0 || SelectedDisciplinaId == 0)
                 {
-                    Message = "⚠️ Selecione o Professor e a Disciplina.";
+                    Message = "⚠️ Selecione o professor e a disciplina.";
                 }
                 else
                 {
+                    // método correto existente
                     await TurmaService.AddTurmaProfessorAsync(SelectedTurmaId, SelectedProfessorId, SelectedDisciplinaId);
                     Message = "✅ Professor vinculado com sucesso!";
                 }
             }
             else if (TipoVinculo == "Aluno")
             {
-                if (SelectedAlunoId == 0) { Message = "⚠️ Selecione um aluno."; }
+                if (SelectedAlunoId == 0)
+                {
+                    Message = "⚠️ Selecione um aluno.";
+                }
                 else
                 {
+                    // atualiza a turma do aluno
                     var aluno = await AlunoService.GetAlunoByIdAsync(SelectedAlunoId);
                     if (aluno != null)
                     {
@@ -209,26 +197,34 @@
             }
             else if (TipoVinculo == "Modulo")
             {
-                if (SelectedModuloId == 0) { Message = "⚠️ Selecione um módulo."; }
+                if (SelectedModuloId == 0)
+                {
+                    Message = "⚠️ Selecione um módulo.";
+                }
                 else
                 {
+                    // método correto existente
                     await TurmaService.AddTurmaModuloAsync(SelectedTurmaId, SelectedModuloId);
-                    Message = "✅ Módulo adicionado à turma!";
+                    Message = "✅ Módulo vinculado à turma com sucesso!";
                 }
+            }
+
+            if (Message.StartsWith("✅"))
+            {
+                SelectedProfessorId = 0;
+                SelectedAlunoId = 0;
+                SelectedModuloId = 0;
+                SelectedDisciplinaId = 0;
             }
         }
         catch (Exception ex)
         {
-            Message = "⚠️ Erro ao gravar: " + ex.Message;
+            Message = "❌ Erro ao gravar: " + ex.Message;
         }
         finally
         {
             IsSaving = false;
-            // Limpar seleções após tentativa
-            if (Message.Contains("✅"))
-            {
-                SelectedProfessorId = SelectedAlunoId = SelectedModuloId = SelectedDisciplinaId = 0;
-            }
+            StateHasChanged();
         }
     }
 }

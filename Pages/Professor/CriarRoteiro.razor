@@ -1,67 +1,237 @@
-﻿@page "/professor/CriarRoteiro"
+﻿@page "/professor/CriarRoteiro/{TurmaIdStr}"
 @namespace gestaopedagogica.Pages.Professor
 @layout MainLayout
 
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
 @using Microsoft.AspNetCore.Components.Authorization
-@using System.Security.Claims
+
 @inject TrabalhoService TrabalhoService
+@inject TurmaService TurmaService
+@inject ModuloService ModuloService
+@inject DisciplinaService DisciplinaService
 @inject ProfessorService ProfessorService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 
-<h3>Criar Roteiro de Trabalho</h3>
+<div class="container-fluid mt-4">
+    <div class="card shadow-sm border-0" style="border-radius: 15px;">
+        <div class="card-header bg-success text-white p-3" style="border-radius: 15px 15px 0 0;">
+            <h4 class="mb-0"><i class="bi bi-file-earmark-plus me-2"></i>Criar Novo Trabalho</h4>
+        </div>
 
-@if (!string.IsNullOrEmpty(StatusMessage))
-{
-    <div class="alert alert-info">@StatusMessage</div>
-}
+        <div class="card-body p-4">
+            @if (!string.IsNullOrEmpty(StatusMessage))
+            {
+                <div class="alert @(StatusMessage.Contains("✅") ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+                    @StatusMessage
+                    <button type="button" class="btn-close" @onclick='() => StatusMessage = ""'></button>
+                </div>
+            }
 
-<div class="card p-4">
+            @if (IsLoading)
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">Carregando dados...</p>
+                </div>
+            }
+            else
+            {
+                <form @onsubmit="SalvarRoteiro">
+                    <!-- Informações da Turma -->
+                    <div class="alert alert-info border-0 rounded-3 mb-4">
+                        <h5>📚 Turma: @(TurmaSelecionada?.Nome ?? "Carregando...")</h5>
+                        <small>Curso: @(TurmaSelecionada?.Curso?.Nome ?? "N/A") | Alunos: @(TurmaSelecionada?.Alunos?.Count ?? 0)</small>
+                    </div>
 
-    <div class="mb-3">
-        <label>Título do Trabalho</label>
-        <input class="form-control" @bind="Titulo" />
+                    <!-- Título do Trabalho -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Título do Trabalho *</label>
+                        <input class="form-control form-control-lg rounded-pill"
+                               placeholder="Ex: Projeto de Física Aplicada"
+                               @bind="Titulo" />
+                        @if (string.IsNullOrEmpty(Titulo))
+                        {
+                            <small class="text-danger">Campo obrigatório</small>
+                        }
+                    </div>
+
+                    <!-- Módulo e Disciplina -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Módulo *</label>
+                            <select class="form-select form-select-lg rounded-pill" @bind="ModuloSelecionadoId">
+                                <option value="0">-- Selecione o Módulo --</option>
+                                @foreach (var modulo in ListaModulos)
+                                {
+                                    <option value="@modulo.Id">@modulo.Numero - @modulo.Nome</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Disciplina *</label>
+                            <select class="form-select form-select-lg rounded-pill" @bind="DisciplinaSelecionadaId">
+                                <option value="0">-- Selecione a Disciplina --</option>
+                                @foreach (var disciplina in ListaDisciplinas)
+                                {
+                                    <option value="@disciplina.Id">@disciplina.Nome</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Atribuição do Trabalho -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Atribuir para: *</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" id="turmaRadio" name="tipoAtribuicao"
+                                   value="turma" checked @onchange='(e) => TipoAtribuicao = "turma"' />
+                            <label class="btn btn-outline-primary" for="turmaRadio">
+                                <i class="bi bi-people me-2"></i>Turma Toda
+                            </label>
+
+                            <input type="radio" class="btn-check" id="alunoRadio" name="tipoAtribuicao"
+                                   value="aluno" @onchange='(e) => TipoAtribuicao = "aluno"' />
+                            <label class="btn btn-outline-primary" for="alunoRadio">
+                                <i class="bi bi-person me-2"></i>Aluno Específico
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Seleção de Aluno (condicional) -->
+                    @if (TipoAtribuicao == "aluno")
+                    {
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Selecione o Aluno *</label>
+                            <select class="form-select form-select-lg rounded-pill" @bind="AlunoSelecionadoId">
+                                <option value="0">-- Selecione o Aluno --</option>
+                                @foreach (var aluno in TurmaSelecionada?.Alunos ?? new List<Aluno>())
+                                {
+                                    <option value="@aluno.Id">@aluno.Nome (@aluno.Email)</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    <!-- Prazo de Entrega -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Prazo de Entrega *</label>
+                        <input class="form-control form-control-lg rounded-pill"
+                               type="datetime-local"
+                               @bind="PrazoEntrega" />
+                    </div>
+
+                    <hr />
+
+                    <!-- Vertentes -->
+                    <h5 class="fw-bold mb-4">Critérios de Avaliação</h5>
+                    @foreach (var vert in Vertentes)
+                    {
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                @vert.Tipo
+                                <small class="text-muted d-block">@GetCriterio(vert.Tipo)</small>
+                            </label>
+                            <textarea class="form-control rounded-3"
+                                      rows="4"
+                                      placeholder="Descreva o que espera do aluno nesta vertente..."
+                                      @bind="vert.ConteudoTexto"></textarea>
+                        </div>
+                    }
+
+                    <!-- Botões -->
+                    <div class="d-flex gap-2 justify-content-end mt-4">
+                        <button type="button" class="btn btn-outline-secondary btn-lg rounded-pill px-4"
+                                @onclick='() => Nav.NavigateTo("/professor/DashboardProfessor")'>
+                            <i class="bi bi-x me-2"></i>Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-success btn-lg rounded-pill px-4"
+                                disabled="@(IsSaving || !IsFormValid())">
+                            @(IsSaving ? "Criando..." : "Criar Trabalho")
+                        </button>
+                    </div>
+                </form>
+            }
+        </div>
     </div>
-
-    <div class="mb-3">
-        <label>Prazo de Entrega</label>
-        <input class="form-control" type="date" @bind="PrazoEntrega" />
-    </div>
-
-    <hr />
-
-    @foreach (var vert in Vertentes)
-    {
-        <h5>@vert.Tipo</h5>
-        <textarea class="form-control mt-2"
-                  placeholder="Descrição da vertente"
-                  @bind="vert.ConteudoTexto"></textarea>
-        <hr />
-    }
-
-    <button class="btn btn-success"
-            @onclick="SalvarRoteiro"
-            disabled="@IsSaving">
-        @(IsSaving ? "Salvando..." : "Criar Roteiro")
-    </button>
 </div>
 
 @code {
+    [Parameter] public string? TurmaIdStr { get; set; }
+
+    private int TurmaId = 0;
+    private Turma? TurmaSelecionada;
+    private List<Modulo> ListaModulos = new();
+    private List<Disciplina> ListaDisciplinas = new();
 
     private string Titulo = "";
+    private int ModuloSelecionadoId = 0;
+    private int DisciplinaSelecionadaId = 0;
+    private int AlunoSelecionadoId = 0;
+    private string TipoAtribuicao = "turma";
     private DateTime? PrazoEntrega;
     private string StatusMessage = "";
     private bool IsSaving = false;
+    private bool IsLoading = true;
+    private string? ProfessorUserId;
 
-    // Vertentes apenas para edição no ecrã
     private List<VertenteEditModel> Vertentes = new()
     {
         new VertenteEditModel { Tipo = "Competência" },
         new VertenteEditModel { Tipo = "Aptidão" },
         new VertenteEditModel { Tipo = "Conhecimento" }
     };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            ProfessorUserId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (!int.TryParse(TurmaIdStr, out TurmaId))
+            {
+                StatusMessage = "❌ ID da turma inválido.";
+                return;
+            }
+
+            await CarregarDados();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"❌ Erro ao carregar: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task CarregarDados()
+    {
+        TurmaSelecionada = await TurmaService.GetTurmaByIdAsync(TurmaId);
+        ListaModulos = await ModuloService.GetModulosAsync() ?? new();
+        ListaDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new();
+    }
+
+    private bool IsFormValid()
+        => !string.IsNullOrWhiteSpace(Titulo) &&
+           ModuloSelecionadoId > 0 &&
+           ListaModulos.Any(m => m.Id == ModuloSelecionadoId) &&
+           DisciplinaSelecionadaId > 0 &&
+           ListaDisciplinas.Any(d => d.Id == DisciplinaSelecionadaId) &&
+           PrazoEntrega.HasValue &&
+           (TipoAtribuicao == "turma" || (TipoAtribuicao == "aluno" && AlunoSelecionadoId > 0));
+
+    private string GetCriterio(string tipo)
+        => tipo switch
+        {
+            "Competência" => "Capacidade de aplicar conhecimentos",
+            "Aptidão" => "Habilidade e destreza na execução",
+            "Conhecimento" => "Compreensão e teorias",
+            _ => ""
+        };
 
     private async Task SalvarRoteiro()
     {
@@ -70,80 +240,76 @@
 
         try
         {
-            if (string.IsNullOrWhiteSpace(Titulo))
+            if (!IsFormValid())
             {
-                StatusMessage = "❌ O título é obrigatório.";
+                StatusMessage = "❌ Por favor, preencha todos os campos obrigatórios corretamente.";
                 return;
             }
 
-            if (PrazoEntrega == null)
-            {
-                StatusMessage = "❌ O prazo é obrigatório.";
-                return;
-            }
-
-            // 1️⃣ Pega a identidade do professor logado pelo Nome/Email (prof@local)
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-
-            // O Identity do Blazor geralmente coloca o email/username aqui:
-            var emailIdentificado = user.Identity?.Name;
-
-            if (string.IsNullOrEmpty(emailIdentificado))
-            {
-                StatusMessage = "❌ Não foi possível identificar o utilizador logado na sessão.";
-                return;
-            }
-
-            // 2️⃣ Busca o Professor correspondente na base de dados pelo EMAIL
-            // Usamos o novo método GetProfessorByEmailAsync para evitar o erro do ID longo
-            var professor = await ProfessorService.GetProfessorByEmailAsync(emailIdentificado);
-
+            var professor = await ProfessorService.GetProfessorByUserIdAsync(ProfessorUserId!);
             if (professor == null)
             {
-                StatusMessage = $"❌ O professor com o email '{emailIdentificado}' não foi encontrado na base de dados.";
+                StatusMessage = "❌ Professor não identificado.";
                 return;
             }
 
-            // 3️⃣ Cria o trabalho com ProfessorId convertido para string
-            var trabalho = new Trabalho
+            var alunos = TipoAtribuicao == "aluno" ?
+                TurmaSelecionada!.Alunos.Where(a => a.Id == AlunoSelecionadoId && !string.IsNullOrEmpty(a.UserId)).ToList() :
+                TurmaSelecionada!.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)).ToList();
+
+            foreach (var aluno in alunos)
             {
-                Titulo = Titulo.Trim(),
-                ProfessorId = professor.Id.ToString(),   // ✅ Agora usa o ID numérico curto (ex: 1, 2)
-                DataCriacao = DateTime.UtcNow,
-                PrazoEntrega = DateTime.SpecifyKind(PrazoEntrega.Value, DateTimeKind.Utc)
-            };
-
-            await TrabalhoService.AddTrabalhoAsync(trabalho);
-
-            // 4️⃣ Busca vertentes criadas automaticamente
-            var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(trabalho.Id);
-
-            // 5️⃣ Atualiza apenas o texto do professor
-            if (vertentesDb != null)
-            {
-                foreach (var vertDb in vertentesDb)
-                {
-                    var local = Vertentes.FirstOrDefault(v => v.Tipo == vertDb.Tipo);
-                    if (local != null)
-                    {
-                        vertDb.ConteudoTexto = local.ConteudoTexto ?? "";
-                        await TrabalhoService.AtualizarVertenteAsync(vertDb);
-                    }
-                }
+                await CriarTrabalhoAluno(professor.Id.ToString(), aluno.UserId!);
             }
 
+            StatusMessage = "✅ Trabalho(s) criado(s) com sucesso!";
+            await Task.Delay(1500);
             Nav.NavigateTo("/professor/DashboardProfessor");
         }
         catch (Exception ex)
         {
-            StatusMessage = "❌ Erro: " + ex.Message;
-            // Log para o console para ajudar na depuração
-            Console.WriteLine(ex.ToString());
+            StatusMessage = $"❌ Erro ao criar trabalho: {ex.Message}";
+            Console.WriteLine($"❌ Inner: {ex.InnerException?.Message}");
         }
         finally
         {
             IsSaving = false;
+        }
+    }
+
+    private async Task CriarTrabalhoAluno(string professorId, string alunoId)
+    {
+        var trabalho = new Trabalho
+        {
+            Titulo = Titulo.Trim(),
+            ProfessorId = professorId,
+            AlunoId = alunoId,
+            DataCriacao = DateTime.UtcNow,
+            PrazoEntrega = DateTime.SpecifyKind(PrazoEntrega!.Value, DateTimeKind.Utc),
+            ModuloId = ModuloSelecionadoId,
+            DisciplinaId = DisciplinaSelecionadaId
+        };
+
+        try
+        {
+            await TrabalhoService.AddTrabalhoAsync(trabalho); // Id do trabalho será preenchido pelo EF
+
+            // Criar vertentes APÓS salvar o trabalho
+            foreach (var vertente in Vertentes)
+            {
+                var vertDb = new TrabalhoVertente
+                {
+                    TrabalhoId = trabalho.Id,
+                    Tipo = vertente.Tipo,
+                    ConteudoTexto = vertente.ConteudoTexto ?? ""
+                };
+                await TrabalhoService.AddVertenteAsync(vertDb);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ ERRO ao salvar Trabalho ou Vertente: {ex.InnerException?.Message ?? ex.Message}");
+            throw;
         }
     }
 

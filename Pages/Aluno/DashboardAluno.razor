@@ -1,163 +1,308 @@
-Ôªø@page "/aluno/DashboardAluno"
-@namespace gestaopedagogica.Pages.Aluno
-@layout MainLayout
-@using gestaopedagogica.Models
+@page "/aluno/DashboardAluno"
 @using gestaopedagogica.Services
-@using Microsoft.AspNetCore.Components.Authorization
-@using System.Security.Claims
+@using gestaopedagogica.Models
+@inject TurmaService TurmaService
+@inject AlunoService AlunoService
 @inject TrabalhoService TrabalhoService
+@inject DisciplinaService DisciplinaService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 
-<AuthorizeView Roles="Aluno">
-    <Authorized>
-        <h3>Dashboard do Aluno</h3>
+<div class="container-fluid mt-4">
+    <div class="card shadow-sm border-0" style="border-radius: 15px;">
+     <div class="card-header bg-info text-white p-3" style="border-radius: 15px 15px 0 0;">
+     <h4 class="mb-0"><i class="bi bi-book me-2"></i>Dashboard do Aluno</h4>
+   </div>
 
-        @if (Trabalhos.Count == 0)
+      <div class="card-body p-4">
+          @if (!string.IsNullOrEmpty(ErrorMessage))
         {
-            <p><em>Sem trabalhos dispon√≠veis.</em></p>
-        }
-        else
-        {
-            @foreach (var t in Trabalhos)
-            {
-                <div class="card mb-3 shadow-sm">
-                    <!-- Cabe√ßalho -->
-                    <div class="card-header bg-light">
-                        <h5 class="mb-0">
-                            <strong>@t.Titulo</strong>
-                        </h5>
-                    </div>
-
-                    <!-- Corpo -->
-                    <div class="card-body p-0">
-                        <ul class="list-group list-group-flush">
-                            @foreach (var vert in t.Vertentes)
-                            {
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <strong>@vert.Tipo</strong>
-
-                                        @if (!string.IsNullOrEmpty(vert.ConteudoTexto))
-                                        {
-                                            <div class="mt-1">
-                                                <em>@vert.ConteudoTexto</em>
-                                            </div>
-                                        }
-
-                                        @if (!string.IsNullOrEmpty(vert.Feedback))
-                                        {
-                                            <div class="mt-1 text-info">
-                                                <em>Feedback do professor: @vert.Feedback</em>
-                                            </div>
-                                        }
-                                    </div>
-
-                                    <div class="text-end d-flex flex-column align-items-end">
-                                        @* Estado do envio *@
-                                        @if (vert.DataEnvio.HasValue ||
-                                                                    !string.IsNullOrEmpty(vert.ConteudoTexto) ||
-                                                                    (vert.FicheiroBytes != null && !string.IsNullOrEmpty(vert.FicheiroNome)))
-                                        {
-                                            <span class="text-success">‚úÖ Enviado</span>
-
-                                            @if (vert.FicheiroBytes != null && !string.IsNullOrEmpty(vert.FicheiroNome))
-                                            {
-                                                <a class="btn btn-sm btn-link mt-1"
-                                                   href="/ficheiro/vertente/@vert.Id"
-                                                   target="_blank">
-                                                    Abrir arquivo
-                                                </a>
-                                            }
-                                        }
-                                        else
-                                        {
-                                            <span class="text-danger">‚ùå Pendente</span>
-                                        }
-
-                                        @* Nota *@
-                                        @if (vert.Nota.HasValue)
-                                        {
-                                            <span class="mt-1">
-                                                Nota: @vert.Nota.Value
-                                            </span>
-                                        }
-                                    </div>
-                                </li>
-                            }
-                        </ul>
-                    </div>
-
-                    <!-- Rodap√© -->
-                    <div class="card-footer text-end">
-                        <a class="btn btn-sm btn-primary"
-                           href="/aluno/EnviarTrabalho/@t.Id">
-                            Enviar / Editar
-                        </a>
-                    </div>
-                </div>
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+  <i class="bi bi-exclamation-triangle me-2"></i>
+ @ErrorMessage
+       <button type="button" class="btn-close" @onclick='() => ErrorMessage = ""'></button>
+             </div>
             }
-        }
-    </Authorized>
 
-    <NotAuthorized>
-        <div class="alert alert-danger mt-5">
-            <h4>Acesso Negado</h4>
-            <p>Voc√™ n√£o tem permiss√£o para acessar o dashboard do aluno.</p>
+ @if (IsLoading)
+       {
+  <div class="text-center">
+         <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2">Carregando seus dados...</p>
+       </div>
+        }
+            else
+            {
+  <!-- InformaÁıes do Aluno -->
+          <div class="row mb-4">
+   <div class="col-md-12">
+  <div class="alert alert-success border-0 rounded-3">
+       <h5>?? @(AlunoAtual?.Nome ?? "Aluno")</h5>
+     <div class="row mt-2">
+      <div class="col-md-4">
+           <strong>Turma:</strong> @(TurmaAtual?.Nome ?? "Sem Turma")<br>
+               <strong>Curso:</strong> @(TurmaAtual?.Curso?.Nome ?? "N/A")
+  </div>
+        <div class="col-md-4">
+ <strong>Ano Letivo:</strong> @(TurmaAtual?.Ano ?? "N/A")
+           </div>
+                   </div>
+    </div>
         </div>
-    </NotAuthorized>
-</AuthorizeView>
+                </div>
+
+        <!-- Trabalhos DisponÌveis -->
+     <div class="row">
+  <div class="col-md-12">
+       <h5 class="fw-bold mb-3">?? Trabalhos DisponÌveis</h5>
+
+           @if (TrabalhosPendentes == null || !TrabalhosPendentes.Any())
+       {
+        <div class="alert alert-info">
+           VocÍ n„o tem trabalhos pendentes.
+        </div>
+   }
+          else
+   {
+                @foreach (var trabalho in TrabalhosPendentes)
+        {
+  <div class="card mb-3 shadow-sm border-start border-primary border-5" style="border-radius: 12px;">
+              <div class="card-body">
+           <div class="d-flex justify-content-between align-items-start mb-2">
+              <div>
+<h5 class="mb-1">@trabalho.Titulo</h5>
+     <small class="text-muted">
+             <strong>Disciplina:</strong> @trabalho.DisciplinaNome | 
+         <strong>MÛdulo:</strong> @trabalho.ModuloNome
+     </small>
+    </div>
+ <button class="btn btn-primary btn-sm rounded-pill" 
+           @onclick="() => ResolverTrabalho(trabalho.Id)">
+            <i class="bi bi-pencil me-1"></i>Resolver
+          </button>
+      </div>
+
+    <div class="row mt-3">
+      <div class="col-md-4">
+  <small><strong>Prazo:</strong> @trabalho.PrazoEntrega.ToString("dd/MM/yyyy HH:mm")</small>
+     </div>
+                 <div class="col-md-8">
+       <div class="progress" style="height: 20px;">
+      @{
+  var percentualConclusao = CalcularPercentualConclusao(trabalho.Vertentes);
+         var classeProgresso = percentualConclusao == 100 ? "bg-success" : 
+         percentualConclusao >= 50 ? "bg-info" : "bg-warning";
+              }
+      <div class="progress-bar @classeProgresso" 
+              role="progressbar" 
+           style="width: @percentualConclusao%"
+               aria-valuenow="@percentualConclusao" 
+        aria-valuemin="0" 
+       aria-valuemax="100">
+       @percentualConclusao%
+   </div>
+    </div>
+              </div>
+      </div>
+
+ <!-- Vertentes -->
+          <div class="mt-3">
+        <small class="fw-bold">Status das Vertentes:</small>
+    <div class="row mt-2">
+                 @foreach (var vertente in trabalho.Vertentes)
+         {
+  var status = string.IsNullOrEmpty(vertente.ConteudoTextoAluno) && vertente.FicheiroBytes == null 
+   ? "? Pendente" 
+  : vertente.Nota.HasValue 
+    ? $"? Avaliado (Nota: {vertente.Nota})" 
+  : "? Enviado";
+        
+              <div class="col-md-4 mb-1">
+                <small class="badge bg-light text-dark w-100" style="display: block;">
+      @vertente.Tipo: @status
+       </small>
+ </div>
+      }
+      </div>
+        </div>
+
+   <!-- Feedback do Professor -->
+         @if (trabalho.Vertentes?.Any(v => !string.IsNullOrEmpty(v.Feedback)) == true)
+  {
+     <div class="alert alert-light mt-3 border-start border-3" style="border-left-color: #ffc107;">
+  <strong>?? Feedback do Professor:</strong>
+      @foreach (var vertente in trabalho.Vertentes.Where(v => !string.IsNullOrEmpty(v.Feedback)))
+     {
+        <p class="mb-1"><small><strong>@vertente.Tipo:</strong> @vertente.Feedback</small></p>
+        }
+       </div>
+               }
+        </div>
+       </div>
+     }
+       }
+           </div>
+         </div>
+
+                <!-- Trabalhos ConcluÌdos -->
+    @if (TrabalhosAvaliados != null && TrabalhosAvaliados.Any())
+          {
+<div class="row mt-4">
+                   <div class="col-md-12">
+       <h5 class="fw-bold mb-3">? Trabalhos Avaliados</h5>
+
+           @foreach (var trabalho in TrabalhosAvaliados)
+        {
+      var notaMedia = trabalho.Vertentes?.Average(v => v.Nota ?? 0) ?? 0;
+   
+            <div class="card mb-3 shadow-sm border-success" style="border-radius: 12px;">
+            <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start">
+       <div>
+  <h6 class="mb-1">@trabalho.Titulo</h6>
+           <small class="text-muted">@trabalho.DisciplinaNome</small>
+          </div>
+           <div class="text-end">
+        <h4 class="mb-0">
+         <span class="badge bg-success">@notaMedia.ToString("F1")</span>
+     </h4>
+          </div>
+     </div>
+    </div>
+           </div>
+        }
+         </div>
+             </div>
+ }
+            }
+    </div>
+    </div>
+</div>
 
 @code {
+    private Aluno? AlunoAtual;
+    private Turma? TurmaAtual;
+    private List<TrabalhoViewModel> TrabalhosPendentes = new();
+    private List<TrabalhoViewModel> TrabalhosAvaliados = new();
 
-    private List<TrabalhoAlunoViewModel> Trabalhos { get; set; } = new();
+    private string? ErrorMessage;
+    private bool IsLoading = true;
+    private string? AlunoUserId;
 
     protected override async Task OnInitializedAsync()
     {
-        // ID do aluno logado
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var alunoId = authState.User
-            .FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? "";
+        try
+        {
+          // Obter UserId do aluno logado
+     var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            AlunoUserId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-        // Trabalhos dispon√≠veis para o aluno
-        var trabalhosDb =
-            await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(alunoId);
+    if (string.IsNullOrEmpty(AlunoUserId))
+            {
+  ErrorMessage = "N„o foi possÌvel identificar o aluno logado.";
+             IsLoading = false;
+                return;
+       }
 
-        Trabalhos = trabalhosDb.Select(t => new TrabalhoAlunoViewModel
+    await CarregarDados();
+        }
+        catch (Exception ex)
+        {
+        ErrorMessage = $"Erro ao carregar dados: {ex.Message}";
+   Console.WriteLine($"? Erro: {ex}");
+        }
+        finally
+        {
+            IsLoading = false;
+     }
+    }
+
+    private async Task CarregarDados()
+    {
+        try
+        {
+     // Carregar aluno
+   var alunos = await AlunoService.GetAlunosAsync();
+         AlunoAtual = alunos?.FirstOrDefault(a => a.UserId == AlunoUserId);
+
+          if (AlunoAtual == null)
+    {
+    ErrorMessage = "Aluno n„o encontrado.";
+ return;
+   }
+
+  // Carregar turma
+      if (AlunoAtual.TurmaId.HasValue)
+         {
+    TurmaAtual = await TurmaService.GetTurmaByIdAsync(AlunoAtual.TurmaId.Value);
+       }
+
+          // Carregar trabalhos disponÌveis
+ var todosTrabalhos = await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(AlunoUserId);
+
+            // Separar trabalhos pendentes e avaliados
+            TrabalhosPendentes = todosTrabalhos
+       .Where(t => !t.TrabalhoVertentes.All(v => v.Nota.HasValue))
+     .Select(t => MapTrabalhoViewModel(t))
+                .ToList();
+
+     TrabalhosAvaliados = todosTrabalhos
+          .Where(t => t.TrabalhoVertentes.All(v => v.Nota.HasValue))
+           .Select(t => MapTrabalhoViewModel(t))
+                .ToList();
+
+        Console.WriteLine($"? Aluno carregado: {AlunoAtual.Nome}");
+      Console.WriteLine($"? Trabalhos: {TrabalhosPendentes.Count} pendentes, {TrabalhosAvaliados.Count} avaliados");
+        }
+        catch (Exception ex)
+  {
+         ErrorMessage = $"Erro ao carregar dados: {ex.Message}";
+            Console.WriteLine($"? Erro: {ex}");
+        }
+    }
+
+    private TrabalhoViewModel MapTrabalhoViewModel(Trabalho t)
+    {
+      return new TrabalhoViewModel
         {
             Id = t.Id,
-            Titulo = t.Titulo ?? "T√≠tulo n√£o informado",
-            Vertentes = t.TrabalhoVertentes.Select(v => new VertenteAlunoViewModel
-            {
-                Id = v.Id,
-                Tipo = v.Tipo ?? "",
-                ConteudoTexto = v.ConteudoTextoAluno ?? v.ConteudoTexto,
-                FicheiroNome = v.FicheiroNome,
-                FicheiroBytes = v.FicheiroBytes,
-                DataEnvio = v.DataEnvio == default ? null : v.DataEnvio,
-                Nota = v.Nota,
-                Feedback = v.Feedback
-            }).ToList()
-        }).ToList();
+  Titulo = t.Titulo,
+    DisciplinaId = t.DisciplinaId ?? 0,
+            DisciplinaNome = t.Disciplina?.Nome ?? "Sem Disciplina",
+            ModuloId = t.ModuloId ?? 0,
+            ModuloNumero = t.Modulo?.Numero ?? "",
+            ModuloNome = t.Modulo?.Nome ?? "Sem MÛdulo",
+      PrazoEntrega = t.PrazoEntrega,
+      Vertentes = t.TrabalhoVertentes.ToList()
+        };
+    }
+
+    private void ResolverTrabalho(int trabalhoId)
+    {
+        Nav.NavigateTo($"/aluno/EnviarTrabalho/{trabalhoId}");
+  }
+
+    private int CalcularPercentualConclusao(List<TrabalhoVertente> vertentes)
+    {
+        if (vertentes == null || !vertentes.Any()) return 0;
+        
+        var enviadas = vertentes.Count(v => 
+     !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null);
+        
+   return (enviadas * 100) / vertentes.Count;
     }
 
     // ViewModels
-    public class TrabalhoAlunoViewModel
+    public class TrabalhoViewModel
     {
         public int Id { get; set; }
         public string Titulo { get; set; } = "";
-        public List<VertenteAlunoViewModel> Vertentes { get; set; } = new();
-    }
-
-    public class VertenteAlunoViewModel
-    {
-        public int Id { get; set; }
-        public string Tipo { get; set; } = "";
-        public string? ConteudoTexto { get; set; }
-        public string? FicheiroNome { get; set; }
-        public byte[]? FicheiroBytes { get; set; }
-        public DateTime? DataEnvio { get; set; }
-        public decimal? Nota { get; set; }
-        public string? Feedback { get; set; }
+        public int DisciplinaId { get; set; }
+   public string DisciplinaNome { get; set; } = "";
+        public int ModuloId { get; set; }
+      public string ModuloNumero { get; set; } = "";
+        public string ModuloNome { get; set; } = "";
+      public DateTime PrazoEntrega { get; set; }
+public List<TrabalhoVertente> Vertentes { get; set; } = new();
     }
 }

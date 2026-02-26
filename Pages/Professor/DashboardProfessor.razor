@@ -1,122 +1,384 @@
-Ôªø@page "/professor/DashboardProfessor"
+@page "/professor/DashboardProfessor"
 @using gestaopedagogica.Services
 @using gestaopedagogica.Models
+@inject TurmaService TurmaService
+@inject ProfessorService ProfessorService
 @inject TrabalhoService TrabalhoService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
 
-<h3>Dashboard do Professor</h3>
-
-<button class="btn btn-success mb-3" @onclick="CriarTrabalho">Criar Novo Trabalho</button>
-
-@if (Trabalhos == null)
-{
-    <p><em>Carregando trabalhos...</em></p>
-}
-else if (!Trabalhos.Any())
-{
-    <p>Nenhum trabalho criado ainda.</p>
-}
-else
-{
-    @foreach (var trabalho in Trabalhos)
-    {
-        <div class="card mb-3 p-3 shadow-sm">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5>@trabalho.Titulo</h5>
-                <div>
-                    <button class="btn btn-warning btn-sm me-1" @onclick="() => EditarTrabalho(trabalho.Id)">Editar</button>
-                    <button class="btn btn-danger btn-sm" @onclick="() => DeletarTrabalho(trabalho.Id)">Excluir</button>
-                </div>
-            </div>
-
-            <strong>Aluno: @trabalho.AlunoNome</strong>
-            <ul class="list-group list-group-flush">
-                @foreach (var vert in trabalho.Vertentes)
-                {
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>@vert.Tipo</strong>
-                            @if (!string.IsNullOrEmpty(vert.ConteudoTexto))
-                            {
-                                <div class="mt-1"><em>@vert.ConteudoTexto</em></div>
-                            }
-                        </div>
-
-                        <div class="text-end d-flex flex-column align-items-end">
-                            @* Status do envio *@
-                            @if (vert.DataEnvio.HasValue || !string.IsNullOrEmpty(vert.ConteudoTexto) || (vert.FicheiroBytes != null && !string.IsNullOrEmpty(vert.FicheiroNome)))
-                            {
-                                <span class="text-success">‚úÖ Enviado</span>
-
-                                @if (vert.FicheiroBytes != null && !string.IsNullOrEmpty(vert.FicheiroNome))
-                                {
-                                    <a class="btn btn-sm btn-link mt-1"
-                                       href="/ficheiro/vertente/@vert.Id"
-                                       target="_blank">
-                                        Abrir arquivo
-                                    </a>
-                                }
-                            }
-                            else
-                            {
-                                <span class="text-danger">‚ùå Pendente</span>
-                            }
-
-                            @* Nota *@
-                            @if (vert.Nota.HasValue)
-                            {
-                                <span class="mt-1">Nota: @vert.Nota.Value</span>
-                            }
-
-                            <button class="btn btn-primary btn-sm mt-1" @onclick="() => AvaliarVertente(trabalho.Id, vert.Tipo)">Avaliar</button>
-                        </div>
-                    </li>
-                }
-            </ul>
+<div class="container-fluid mt-4">
+    <div class="card shadow-sm border-0" style="border-radius: 15px;">
+        <div class="card-header bg-primary text-white p-3" style="border-radius: 15px 15px 0 0;">
+   <h4 class="mb-0"><i class="bi bi-easel me-2"></i>Dashboard do Professor</h4>
         </div>
+
+        <div class="card-body p-4">
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+         @ErrorMessage
+            <button type="button" class="btn-close" @onclick='() => ErrorMessage = ""'></button>
+           </div>
+            }
+
+ @if (IsLoading)
+      {
+     <div class="text-center">
+         <div class="spinner-border text-primary" role="status"></div>
+              <p class="mt-2">Carregando suas turmas...</p>
+                </div>
+          }
+            else
+            {
+          <!-- SeleÁ„o de Turma -->
+      <div class="row mb-4">
+             <div class="col-md-6">
+ <label class="form-label fw-bold">Selecione uma Turma:</label>
+    <select class="form-select form-select-lg rounded-pill" @onchange="TurmaChanged">
+     <option value="0">-- Escolha uma turma --</option>
+ @foreach (var turma in TurmasDisponiveis)
+         {
+     <option value="@turma.Id">@turma.Nome - @(turma.Curso?.Nome ?? "Sem Curso")</option>
+   }
+     </select>
+  </div>
+                </div>
+
+            @if (SelectedTurmaId > 0 && TurmaSelecionada != null)
+     {
+<!-- InformaÁıes da Turma -->
+        <div class="row mb-4">
+          <div class="col-md-12">
+    <div class="alert alert-info border-0 rounded-3">
+         <h5>?? @TurmaSelecionada.Nome</h5>
+                <div class="row mt-3">
+  <div class="col-md-6">
+      <strong>Curso:</strong> @(TurmaSelecionada.Curso?.Nome ?? "Sem Curso")<br>
+ <strong>Ano Letivo:</strong> @TurmaSelecionada.Ano
+         </div>
+      <div class="col-md-6">
+       <strong>Total de Alunos:</strong> @(TurmaSelecionada.Alunos?.Count ?? 0)
+  </div>
+</div>
+          </div>
+             </div>
+        </div>
+
+           <!-- Bot„o Criar Trabalho -->
+                    <div class="row mb-4">
+       <div class="col-md-12">
+          <button class="btn btn-success btn-lg rounded-pill" @onclick="CriarNovoTrabalho">
+       <i class="bi bi-plus-circle me-2"></i>Criar Novo Trabalho
+     </button>
+            </div>
+   </div>
+
+      <!-- Lista de Alunos -->
+   <div class="row mb-4">
+      <div class="col-md-12">
+     <h5 class="fw-bold mb-3">?? Alunos da Turma</h5>
+
+        @if (TurmaSelecionada.Alunos == null || !TurmaSelecionada.Alunos.Any())
+               {
+    <div class="alert alert-warning">
+     Esta turma n„o possui alunos ainda.
+         </div>
+               }
+         else
+      {
+    <div class="table-responsive">
+    <table class="table table-hover align-middle">
+    <thead class="table-light">
+          <tr>
+             <th>Nome do Aluno</th>
+     <th>Email</th>
+              <th class="text-center">Trabalhos Criados</th>
+          <th class="text-center">AÁıes</th>
+ </tr>
+          </thead>
+          <tbody>
+    @foreach (var aluno in TurmaSelecionada.Alunos)
+           {
+                 var trabalhosDoAluno = TrabalhosPorAluno.ContainsKey(aluno.Id) ? TrabalhosPorAluno[aluno.Id].Count : 0;
+      <tr>
+              <td class="fw-bold">@aluno.Nome</td>
+             <td>@aluno.Email</td>
+           <td class="text-center">
+ <span class="badge bg-info">@trabalhosDoAluno</span>
+ </td>
+         <td class="text-center">
+          <button class="btn btn-sm btn-outline-primary" @onclick="() => VerTrabalhosAluno(aluno.Id)">
+           Ver Trabalhos
+   </button>
+            </td>
+    </tr>
+          }
+ </tbody>
+       </table>
+</div>
     }
+              </div>
+         </div>
+
+            <!-- Trabalhos Criados -->
+           <div class="row">
+     <div class="col-md-12">
+             <h5 class="fw-bold mb-3">?? Trabalhos da Turma</h5>
+
+          @if (TrabalhosTurma == null || !TrabalhosTurma.Any())
+ {
+      <div class="alert alert-info">
+              Nenhum trabalho criado ainda para esta turma.
+        </div>
 }
+          else
+        {
+   @foreach (var trabalho in TrabalhosTurma)
+             {
+             <div class="card mb-3 p-3 shadow-sm border-start border-primary border-5">
+       <div class="d-flex justify-content-between align-items-start mb-2">
+           <div>
+          <h5 class="mb-1">@trabalho.Titulo</h5>
+    <small class="text-muted">
+                Aluno: <strong>@trabalho.AlunoNome</strong> |
+            MÛdulo: <strong>@trabalho.ModuloNome</strong> |
+           Disciplina: <strong>@trabalho.DisciplinaNome</strong>
+             </small>
+       </div>
+                <div class="btn-group">
+  <button class="btn btn-warning btn-sm" @onclick="() => EditarTrabalho(trabalho.Id)">
+  <i class="bi bi-pencil"></i> Editar
+        </button>
+                     <button class="btn btn-danger btn-sm" @onclick="() => DeletarTrabalho(trabalho.Id)">
+       <i class="bi bi-trash"></i> Excluir
+ </button>
+          </div>
+    </div>
+
+       <div class="mt-3">
+    <strong>Vertentes:</strong>
+   <ul class="list-group list-group-flush mt-2">
+       @foreach (var vert in trabalho.Vertentes)
+       {
+       <li class="list-group-item d-flex justify-content-between align-items-center">
+   <div>
+    <strong>@vert.Tipo</strong>
+ @if (!string.IsNullOrEmpty(vert.ConteudoTexto))
+           {
+  <div class="mt-1 text-muted"><em>@vert.ConteudoTexto</em></div>
+       }
+     </div>
+ <div class="text-end">
+           @if (vert.DataEnvio.HasValue || !string.IsNullOrEmpty(vert.ConteudoTexto))
+      {
+           <span class="badge bg-success">? Enviado</span>
+        }
+  else
+               {
+        <span class="badge bg-danger">? Pendente</span>
+          }
+        @if (vert.Nota.HasValue)
+            {
+     <div class="mt-2">Nota: <strong>@vert.Nota</strong></div>
+             }
+     </div>
+            </li>
+          }
+       </ul>
+ </div>
+    </div>
+   }
+     }
+          </div>
+   </div>
+         }
+      else if (TurmasDisponiveis.Count == 0)
+    {
+   <div class="alert alert-warning">
+     <i class="bi bi-info-circle me-2"></i>
+               VocÍ n„o foi atribuÌdo a nenhuma turma ainda. Contate o administrador.
+          </div>
+       }
+            }
+        </div>
+    </div>
+</div>
 
 @code {
-    private List<TrabalhoViewModel> Trabalhos { get; set; } = new();
+    private List<Turma> TurmasDisponiveis = new();
+    private Turma? TurmaSelecionada;
+  private List<TrabalhoViewModel> TrabalhosTurma = new();
+    private Dictionary<int, List<TrabalhoViewModel>> TrabalhosPorAluno = new();
+
+    private int SelectedTurmaId = 0;
+    private string? ErrorMessage;
+    private bool IsLoading = true;
+    private Professor? ProfessorAtual;
+    private string? ProfessorUserId;
 
     protected override async Task OnInitializedAsync()
     {
-        await CarregarTrabalhos();
-    }
-
-    private async Task CarregarTrabalhos()
-    {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var professorId = authState.User.FindFirst(c => c.Type == "sub")?.Value ?? "";
-
-        var trabalhosDb = await TrabalhoService.GetTrabalhosDoProfessorAsync(professorId);
-
-        Trabalhos = trabalhosDb.Select(t => new TrabalhoViewModel
+   try
         {
-            Id = t.Id,
-            Titulo = t.Titulo ?? "T√≠tulo n√£o informado",
-            AlunoId = t.AlunoId?.ToString() ?? "",
-            // Aqui usamos UserName no lugar de Nome
-            AlunoNome = t.Aluno?.UserName ?? "Aluno n√£o definido",
-            Vertentes = t.TrabalhoVertentes.Select(v => new VertenteViewModel
-            {
-                Id = v.Id,
-                Tipo = v.Tipo ?? "",
-                DataEnvio = v.DataEnvio == default ? null : v.DataEnvio,
-                FicheiroNome = v.FicheiroNome ?? "",
-                FicheiroBytes = v.FicheiroBytes,
-                ConteudoTexto = v.ConteudoTextoAluno ?? "",
-                Nota = v.Nota
-            }).ToList()
-        }).ToList();
+   // Obter dados do usu·rio logado
+      var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+     ProfessorUserId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(ProfessorUserId))
+{
+            ErrorMessage = "N„o foi possÌvel identificar o professor logado.";
+  IsLoading = false;
+           return;
+  }
+
+            // Carregar dados
+            await CarregarTurmas();
+        }
+        catch (Exception ex)
+        {
+ ErrorMessage = $"Erro ao carregar dados: {ex.Message}";
+            Console.WriteLine($"? Erro: {ex}");
+        }
+        finally
+        {
+       IsLoading = false;
+      }
     }
 
-    private void CriarTrabalho()
+    private async Task CarregarTurmas()
     {
-        Nav.NavigateTo("/professor/CriarRoteiro");
+  try
+        {
+     Console.WriteLine($"[DashboardProfessor] Carregando turmas para UserId: {ProfessorUserId}");
+
+        // Obter professor
+   ProfessorAtual = await ProfessorService.GetProfessorByUserIdAsync(ProfessorUserId!);
+
+            if (ProfessorAtual == null)
+   {
+     ErrorMessage = "Professor n„o encontrado.";
+           return;
+       }
+
+            Console.WriteLine($"[DashboardProfessor] Professor encontrado: {ProfessorAtual.Nome}");
+
+            // Obter turmas do professor
+   TurmasDisponiveis = await TurmaService.GetTurmasDoProfessorAsync(ProfessorAtual.Id) ?? new();
+
+  Console.WriteLine($"[DashboardProfessor] Turmas disponÌveis: {TurmasDisponiveis.Count}");
+
+  // Carregar trabalhos para cada aluno
+     await CarregarTrabalhosPorAluno();
+   }
+        catch (Exception ex)
+        {
+        ErrorMessage = $"Erro ao carregar turmas: {ex.Message}";
+      Console.WriteLine($"? Erro: {ex}");
+        }
+    }
+
+  private async Task TurmaChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int turmaId))
+        {
+            SelectedTurmaId = turmaId;
+  TurmaSelecionada = TurmasDisponiveis.FirstOrDefault(t => t.Id == turmaId);
+
+   if (TurmaSelecionada != null)
+            {
+   await CarregarTrabalhosTurma();
+            }
+
+       StateHasChanged();
+    }
+    }
+
+ private async Task CarregarTrabalhosTurma()
+    {
+try
+   {
+       if (SelectedTurmaId <= 0 || TurmaSelecionada == null) return;
+
+ // Carregar trabalhos da turma selecionada
+  var todosTrabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(ProfessorUserId!);
+
+  // Filtrar apenas trabalhos cujos alunos pertencem ‡ turma selecionada
+var alunosIdsTurma = TurmaSelecionada.Alunos.Select(a => a.Id).ToList();
+
+TrabalhosTurma = todosTrabalhos
+.Where(t => !string.IsNullOrEmpty(t.AlunoId))
+ .Select(t => new TrabalhoViewModel
+   {
+Id = t.Id,
+ Titulo = t.Titulo ?? "Sem tÌtulo",
+       AlunoId = t.AlunoId ?? "",
+        AlunoNome = t.Aluno?.UserName ?? "Aluno desconhecido",
+    ModuloNome = "MÛdulo n„o definido",
+     DisciplinaNome = "Disciplina n„o definida",
+  Vertentes = t.TrabalhoVertentes.Select(v => new VertenteViewModel
+   {
+      Id = v.Id,
+     Tipo = v.Tipo ?? "",
+DataEnvio = v.DataEnvio == default ? null : v.DataEnvio,
+          FicheiroNome = v.FicheiroNome ?? "",
+       ConteudoTexto = v.ConteudoTextoAluno ?? "",
+   Nota = v.Nota
+        }).ToList()
+     }).ToList();
+
+            Console.WriteLine($"[DashboardProfessor] Trabalhos da turma {SelectedTurmaId}: {TrabalhosTurma.Count}");
+     }
+        catch (Exception ex)
+    {
+   ErrorMessage = $"Erro ao carregar trabalhos: {ex.Message}";
+  Console.WriteLine($"? Erro: {ex}");
+  }
+    }
+
+    private async Task CarregarTrabalhosPorAluno()
+    {
+        try
+      {
+       var todosTrabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(ProfessorUserId!);
+
+ TrabalhosPorAluno = new();
+         foreach (var trabalho in todosTrabalhos)
+        {
+ if (!string.IsNullOrEmpty(trabalho.AlunoId))
+{
+     // Encontra o aluno correspondente
+var aluno = TurmasDisponiveis.SelectMany(t => t.Alunos).FirstOrDefault(a => a.UserId == trabalho.AlunoId);
+if (aluno != null)
+{
+     if (!TrabalhosPorAluno.ContainsKey(aluno.Id))
+  TrabalhosPorAluno[aluno.Id] = new();
+
+       TrabalhosPorAluno[aluno.Id].Add(new TrabalhoViewModel
+         {
+  Id = trabalho.Id,
+Titulo = trabalho.Titulo ?? ""
+   });
+  }
+}
+            }
+  }
+ catch (Exception ex)
+        {
+  Console.WriteLine($"? Erro ao carregar trabalhos por aluno: {ex}");
+    }
+}
+
+    private void CriarNovoTrabalho()
+    {
+        Nav.NavigateTo($"/professor/CriarRoteiro/{SelectedTurmaId}");
+    }
+
+    private void VerTrabalhosAluno(int alunoId)
+    {
+        Nav.NavigateTo($"/professor/TrabalhosPorAluno/{alunoId}");
     }
 
     private void EditarTrabalho(int trabalhoId)
@@ -126,31 +388,23 @@ else
 
     private async Task DeletarTrabalho(int trabalhoId)
     {
-        bool confirmar = await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza que deseja excluir este trabalho?");
+      bool confirmar = await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza que deseja excluir este trabalho?");
         if (confirmar)
         {
-            await TrabalhoService.ApagarTrabalhoAsync(trabalhoId);
-            await CarregarTrabalhos();
+        await TrabalhoService.ApagarTrabalhoAsync(trabalhoId);
+     await CarregarTrabalhosTurma();
         }
     }
 
-    private void AbrirArquivo(int vertenteId)
-    {
-        Nav.NavigateTo($"/ficheiro/vertente/{vertenteId}", true);
-    }
-
-    private void AvaliarVertente(int trabalhoId, string tipoVertente)
-    {
-        Nav.NavigateTo($"/professor/AvaliarVertente/{trabalhoId}/{tipoVertente}");
-    }
-
     // ViewModels
-    public class TrabalhoViewModel
+  public class TrabalhoViewModel
     {
         public int Id { get; set; }
         public string Titulo { get; set; } = "";
         public string AlunoId { get; set; } = "";
-        public string AlunoNome { get; set; } = "";
+  public string AlunoNome { get; set; } = "";
+        public string ModuloNome { get; set; } = "";
+        public string DisciplinaNome { get; set; } = "";
         public List<VertenteViewModel> Vertentes { get; set; } = new();
     }
 
@@ -158,10 +412,9 @@ else
     {
         public int Id { get; set; }
         public string Tipo { get; set; } = "";
-        public DateTime? DataEnvio { get; set; }
-        public string FicheiroNome { get; set; } = "";
-        public byte[]? FicheiroBytes { get; set; }
-        public string ConteudoTexto { get; set; } = "";
+ public DateTime? DataEnvio { get; set; }
+     public string FicheiroNome { get; set; } = "";
+      public string ConteudoTexto { get; set; } = "";
         public decimal? Nota { get; set; }
     }
 }

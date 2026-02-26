@@ -1,148 +1,317 @@
-Ôªø@page "/aluno/EnviarTrabalho/{Id:int}"
+@page "/aluno/EnviarTrabalho/{Id:int}"
 @namespace gestaopedagogica.Pages.Aluno
 @layout MainLayout
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
+
 @inject TrabalhoService TrabalhoService
 @inject NavigationManager Nav
 
-<h3>@Trabalho?.Titulo ?? "Trabalho n√£o encontrado"</h3>
-
-@if (!string.IsNullOrEmpty(StatusMessage))
-{
-    <div class="alert alert-info">@StatusMessage</div>
-}
-
-@if (FormEnviado)
-{
-    <div class="alert alert-success">
-        ‚úÖ Trabalho enviado com sucesso!
+<div class="container-fluid mt-4">
+    <div class="card shadow-sm border-0" style="border-radius: 15px;">
+        <div class="card-header bg-primary text-white p-3" style="border-radius: 15px 15px 0 0;">
+ <div class="d-flex justify-content-between align-items-center">
+             <h4 class="mb-0"><i class="bi bi-file-earmark me-2"></i>@(Trabalho?.Titulo ?? "Carregando...")</h4>
+              <button class="btn btn-light btn-sm rounded-pill" @onclick='() => Nav.NavigateTo("/aluno/DashboardAluno")'>
+     <i class="bi bi-arrow-left me-1"></i>Voltar
+        </button>
     </div>
-}
-else if (Vertentes == null)
-{
-    <p>Carregando vertentes...</p>
-}
-else
-{
-    <EditForm Model="Vertentes" OnValidSubmit="Enviar">
-        @foreach (var vert in Vertentes)
+      </div>
+
+     <div class="card-body p-4">
+ @if (!string.IsNullOrEmpty(StatusMessage))
+  {
+        <div class="alert @(StatusMessage.Contains("?") ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+    @StatusMessage
+         <button type="button" class="btn-close" @onclick='() => StatusMessage = ""'></button>
+       </div>
+             }
+
+   @if (Trabalho == null)
+      {
+          <div class="text-center">
+           <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2">Carregando trabalho...</p>
+       </div>
+     }
+     else if (FormEnviado)
         {
-            <div class="card mb-3 p-3">
-                <h5>@vert.Tipo</h5>
-
-                @if (!string.IsNullOrEmpty(vert.ConteudoTextoProfessor))
-                {
-                    <p><strong>Instru√ß√£o do professor:</strong> @vert.ConteudoTextoProfessor</p>
-                }
-
-                <textarea class="form-control mt-2"
-                          placeholder="Escreva aqui sua resposta..."
-                          @bind="vert.ConteudoTextoAluno"></textarea>
-
-                <div class="mt-2">
-                    <label>Enviar ficheiro:</label>
-                    <InputFile OnChange="e => UploadArquivo(e, vert)" />
-
-                    @if (!string.IsNullOrEmpty(vert.ArquivoNome))
-                    {
-                        <p>Arquivo selecionado: @vert.ArquivoNome</p>
-                        <a href="@($"/ficheiro/vertente/{vert.Id}")" target="_blank">Abrir arquivo</a>
-                    }
-                </div>
-            </div>
+          <div class="alert alert-success border-0 rounded-3">
+        <h5 class="mb-2">? Trabalho Enviado com Sucesso!</h5>
+  <p class="mb-0">Seu trabalho foi enviado e o professor ser· notificado para avaliaÁ„o.</p>
+          <button class="btn btn-success mt-3" @onclick='() => Nav.NavigateTo("/aluno/DashboardAluno")'>
+        <i class="bi bi-arrow-left me-1"></i>Voltar para Dashboard
+     </button>
+        </div>
         }
+else
+    {
+   <!-- InformaÁıes do Trabalho -->
+       <div class="alert alert-info border-0 rounded-3 mb-4">
+       <div class="row">
+     <div class="col-md-4">
+        <strong>Disciplina:</strong> @(Trabalho.Disciplina?.Nome ?? "N/A")<br>
+        <strong>MÛdulo:</strong> @(Trabalho.Modulo?.Nome ?? "N/A")
+          </div>
+ <div class="col-md-4">
+          <strong>Prazo:</strong> @Trabalho.PrazoEntrega.ToString("dd/MM/yyyy HH:mm")<br>
+   @{
+   var tempoRestante = Trabalho.PrazoEntrega - DateTime.UtcNow;
+      var classPrazo = tempoRestante.TotalHours > 24 ? "text-success" : 
+         tempoRestante.TotalHours > 0 ? "text-warning" : "text-danger";
+      }
+   <span class="@classPrazo">
+      @(tempoRestante.TotalHours > 0 ? 
+        $"({Math.Round(tempoRestante.TotalHours)}h restantes)" : 
+  "(?? Prazo expirado)")
+   </span>
+      </div>
+     <div class="col-md-4">
+          <strong>Status:</strong>
+  @{
+ var percentualConclusao = CalcularPercentualConclusao(Vertentes);
+    var classeStatus = percentualConclusao == 100 ? "badge bg-success" : 
+        percentualConclusao > 0 ? "badge bg-warning" : "badge bg-secondary";
+     }
+   <span class="@classeStatus">@percentualConclusao% Completo</span>
+       </div>
+    </div>
+   </div>
 
-        <button class="btn btn-primary" type="submit">Enviar Trabalho</button>
-    </EditForm>
-}
+       <div class="progress mb-4" style="height: 30px;">
+@{
+  var pct = CalcularPercentualConclusao(Vertentes);
+         var classeProgresso = pct == 100 ? "bg-success" : 
+         pct >= 50 ? "bg-info" : "bg-warning";
+      }
+   <div class="progress-bar @classeProgresso" 
+         role="progressbar" 
+     style="width: @pct%"
+  aria-valuenow="@pct" 
+      aria-valuemin="0" 
+     aria-valuemax="100">
+      <strong>@pct%</strong>
+    </div>
+   </div>
+
+   <EditForm Model="Vertentes" OnValidSubmit="EnviarTrabalhoAsync">
+        @foreach (var vert in Vertentes ?? new())
+    {
+  <div class="card mb-4 shadow-sm" style="border-radius: 12px;">
+       <div class="card-header bg-light" style="border-radius: 12px 12px 0 0;">
+    <div class="d-flex justify-content-between align-items-center">
+ <h5 class="mb-0">
+      @vert.Tipo
+         @if (!string.IsNullOrEmpty(vert.Feedback))
+ {
+   <span class="badge bg-warning ms-2">Coment·rio do Professor</span>
+    }
+         </h5>
+     @{
+  var statusIcon = string.IsNullOrEmpty(vert.ConteudoTextoAluno) && vert.ArquivoBytes == null 
+     ? "? Pendente" 
+        : vert.Nota.HasValue 
+           ? $"? Avaliado ({vert.Nota})" 
+       : "? Enviado";
+  }
+  <small class="badge bg-light text-dark">@statusIcon</small>
+          </div>
+    </div>
+
+       <div class="card-body">
+   @if (!string.IsNullOrEmpty(vert.ConteudoTextoProfessor))
+     {
+   <div class="alert alert-light border-start border-primary ps-3 mb-3">
+      <small><strong>?? InstruÁıes:</strong></small>
+   <p class="mb-0 mt-1">@vert.ConteudoTextoProfessor</p>
+            </div>
+   }
+
+        <label class="form-label fw-bold">Sua Resposta:</label>
+      <textarea class="form-control rounded-3" 
+    rows="5"
+         placeholder="Escreva aqui sua resposta..."
+ @bind="vert.ConteudoTextoAluno"></textarea>
+
+   <div class="mt-3">
+   <label class="form-label fw-bold">Enviar Ficheiro:</label>
+          <InputFile OnChange="e => UploadArquivo(e, vert)" class="form-control rounded-pill" />
+
+     @if (!string.IsNullOrEmpty(vert.ArquivoNome))
+       {
+              <div class="alert alert-success mt-2 rounded-3">
+          <i class="bi bi-file-earmark-check me-2"></i>
+     <strong>Ficheiro:</strong> @vert.ArquivoNome
+        </div>
+       }
+       </div>
+
+    @if (vert.Nota.HasValue)
+       {
+ <div class="alert alert-success mt-3 rounded-3">
+<strong>?? AvaliaÁ„o:</strong> @vert.Nota<br>
+     @if (!string.IsNullOrEmpty(vert.Feedback))
+    {
+    <small><strong>Feedback:</strong> @vert.Feedback</small>
+      }
+      </div>
+  }
+     </div>
+    </div>
+  }
+  </EditForm>
+
+          <!-- Botıes de AÁ„o -->
+       <div class="d-flex gap-2 justify-content-end mt-4">
+         <button type="button" class="btn btn-outline-secondary btn-lg rounded-pill px-4" 
+  @onclick='() => Nav.NavigateTo("/aluno/DashboardAluno")'>
+    <i class="bi bi-x me-2"></i>Cancelar
+       </button>
+ <button type="button" class="btn btn-primary btn-lg rounded-pill px-4" 
+@onclick="EnviarTrabalhoAsync"
+ disabled="@(IsSaving || CalcularPercentualConclusao(Vertentes) == 0)">
+ @(IsSaving ? "Enviando..." : "Enviar Trabalho")
+</button>
+           </div>
+              }
+    </div>
+  </div>
+</div>
 
 @code {
-    [Parameter] public int Id { get; set; }
+    [Parameter] 
+    public int Id { get; set; }
 
     private Trabalho? Trabalho;
     private List<AlunoVertenteModel>? Vertentes;
     private string StatusMessage = "";
     private bool FormEnviado = false;
+    private bool IsSaving = false;
 
-    protected override async Task OnInitializedAsync()
+  protected override async Task OnInitializedAsync()
     {
-        Trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(Id);
+        try
+    {
+          Trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(Id);
 
-        if (Trabalho != null)
-        {
-            var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(Trabalho.Id);
-
-            Vertentes = vertentesDb.Select(v => new AlunoVertenteModel
+    if (Trabalho != null)
             {
-                Id = v.Id,
-                Tipo = v.Tipo,
-                ConteudoTextoProfessor = v.ConteudoTexto,
-                ConteudoTextoAluno = v.ConteudoTextoAluno ?? "",
-                ArquivoNome = v.FicheiroNome,
-                ArquivoBytes = v.FicheiroBytes,
-                ArquivoContentType = v.FicheiroContentType
-            }).ToList();
-        }
-        else
+ var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(Trabalho.Id);
+
+       Vertentes = vertentesDb.Select(v => new AlunoVertenteModel
+    {
+    Id = v.Id,
+     Tipo = v.Tipo,
+       ConteudoTextoProfessor = v.ConteudoTexto,
+ConteudoTextoAluno = v.ConteudoTextoAluno ?? "",
+   ArquivoNome = v.FicheiroNome,
+  ArquivoBytes = v.FicheiroBytes,
+ ArquivoContentType = v.FicheiroContentType,
+   Feedback = v.Feedback,
+  Nota = v.Nota
+       }).ToList();
+
+ Console.WriteLine($"? Trabalho carregado: {Trabalho.Titulo}");
+  Console.WriteLine($"? Vertentes: {Vertentes.Count}");
+     }
+  else
+         {
+           StatusMessage = "? Trabalho n„o encontrado.";
+Vertentes = new List<AlunoVertenteModel>();
+  }
+      }
+        catch (Exception ex)
         {
-            StatusMessage = "‚ùå Trabalho n√£o encontrado.";
-            Vertentes = new List<AlunoVertenteModel>();
+   StatusMessage = $"? Erro ao carregar: {ex.Message}";
+   Console.WriteLine($"? Erro: {ex}");
         }
     }
 
-    private async Task Enviar()
+    private int CalcularPercentualConclusao(List<AlunoVertenteModel>? vertentes)
+  {
+        if (vertentes == null || !vertentes.Any()) return 0;
+        
+        var completas = vertentes.Count(v => 
+ !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.ArquivoBytes != null);
+        
+        return (completas * 100) / vertentes.Count;
+    }
+
+    private async Task EnviarTrabalhoAsync()
     {
-        if (Vertentes == null || Vertentes.Count == 0) return;
+        IsSaving = true;
+  StatusMessage = "";
 
         try
         {
-            foreach (var vert in Vertentes)
+    if (Vertentes == null || !Vertentes.Any())
+      {
+  StatusMessage = "? Nenhuma vertente para enviar.";
+         return;
+   }
+
+   foreach (var vert in Vertentes)
             {
-                var vertDb = await TrabalhoService.GetVertentePorIdAsync(vert.Id);
-                if (vertDb != null)
-                {
-                    vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno?.Trim() ?? "";
+        var vertDb = await TrabalhoService.GetVertentePorIdAsync(vert.Id);
+ if (vertDb != null)
+        {
+   vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno?.Trim() ?? "";
 
-                    if (vert.Arquivo != null)
-                    {
-                        using var ms = new MemoryStream();
-                        await vert.Arquivo.OpenReadStream(10_000_000).CopyToAsync(ms);
+   if (vert.ArquivoBytes != null && vert.ArquivoBytes.Length > 0)
+           {
+   vertDb.FicheiroBytes = vert.ArquivoBytes;
+    vertDb.FicheiroContentType = vert.ArquivoContentType;
+          vertDb.FicheiroNome = vert.ArquivoNome;
+ }
 
-                        vertDb.FicheiroBytes = ms.ToArray();
-                        vertDb.FicheiroContentType = vert.Arquivo.ContentType;
-                        vertDb.FicheiroNome = vert.Arquivo.Name;
-                    }
-
-                    await TrabalhoService.AtualizarVertenteAsync(vertDb);
-                }
-            }
+  await TrabalhoService.AtualizarVertenteAsync(vertDb);
+   }
+        }
 
             FormEnviado = true;
             StatusMessage = "";
         }
         catch (Exception ex)
         {
-            StatusMessage = "‚ùå Erro ao enviar: " + ex.Message;
+    StatusMessage = $"? Erro ao enviar: {ex.Message}";
+            Console.WriteLine($"? Erro: {ex}");
+    }
+      finally
+      {
+IsSaving = false;
         }
     }
 
     private void UploadArquivo(InputFileChangeEventArgs e, AlunoVertenteModel vert)
     {
-        vert.Arquivo = e.File;
-        vert.ArquivoNome = e.File.Name;
-        vert.ArquivoContentType = e.File.ContentType;
+        try
+     {
+       vert.ArquivoNome = e.File.Name;
+ vert.ArquivoContentType = e.File.ContentType;
+    
+    var ms = new MemoryStream();
+ e.File.OpenReadStream(10_000_000).CopyTo(ms);
+        vert.ArquivoBytes = ms.ToArray();
+
+    Console.WriteLine($"? Ficheiro selecionado: {e.File.Name} ({vert.ArquivoBytes.Length} bytes)");
+    }
+        catch (Exception ex)
+ {
+  StatusMessage = $"? Erro ao enviar ficheiro: {ex.Message}";
+   Console.WriteLine($"? Erro: {ex}");
+ }
     }
 
     public class AlunoVertenteModel
     {
-        public int Id { get; set; }
+ public int Id { get; set; }
         public string Tipo { get; set; } = "";
         public string ConteudoTextoProfessor { get; set; } = "";
         public string ConteudoTextoAluno { get; set; } = "";
-        public string? ArquivoNome { get; set; }
-        public IBrowserFile? Arquivo { get; set; }
+    public string? ArquivoNome { get; set; }
         public byte[]? ArquivoBytes { get; set; }
         public string? ArquivoContentType { get; set; }
+ public string? Feedback { get; set; }
+     public decimal? Nota { get; set; }
     }
 }

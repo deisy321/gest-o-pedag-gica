@@ -1,4 +1,5 @@
-﻿using gestaopedagogica.Data;
+﻿using System.Collections.Generic;
+using gestaopedagogica.Data;
 using gestaopedagogica.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,16 +34,11 @@ namespace gestaopedagogica.Services
         {
             try
             {
-                // Como os critérios são obrigatórios no banco (Migration), 
-                // inicializamos aqui com um valor padrão para não dar erro de gravação.
-                // O Professor irá editar estes valores depois na Dashboard dele.
                 modulo.CriterioAptidao ??= "Pendente";
                 modulo.CriterioCompetencia ??= "Pendente";
                 modulo.CriterioConhecimento ??= "Pendente";
 
                 _context.Modulos.Add(modulo);
-
-                // O SaveChangesAsync gera o ID necessário para a tabela de ligação (turmamodulos)
                 await _context.SaveChangesAsync();
             }
             catch (Exception ex)
@@ -54,8 +50,15 @@ namespace gestaopedagogica.Services
 
         public async Task UpdateModuloAsync(Modulo modulo)
         {
-            // Este método será usado pelo Professor para preencher os critérios reais
-            _context.Modulos.Update(modulo);
+            // Evita conflito de tracking
+            _context.Entry(modulo).State = EntityState.Modified;
+
+            // Garante que o Professor não seja alterado
+            if (modulo.Professor != null)
+            {
+                _context.Entry(modulo.Professor).State = EntityState.Unchanged;
+            }
+
             await _context.SaveChangesAsync();
         }
 

@@ -1,79 +1,282 @@
-ï»¿@page "/professor/AvaliarVertente/{TrabalhoId:int}/{TipoVertente}"
-@using gestaopedagogica.Data
+@page "/professor/AvaliarVertente/{TrabalhoIdStr}/{Tipo}"
+@namespace gestaopedagogica.Pages.Professor
+@layout MainLayout
+
 @using gestaopedagogica.Models
-@inject ApplicationDbContext _context
+@using gestaopedagogica.Services
+
+@inject TrabalhoService TrabalhoService
 @inject NavigationManager Nav
 
-<h3>Avaliar Vertente</h3>
-
-@if (Vertente == null)
-{
-    <p>Carregando...</p>
-}
-else
-{
-    <div class="card p-4">
-
-        <p><strong>Tipo:</strong> @Vertente.Tipo</p>
-
-        @* Se houver ficheiro guardado no banco, mostra link para download *@
-        @if (Vertente.FicheiroBytes != null)
-        {
-            <p>
-                <a href="/ficheiro/vertente/@Vertente.Id" target="_blank">
-                    Baixar ficheiro enviado
-                </a>
-            </p>
-        }
-
-        @if (!string.IsNullOrEmpty(Vertente.ConteudoTexto))
-        {
-            <p><strong>Texto enviado:</strong></p>
-            <p>@Vertente.ConteudoTexto</p>
-        }
-
-        <div class="mt-3">
-            <label>Nota</label>
-            <input type="number" class="form-control" style="width:120px" @bind="Vertente.Nota" min="0" max="20" />
+<div class="container-fluid mt-4">
+    <div class="card shadow-sm border-0" style="border-radius: 15px;">
+ <div class="card-header bg-warning text-white p-3" style="border-radius: 15px 15px 0 0;">
+ <div class="d-flex justify-content-between align-items-center">
+      <h4 class="mb-0"><i class="bi bi-star me-2"></i>Avaliar Vertente: @Tipo</h4>
+  <button class="btn btn-light btn-sm rounded-pill" @onclick='() => Nav.NavigateTo("/professor/DashboardProfessor")'>
+    <i class="bi bi-arrow-left me-1"></i>Voltar
+ </button>
+       </div>
         </div>
 
-        <div class="mt-3">
-            <label>Feedback</label>
-            <textarea class="form-control" @bind="Vertente.Feedback"></textarea>
+<div class="card-body p-4">
+ @if (!string.IsNullOrEmpty(StatusMessage))
+ {
+       <div class="alert @(StatusMessage.Contains("?") ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+    @StatusMessage
+     <button type="button" class="btn-close" @onclick='() => StatusMessage = ""'></button>
+         </div>
+   }
+
+ @if (IsLoading)
+        {
+     <div class="text-center">
+ <div class="spinner-border text-primary" role="status"></div>
+  <p class="mt-2">Carregando dados...</p>
         </div>
-
-        <button class="btn btn-success mt-3" @onclick="Salvar">Salvar</button>
-
+            }
+     else if (Vertente == null)
+  {
+  <div class="alert alert-danger">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+Vertente não encontrada.
+      </div>
+ }
+     else
+ {
+<!-- Informações do Trabalho -->
+    <div class="alert alert-info border-0 rounded-3 mb-4">
+      <h5>?? @(Trabalho?.Titulo ?? "Carregando...")</h5>
+   <div class="row mt-2">
+ <div class="col-md-6">
+<strong>Aluno:</strong> @(Trabalho?.Aluno?.UserName ?? "N/A")<br>
+  <strong>Disciplina:</strong> @(Trabalho?.Disciplina?.Nome ?? "N/A")<br>
+  <strong>Módulo:</strong> @(Trabalho?.Modulo?.Nome ?? "N/A")
+ </div>
+<div class="col-md-6">
+      <strong>Prazo:</strong> @(Trabalho?.PrazoEntrega.ToString("dd/MM/yyyy HH:mm") ?? "N/A")<br>
+  <strong>Data de Envio:</strong> @(Vertente?.DataEnvio?.ToString("dd/MM/yyyy HH:mm") ?? "Não enviado")<br>
+ <strong>Status:</strong> <span class="badge bg-info">@(Vertente?.DataEnvio.HasValue == true ? "? Enviado" : "? Pendente")</span>
+   </div>
     </div>
-}
+   </div>
+
+    <!-- Instruções do Professor -->
+   <div class="card mb-4 shadow-sm" style="border-radius: 12px;">
+ <div class="card-header bg-light" style="border-radius: 12px 12px 0 0;">
+    <strong>?? Instruções:</strong>
+  </div>
+  <div class="card-body">
+<p>@(Vertente?.ConteudoTexto ?? "Sem instruções definidas.")</p>
+ </div>
+        </div>
+
+       <!-- Resposta do Aluno -->
+<div class="card mb-4 shadow-sm" style="border-radius: 12px;">
+ <div class="card-header bg-light" style="border-radius: 12px 12px 0 0;">
+        <strong>?? Resposta do Aluno:</strong>
+  </div>
+  <div class="card-body">
+@if (string.IsNullOrEmpty(Vertente?.ConteudoTextoAluno) && Vertente?.FicheiroBytes == null)
+  {
+   <div class="alert alert-warning">
+<i class="bi bi-exclamation-circle me-2"></i>
+       O aluno não enviou resposta para esta vertente.
+   </div>
+       }
+  else
+           {
+  @if (!string.IsNullOrEmpty(Vertente?.ConteudoTextoAluno))
+     {
+       <div class="alert alert-light border-start border-primary ps-3 mb-3">
+      <p>@Vertente.ConteudoTextoAluno</p>
+</div>
+      }
+
+@if (Vertente?.FicheiroBytes != null && Vertente.FicheiroBytes.Length > 0)
+  {
+ <div class="alert alert-success mb-0">
+   <i class="bi bi-file-earmark-check me-2"></i>
+   <strong>Ficheiro Enviado:</strong> @Vertente.FicheiroNome
+       <a href='@($"/ficheiro/vertente/{Vertente.Id}")' target="_blank" class="ms-2">
+     <i class="bi bi-download me-1"></i>Download
+     </a>
+ </div>
+  }
+       }
+ </div>
+          </div>
+
+        <!-- Formulário de Avaliação -->
+ <div class="card shadow-sm" style="border-radius: 12px;">
+       <div class="card-header bg-light" style="border-radius: 12px 12px 0 0;">
+ <strong>? Avaliação:</strong>
+   </div>
+             <div class="card-body">
+      <form @onsubmit="SalvarAvaliacao">
+  <!-- Nota -->
+        <div class="mb-4">
+  <label class="form-label fw-bold">Nota (0-20): *</label>
+         <div class="input-group">
+  <input type="number" class="form-control form-control-lg rounded-start" 
+min="0" max="20" step="0.5"
+   @bind="Nota" placeholder="Ex: 18.5" />
+     <span class="input-group-text rounded-end">/ 20</span>
+    </div>
+      @if (Nota <= 0)
+ {
+      <small class="text-danger">Campo obrigatório (0-20)</small>
+         }
+  </div>
+
+      <!-- Feedback -->
+     <div class="mb-4">
+ <label class="form-label fw-bold">Feedback / Comentário:</label>
+           <textarea class="form-control rounded-3" rows="5"
+    placeholder="Deixe um comentário construtivo para o aluno..."
+   @bind="Feedback"></textarea>
+       </div>
+
+      <!-- Preview feedback -->
+          @if (!string.IsNullOrEmpty(Feedback))
+      {
+  <div class="alert alert-light border-start border-primary ps-3 mb-3">
+     <small><strong>Preview do Feedback:</strong></small>
+  <p class="mb-0 mt-1">@Feedback</p>
+    </div>
+    }
+
+     <!-- Botões -->
+  <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-outline-secondary btn-lg rounded-pill px-4"
+ @onclick='() => Nav.NavigateTo("/professor/DashboardProfessor")'>
+       <i class="bi bi-x me-2"></i>Cancelar
+     </button>
+      <button type="submit" class="btn btn-success btn-lg rounded-pill px-4"
+         disabled="@(IsSaving || Nota <= 0 || Nota > 20)">
+  @(IsSaving ? "Salvando..." : "Guardar Avaliação")
+       </button>
+        </div>
+       </form>
+ </div>
+             </div>
+       }
+    </div>
+  </div>
+</div>
 
 @code {
-    [Parameter] public int TrabalhoId { get; set; }
-    [Parameter] public string TipoVertente { get; set; } = "";
+    [Parameter]
+    public string? TrabalhoIdStr { get; set; }
 
-    private TrabalhoVertente? Vertente { get; set; }
+    [Parameter]
+    public string? Tipo { get; set; }
 
-    protected override void OnInitialized()
+    private Trabalho? Trabalho;
+    private TrabalhoVertente? Vertente;
+    private decimal Nota = 0;
+    private string Feedback = "";
+    private string StatusMessage = "";
+    private bool IsSaving = false;
+ private bool IsLoading = true;
+    private int TrabalhoId = 0;
+
+    protected override async Task OnInitializedAsync()
     {
-        // Busca a vertente pelo trabalho e tipo
-        Vertente = _context.TrabalhoVertentes
-                    .FirstOrDefault(v => v.TrabalhoId == TrabalhoId && v.Tipo == TipoVertente);
-
-        if (Vertente == null)
+        try
         {
-            Console.WriteLine($"âš ï¸ Vertente nÃ£o encontrada: TrabalhoId={TrabalhoId}, Tipo={TipoVertente}");
+  if (!int.TryParse(TrabalhoIdStr, out TrabalhoId))
+     {
+    StatusMessage = "? ID do trabalho inválido.";
+    IsLoading = false;
+ return;
+       }
+
+await CarregarDados();
+        }
+    catch (Exception ex)
+ {
+     StatusMessage = $"? Erro ao carregar: {ex.Message}";
+         Console.WriteLine($"? Erro: {ex}");
+    }
+  finally
+     {
+         IsLoading = false;
         }
     }
 
-    private async Task Salvar()
+    private async Task CarregarDados()
     {
-        if (Vertente != null)
-        {
-            _context.TrabalhoVertentes.Update(Vertente);
-            await _context.SaveChangesAsync();
+    try
+  {
+    Trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(TrabalhoId);
+           if (Trabalho == null)
+     {
+   StatusMessage = "? Trabalho não encontrado.";
+          return;
+  }
 
-            // Redireciona de volta ao dashboard do professor
-            Nav.NavigateTo("/professor/TrabalhosRecebidos");
+        var vertentes = await TrabalhoService.GetVertentesDoTrabalhoAsync(TrabalhoId);
+  Vertente = vertentes?.FirstOrDefault(v => v.Tipo == Tipo);
+
+     if (Vertente == null)
+     {
+ StatusMessage = "? Vertente não encontrada.";
+        return;
+  }
+
+     // Se já tem nota, carrega
+ if (Vertente.Nota.HasValue)
+ {
+       Nota = Vertente.Nota.Value;
+    Feedback = Vertente.Feedback ?? "";
         }
+
+      Console.WriteLine($"? Trabalho carregado: {Trabalho.Titulo}");
+ Console.WriteLine($"? Vertente: {Vertente.Tipo}");
+       }
+        catch (Exception ex)
+   {
+ StatusMessage = $"? Erro ao carregar dados: {ex.Message}";
+   Console.WriteLine($"? Erro: {ex}");
+ }
+    }
+
+   private async Task SalvarAvaliacao()
+ {
+ IsSaving = true;
+        StatusMessage = "";
+
+        try
+{
+       if (Nota <= 0 || Nota > 20)
+     {
+ StatusMessage = "? A nota deve estar entre 0 e 20.";
+  return;
+   }
+
+     if (Vertente == null)
+{
+ StatusMessage = "? Vertente não encontrada.";
+  return;
+        }
+
+   Vertente.Nota = Nota;
+    Vertente.Feedback = Feedback;
+   await TrabalhoService.AtualizarVertenteAsync(Vertente);
+
+      StatusMessage = "? Avaliação guardada com sucesso!";
+       await Task.Delay(1500);
+    Nav.NavigateTo("/professor/DashboardProfessor");
+        }
+      catch (Exception ex)
+  {
+  StatusMessage = $"? Erro ao guardar: {ex.Message}";
+   Console.WriteLine($"? Erro: {ex}");
+        }
+      finally
+      {
+      IsSaving = false;
+   }
     }
 }

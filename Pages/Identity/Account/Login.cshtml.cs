@@ -1,4 +1,6 @@
 using gestaopedagogica.Data;
+using gestaopedagogica.Models;
+using gestaopedagogica.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -12,12 +14,21 @@ namespace gestaopedagogica.Pages.Identity.Account
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ApplicationDbContext _context;
+        private readonly ProfessorService _professorService;
+        private readonly AlunoService _alunoService;
 
         public LoginModel(SignInManager<ApplicationUser> signInManager,
-                          UserManager<ApplicationUser> userManager)
+                          UserManager<ApplicationUser> userManager,
+                          ApplicationDbContext context,
+                          ProfessorService professorService,
+                          AlunoService alunoService)
         {
             _signInManager = signInManager;
             _userManager = userManager;
+            _context = context;
+            _professorService = professorService;
+            _alunoService = alunoService;
         }
 
         [BindProperty]
@@ -70,8 +81,53 @@ namespace gestaopedagogica.Pages.Identity.Account
             // Efetua login
             await _signInManager.SignInAsync(user, Input.RememberMe);
 
-            // Redireciona para página inicial
-            return Redirect("/");
+            // ?? IMPORTANTE: Determinar o tipo de usuário e redirecionar apropriadamente
+            var returnUrl = await DeterminarRetorno(user.Id);
+
+            return Redirect(returnUrl);
+        }
+
+        private async Task<string> DeterminarRetorno(string userId)
+        {
+            try
+            {
+                // Verificar se é Admin (verificar roles)
+                var user = await _userManager.FindByIdAsync(userId);
+                var roles = await _userManager.GetRolesAsync(user);
+
+                if (roles.Contains("Admin"))
+                {
+                    Console.WriteLine($"? [Login] Admin detectado: {user.Email}");
+                    return "/admin/Dashboard";
+                }
+
+                // Verificar se é Professor
+                var professor = await _professorService.GetProfessorByUserIdAsync(userId);
+                if (professor != null)
+                {
+                    Console.WriteLine($"? [Login] Professor detectado: {professor.Nome} (Turmas: {professor.Turmas?.Count ?? 0})");
+                    return "/professor/DashboardProfessor";
+                }
+
+                // Verificar se é Aluno
+                var alunos = await _alunoService.GetAlunosAsync();
+                var aluno = alunos?.FirstOrDefault(a => a.UserId == userId);
+                if (aluno != null)
+                {
+                    Console.WriteLine($"? [Login] Aluno detectado: {aluno.Nome}");
+                    Console.WriteLine($"   ?? Turma: {aluno.Turma?.Nome ?? "Sem turma"}");
+                    return "/aluno/DashboardAluno";
+                }
+
+                // Padrão: voltar para home
+                Console.WriteLine($"??  [Login] Tipo de utilizador não identificado para: {user.Email}");
+                return "/";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"? [Login] Erro ao determinar retorno: {ex.Message}");
+                return "/";
+            }
         }
     }
 }

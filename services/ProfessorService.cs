@@ -13,20 +13,21 @@ namespace gestaopedagogica.Services
             _context = context;
         }
 
-        // NOVO MÉTODO: Adiciona um professor à base de dados
-        // Este método resolve o erro de "AddProfessorAsync não encontrado"
+        // Adiciona um novo professor à base de dados
         public async Task AddProfessorAsync(Professor professor)
         {
             if (professor == null) return;
 
             _context.Professores.Add(professor);
-            await _context.SaveChangesAsync(); // O await aqui resolve o aviso de execução síncrona
+            await _context.SaveChangesAsync();
         }
 
         // Retorna todos os professores
         public async Task<List<Professor>> GetProfessoresAsync()
         {
-            return await _context.Professores.ToListAsync();
+            return await _context.Professores
+                                 .AsNoTracking()
+                                 .ToListAsync();
         }
 
         // Retorna professor pelo UserId do Identity
@@ -35,6 +36,7 @@ namespace gestaopedagogica.Services
             if (string.IsNullOrEmpty(userId)) return null;
 
             return await _context.Professores
+                                 .AsNoTracking()
                                  .FirstOrDefaultAsync(p => p.UserId == userId);
         }
 
@@ -44,7 +46,37 @@ namespace gestaopedagogica.Services
             if (string.IsNullOrEmpty(email)) return null;
 
             return await _context.Professores
+                                 .AsNoTracking()
                                  .FirstOrDefaultAsync(p => p.Email == email);
+        }
+
+        // Retorna todos os trabalhos de um professor, filtrando corretamente turmas e módulos
+        public async Task<List<Trabalho>> GetTrabalhosDoProfessorAsync(int professorId)
+        {
+            return await _context.Trabalhos
+                .Include(t => t.Modulo)
+                .Include(t => t.Turma)
+                    .ThenInclude(tu => tu.Modulos)
+                .Include(t => t.Turma)
+                    .ThenInclude(tu => tu.Professores)
+                .Where(t =>
+                    t.Turma.Professores.Any(tp => tp.ProfessorId == professorId) &&
+                    t.Turma.Modulos.Any(tm => tm.ModuloId == t.ModuloId))
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        // Retorna todas as turmas de um professor
+        public async Task<List<Turma>> GetTurmasDoProfessorAsync(int professorId)
+        {
+            return await _context.Turmas
+                .Include(t => t.Curso)
+                .Include(t => t.Alunos)
+                .Include(t => t.Professores)
+                .Include(t => t.Modulos)
+                .Where(t => t.Professores.Any(tp => tp.ProfessorId == professorId))
+                .AsNoTracking()
+                .ToListAsync();
         }
     }
 }
