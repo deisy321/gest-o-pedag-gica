@@ -10,180 +10,182 @@
 
 <div class="container-fluid mt-4">
     <div class="card shadow-sm border-0" style="border-radius: 15px;">
-     <div class="card-header bg-info text-white p-3" style="border-radius: 15px 15px 0 0;">
-     <h4 class="mb-0"><i class="bi bi-book me-2"></i>Dashboard do Aluno</h4>
-   </div>
+        <div class="card-header bg-dark text-white p-3" style="border-radius: 15px 15px 0 0;">
+            <h4 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Dashboard do Aluno</h4>
+        </div>
 
-      <div class="card-body p-4">
-          @if (!string.IsNullOrEmpty(ErrorMessage))
-        {
+        <div class="card-body p-4 bg-light">
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
-  <i class="bi bi-exclamation-triangle me-2"></i>
- @ErrorMessage
-       <button type="button" class="btn-close" @onclick='() => ErrorMessage = ""'></button>
-             </div>
+                    <i class="bi bi-exclamation-triangle me-2"></i> @ErrorMessage
+                    <button type="button" class="btn-close" @onclick='() => ErrorMessage = ""'></button>
+                </div>
             }
 
- @if (IsLoading)
-       {
-  <div class="text-center">
-         <div class="spinner-border text-primary" role="status"></div>
-        <p class="mt-2">Carregando seus dados...</p>
-       </div>
-        }
+            @if (IsLoading)
+            {
+                <div class="text-center p-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">A carregar os teus dados pedagógicos...</p>
+                </div>
+            }
             else
             {
-  <!-- Informações do Aluno -->
-          <div class="row mb-4">
-   <div class="col-md-12">
-  <div class="alert alert-success border-0 rounded-3">
-       <h5>?? @(AlunoAtual?.Nome ?? "Aluno")</h5>
-     <div class="row mt-2">
-      <div class="col-md-4">
-           <strong>Turma:</strong> @(TurmaAtual?.Nome ?? "Sem Turma")<br>
-               <strong>Curso:</strong> @(TurmaAtual?.Curso?.Nome ?? "N/A")
-  </div>
-        <div class="col-md-4">
- <strong>Ano Letivo:</strong> @(TurmaAtual?.Ano ?? "N/A")
-           </div>
-                   </div>
-    </div>
-        </div>
+                <!-- Cards de Estatísticas -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card text-white shadow-sm border-0" style="background-color: #f1b40e; border-radius: 15px;">
+                            <div class="card-body">
+                                <h6 class="card-title text-uppercase small">Trabalhos Pendentes</h6>
+                                <h2 class="fw-bold">@TrabalhosPendentes.Count</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-white shadow-sm border-0" style="background-color: #0d6efd; border-radius: 15px;">
+                            <div class="card-body">
+                                <h6 class="card-title text-uppercase small">Minhas Disciplinas</h6>
+                                <h2 class="fw-bold">@DisciplinasUnicas.Count</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-white shadow-sm border-0" style="background-color: #198754; border-radius: 15px;">
+                            <div class="card-body">
+                                <h6 class="card-title text-uppercase small">Média Geral</h6>
+                                <h2 class="fw-bold">@MediaGeral.ToString("F1")</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-white shadow-sm border-0" style="border-radius: 15px; height: 100%;">
+                            <div class="card-body d-flex align-items-center justify-content-center py-2">
+                                <div class="text-center">
+                                    <span class="badge bg-info text-dark">@TurmaAtual?.Nome</span><br />
+                                    <small class="text-muted" style="font-size: 0.7rem">@TurmaAtual?.Curso?.Nome</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-        <!-- Trabalhos Disponíveis -->
-     <div class="row">
-  <div class="col-md-12">
-       <h5 class="fw-bold mb-3">?? Trabalhos Disponíveis</h5>
+                <!-- Filtros -->
+                <div class="card shadow-sm border-0 mb-4" style="border-radius: 15px;">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">DISCIPLINA</label>
+                                <select class="form-select border-0 bg-light" @onchange="OnDisciplinaChanged">
+                                    <option value="">Todas as Disciplinas</option>
+                                    @foreach (var disc in DisciplinasUnicas)
+                                    {
+                                        <option value="@disc">@disc</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">MÓDULO</label>
+                                <select class="form-select border-0 bg-light" @bind="ModuloSelecionado" @bind:after="FiltrarTrabalhos">
+                                    <option value="">Todos os Módulos</option>
+                                    @foreach (var mod in ModulosDisponiveis)
+                                    {
+                                        <option value="@mod">@mod</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-           @if (TrabalhosPendentes == null || !TrabalhosPendentes.Any())
-       {
-        <div class="alert alert-info">
-           Você não tem trabalhos pendentes.
-        </div>
-   }
-          else
-   {
-                @foreach (var trabalho in TrabalhosPendentes)
-        {
-  <div class="card mb-3 shadow-sm border-start border-primary border-5" style="border-radius: 12px;">
-              <div class="card-body">
-           <div class="d-flex justify-content-between align-items-start mb-2">
-              <div>
-<h5 class="mb-1">@trabalho.Titulo</h5>
-     <small class="text-muted">
-             <strong>Disciplina:</strong> @trabalho.DisciplinaNome | 
-         <strong>Módulo:</strong> @trabalho.ModuloNome
-     </small>
-    </div>
- <button class="btn btn-primary btn-sm rounded-pill" 
-           @onclick="() => ResolverTrabalho(trabalho.Id)">
-            <i class="bi bi-pencil me-1"></i>Resolver
-          </button>
-      </div>
-
-    <div class="row mt-3">
-      <div class="col-md-4">
-  <small><strong>Prazo:</strong> @trabalho.PrazoEntrega.ToString("dd/MM/yyyy HH:mm")</small>
-     </div>
-                 <div class="col-md-8">
-       <div class="progress" style="height: 20px;">
-      @{
-  var percentualConclusao = CalcularPercentualConclusao(trabalho.Vertentes);
-         var classeProgresso = percentualConclusao == 100 ? "bg-success" : 
-         percentualConclusao >= 50 ? "bg-info" : "bg-warning";
-              }
-      <div class="progress-bar @classeProgresso" 
-              role="progressbar" 
-           style="width: @percentualConclusao%"
-               aria-valuenow="@percentualConclusao" 
-        aria-valuemin="0" 
-       aria-valuemax="100">
-       @percentualConclusao%
-   </div>
-    </div>
-              </div>
-      </div>
-
- <!-- Vertentes -->
-          <div class="mt-3">
-        <small class="fw-bold">Status das Vertentes:</small>
-    <div class="row mt-2">
-                 @foreach (var vertente in trabalho.Vertentes)
-         {
-  var status = string.IsNullOrEmpty(vertente.ConteudoTextoAluno) && vertente.FicheiroBytes == null 
-   ? "? Pendente" 
-  : vertente.Nota.HasValue 
-    ? $"? Avaliado (Nota: {vertente.Nota})" 
-  : "? Enviado";
-        
-              <div class="col-md-4 mb-1">
-                <small class="badge bg-light text-dark w-100" style="display: block;">
-      @vertente.Tipo: @status
-       </small>
- </div>
-      }
-      </div>
-        </div>
-
-   <!-- Feedback do Professor -->
-         @if (trabalho.Vertentes?.Any(v => !string.IsNullOrEmpty(v.Feedback)) == true)
-  {
-     <div class="alert alert-light mt-3 border-start border-3" style="border-left-color: #ffc107;">
-  <strong>?? Feedback do Professor:</strong>
-      @foreach (var vertente in trabalho.Vertentes.Where(v => !string.IsNullOrEmpty(v.Feedback)))
-     {
-        <p class="mb-1"><small><strong>@vertente.Tipo:</strong> @vertente.Feedback</small></p>
-        }
-       </div>
-               }
-        </div>
-       </div>
-     }
-       }
-           </div>
-         </div>
-
-                <!-- Trabalhos Concluídos -->
-    @if (TrabalhosAvaliados != null && TrabalhosAvaliados.Any())
-          {
-<div class="row mt-4">
-                   <div class="col-md-12">
-       <h5 class="fw-bold mb-3">? Trabalhos Avaliados</h5>
-
-           @foreach (var trabalho in TrabalhosAvaliados)
-        {
-      var notaMedia = trabalho.Vertentes?.Average(v => v.Nota ?? 0) ?? 0;
-   
-            <div class="card mb-3 shadow-sm border-success" style="border-radius: 12px;">
-            <div class="card-body">
-    <div class="d-flex justify-content-between align-items-start">
-       <div>
-  <h6 class="mb-1">@trabalho.Titulo</h6>
-           <small class="text-muted">@trabalho.DisciplinaNome</small>
-          </div>
-           <div class="text-end">
-        <h4 class="mb-0">
-         <span class="badge bg-success">@notaMedia.ToString("F1")</span>
-     </h4>
-          </div>
-     </div>
-    </div>
-           </div>
-        }
-         </div>
-             </div>
- }
+                <!-- Tabela de Conteúdo -->
+                <div class="card shadow-sm border-0" style="border-radius: 15px;">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light text-muted small">
+                                    <tr>
+                                        <th class="ps-4">TRABALHO / DISCIPLINA</th>
+                                        <th>PROFESSOR</th>
+                                        <th>MÓDULO</th>
+                                        <th>PRAZO</th>
+                                        <th>ESTADO</th>
+                                        <th class="text-center">ACÇÃO</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (!TrabalhosFiltrados.Any())
+                                    {
+                                        <tr>
+                                            <td colspan="6" class="text-center p-5 text-muted">Nenhum trabalho pendente encontrado.</td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var trabalho in TrabalhosFiltrados)
+                                        {
+                                            <tr>
+                                                <td class="ps-4">
+                                                    <span class="fw-bold d-block">@trabalho.Titulo</span>
+                                                    <small class="text-primary">@(trabalho.Disciplina?.Nome ?? "N/A")</small>
+                                                </td>
+                                                <td><span class="badge bg-light text-dark fw-normal">@(trabalho.Professor?.UserName ?? "N/A")</span></td>
+                                                <td>@(trabalho.Modulo?.Nome ?? "N/A")</td>
+                                                <td>
+                                                    <small class="@(trabalho.PrazoEntrega < DateTime.Now ? "text-danger fw-bold" : "")">
+                                                        @trabalho.PrazoEntrega.ToString("dd/MM/yyyy")
+                                                    </small>
+                                                </td>
+                                                <td>
+                                                    @{
+                                                        var perc = CalcularPercentualConclusao(trabalho.TrabalhoVertentes);
+                                                    }
+                                                    <div class="progress" style="height: 6px; width: 80px;">
+                                                        <div class="progress-bar" style="width: @perc%"></div>
+                                                    </div>
+                                                    <small style="font-size: 0.7rem">@perc.ToString("F0")%</small>
+                                                </td>
+                                                <td class="text-center">
+                                                    <button class="btn btn-sm btn-primary rounded-pill px-3" @onclick="() => ResolverTrabalho(trabalho.Id)">
+                                                        Abrir
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            @if (trabalho.TrabalhoVertentes != null && trabalho.TrabalhoVertentes.Any(v => !string.IsNullOrEmpty(v.Feedback)))
+                                            {
+                                                <tr class="table-warning border-0">
+                                                    <td colspan="6" class="py-1 ps-4">
+                                                        <small class="text-dark">
+                                                            <i class="bi bi-chat-left-dots me-2"></i>
+                                                            <strong>Feedback:</strong> @trabalho.TrabalhoVertentes.First(v => !string.IsNullOrEmpty(v.Feedback)).Feedback
+                                                        </small>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             }
-    </div>
+        </div>
     </div>
 </div>
 
 @code {
     private Aluno? AlunoAtual;
     private Turma? TurmaAtual;
-    private List<TrabalhoViewModel> TrabalhosPendentes = new();
-    private List<TrabalhoViewModel> TrabalhosAvaliados = new();
+    private List<Trabalho> TrabalhosPendentes = new();
+    private List<Trabalho> TrabalhosAvaliados = new();
+    private List<Trabalho> TrabalhosFiltrados = new();
+
+    private List<string> DisciplinasUnicas = new();
+    private List<string> ModulosDisponiveis = new();
+    private string DisciplinaSelecionada = "";
+    private string ModuloSelecionado = "";
+    private double MediaGeral = 0;
 
     private string? ErrorMessage;
     private bool IsLoading = true;
@@ -193,116 +195,99 @@
     {
         try
         {
-          // Obter UserId do aluno logado
-     var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             AlunoUserId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-    if (string.IsNullOrEmpty(AlunoUserId))
+            if (string.IsNullOrEmpty(AlunoUserId))
             {
-  ErrorMessage = "Não foi possível identificar o aluno logado.";
-             IsLoading = false;
+                ErrorMessage = "Não foi possível identificar o aluno logado.";
                 return;
-       }
+            }
 
-    await CarregarDados();
+            await CarregarDados();
         }
         catch (Exception ex)
         {
-        ErrorMessage = $"Erro ao carregar dados: {ex.Message}";
-   Console.WriteLine($"? Erro: {ex}");
+            ErrorMessage = $"Erro ao carregar dados: {ex.Message}";
         }
         finally
         {
             IsLoading = false;
-     }
+        }
     }
 
     private async Task CarregarDados()
     {
-        try
+        var alunos = await AlunoService.GetAlunosAsync();
+        AlunoAtual = alunos?.FirstOrDefault(a => a.UserId == AlunoUserId);
+
+        if (AlunoAtual?.TurmaId.HasValue == true)
+            TurmaAtual = await TurmaService.GetTurmaByIdAsync(AlunoAtual.TurmaId.Value);
+
+        // Trazer todos os trabalhos para memória
+        var todosTrabalhos = (await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(AlunoUserId)).ToList();
+
+        TrabalhosPendentes = todosTrabalhos
+            .Where(t => t.TrabalhoVertentes == null || t.TrabalhoVertentes.Any(v => !v.Nota.HasValue))
+            .ToList();
+
+        TrabalhosAvaliados = todosTrabalhos
+            .Where(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.All(v => v.Nota.HasValue))
+            .ToList();
+
+        TrabalhosFiltrados = TrabalhosPendentes;
+
+        DisciplinasUnicas = TrabalhosPendentes
+            .Where(t => t.Disciplina != null)
+            .Select(t => t.Disciplina!.Nome)
+            .Distinct()
+            .ToList();
+
+        if (TrabalhosAvaliados.Any())
         {
-     // Carregar aluno
-   var alunos = await AlunoService.GetAlunosAsync();
-         AlunoAtual = alunos?.FirstOrDefault(a => a.UserId == AlunoUserId);
+            var notasValidas = TrabalhosAvaliados
+                .SelectMany(t => t.TrabalhoVertentes!)
+                .Where(v => v.Nota.HasValue)
+                .Select(v => v.Nota!.Value);
 
-          if (AlunoAtual == null)
-    {
-    ErrorMessage = "Aluno não encontrado.";
- return;
-   }
-
-  // Carregar turma
-      if (AlunoAtual.TurmaId.HasValue)
-         {
-    TurmaAtual = await TurmaService.GetTurmaByIdAsync(AlunoAtual.TurmaId.Value);
-       }
-
-          // Carregar trabalhos disponíveis
- var todosTrabalhos = await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(AlunoUserId);
-
-            // Separar trabalhos pendentes e avaliados
-            TrabalhosPendentes = todosTrabalhos
-       .Where(t => !t.TrabalhoVertentes.All(v => v.Nota.HasValue))
-     .Select(t => MapTrabalhoViewModel(t))
-                .ToList();
-
-     TrabalhosAvaliados = todosTrabalhos
-          .Where(t => t.TrabalhoVertentes.All(v => v.Nota.HasValue))
-           .Select(t => MapTrabalhoViewModel(t))
-                .ToList();
-
-        Console.WriteLine($"? Aluno carregado: {AlunoAtual.Nome}");
-      Console.WriteLine($"? Trabalhos: {TrabalhosPendentes.Count} pendentes, {TrabalhosAvaliados.Count} avaliados");
-        }
-        catch (Exception ex)
-  {
-         ErrorMessage = $"Erro ao carregar dados: {ex.Message}";
-            Console.WriteLine($"? Erro: {ex}");
+            if (notasValidas.Any())
+                MediaGeral = (double)notasValidas.Average(); // converte decimal para double
         }
     }
 
-    private TrabalhoViewModel MapTrabalhoViewModel(Trabalho t)
+    private void OnDisciplinaChanged(ChangeEventArgs e)
     {
-      return new TrabalhoViewModel
-        {
-            Id = t.Id,
-  Titulo = t.Titulo,
-    DisciplinaId = t.DisciplinaId ?? 0,
-            DisciplinaNome = t.Disciplina?.Nome ?? "Sem Disciplina",
-            ModuloId = t.ModuloId ?? 0,
-            ModuloNumero = t.Modulo?.Numero ?? "",
-            ModuloNome = t.Modulo?.Nome ?? "Sem Módulo",
-      PrazoEntrega = t.PrazoEntrega,
-      Vertentes = t.TrabalhoVertentes.ToList()
-        };
+        DisciplinaSelecionada = e.Value?.ToString() ?? "";
+        ModuloSelecionado = "";
+
+        ModulosDisponiveis = TrabalhosPendentes
+            .Where(t => t.Disciplina != null && t.Disciplina.Nome == DisciplinaSelecionada && t.Modulo != null)
+            .Select(t => t.Modulo!.Nome)
+            .Distinct()
+            .ToList();
+
+        FiltrarTrabalhos();
     }
 
-    private void ResolverTrabalho(int trabalhoId)
+    private void FiltrarTrabalhos()
     {
-        Nav.NavigateTo($"/aluno/EnviarTrabalho/{trabalhoId}");
-  }
+        var query = TrabalhosPendentes.AsEnumerable();
 
-    private int CalcularPercentualConclusao(List<TrabalhoVertente> vertentes)
+        if (!string.IsNullOrEmpty(DisciplinaSelecionada))
+            query = query.Where(t => t.Disciplina != null && t.Disciplina.Nome == DisciplinaSelecionada);
+
+        if (!string.IsNullOrEmpty(ModuloSelecionado))
+            query = query.Where(t => t.Modulo != null && t.Modulo.Nome == ModuloSelecionado);
+
+        TrabalhosFiltrados = query.ToList();
+    }
+
+    private double CalcularPercentualConclusao(ICollection<TrabalhoVertente>? vertentes)
     {
         if (vertentes == null || !vertentes.Any()) return 0;
-        
-        var enviadas = vertentes.Count(v => 
-     !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null);
-        
-   return (enviadas * 100) / vertentes.Count;
+        var concluidas = vertentes.Count(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null);
+        return (double)concluidas / vertentes.Count * 100;
     }
 
-    // ViewModels
-    public class TrabalhoViewModel
-    {
-        public int Id { get; set; }
-        public string Titulo { get; set; } = "";
-        public int DisciplinaId { get; set; }
-   public string DisciplinaNome { get; set; } = "";
-        public int ModuloId { get; set; }
-      public string ModuloNumero { get; set; } = "";
-        public string ModuloNome { get; set; } = "";
-      public DateTime PrazoEntrega { get; set; }
-public List<TrabalhoVertente> Vertentes { get; set; } = new();
-    }
+    private void ResolverTrabalho(int id) => Nav.NavigateTo($"/aluno/EnviarTrabalho/{id}");
 }

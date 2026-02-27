@@ -29,21 +29,12 @@ namespace gestaopedagogica.Models
 
         // ✅ Campos de texto (NOT NULL)
         public string ConteudoTexto { get; set; } = "";
-        
+
         // ✅ Campos de data/status (NOT NULL)
         public DateTime DataEnvio { get; set; } = DateTime.UtcNow;
         public bool VistoPeloProfessor { get; set; } = false;
-        
-        // ✅ Campos de notas (NOT NULL - decimal)
-        public decimal NotaConhecimento { get; set; } = 0;
-        public decimal NotaCompetencia { get; set; } = 0;
-        public decimal NotaAptidao { get; set; } = 0;
-        
-        // ✅ Arquivos por vertente (podem ser NULL)
-        public byte[]? FicheiroConhecimento { get; set; }
-        public byte[]? FicheiroCompetencia { get; set; }
-        public byte[]? FicheiroAptidao { get; set; }
 
+        // ✅ Cada vertente agora guarda suas notas e arquivos
         public ICollection<TrabalhoVertente> TrabalhoVertentes { get; set; } = new List<TrabalhoVertente>();
     }
 }

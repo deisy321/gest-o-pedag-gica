@@ -1,0 +1,158 @@
+﻿@page "/professor/GerirTrabalhos/{TurmaId:int}"
+@using gestaopedagogica.Services
+@using gestaopedagogica.Models
+@inject TrabalhoService TrabalhoService
+@inject TurmaService TurmaService
+@inject NavigationManager Nav
+
+<h3>Gerir Trabalhos</h3>
+
+@if (IsLoading)
+{
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary"></div>
+        <p class="mt-2">A carregar trabalhos...</p>
+    </div>
+}
+else
+{
+    <div class="mb-3">
+        <label class="form-label">Selecionar Turma</label>
+        <select class="form-select" @onchange="OnTurmaChanged">
+            <option value="0">Selecione...</option>
+            @foreach (var turma in TurmasDisponiveis)
+            {
+                <option value="@turma.Id" selected="@(turma.Id == SelectedTurmaId)">@turma.Nome</option>
+            }
+        </select>
+    </div>
+
+    @if (TrabalhosTurma.Any())
+    {
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Título</th>
+                    <th>Aluno</th>
+                    <th>Enviaram</th>
+                    <th class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var trab in TrabalhosTurma)
+                {
+                    <tr>
+                        <td>@trab.Titulo</td>
+                        <td>@trab.AlunoNome</td>
+                        <td>@trab.EnviaramCount / @trab.TotalAlunos</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-info me-1" @onclick="() => ProrrogarPrazo(trab.Id)">
+                                <i class="bi bi-clock-history"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => EliminarTrabalho(trab.Id)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else if (SelectedTurmaId > 0)
+    {
+        <p class="text-muted">Não há trabalhos nesta turma.</p>
+    }
+    else
+    {
+        <p class="text-muted">Selecione uma turma para ver os trabalhos.</p>
+    }
+}
+
+@code {
+    [Parameter]
+    public int TurmaId { get; set; }
+
+    private List<Turma> TurmasDisponiveis = new();
+    private Turma? TurmaSelecionada;
+    private List<TrabalhoViewModel> TrabalhosTurma = new();
+    private int SelectedTurmaId = 0;
+    private bool IsLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var turmas = await TurmaService.GetTurmasAsync();
+        if (turmas != null) TurmasDisponiveis = turmas;
+
+        if (TurmaId > 0)
+        {
+            SelectedTurmaId = TurmaId;
+            await CarregarTrabalhos(TurmaId);
+        }
+
+        IsLoading = false;
+    }
+
+    private async Task OnTurmaChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            SelectedTurmaId = id;
+            if (id > 0)
+            {
+                IsLoading = true;
+                await CarregarTrabalhos(id);
+                IsLoading = false;
+            }
+        }
+    }
+
+    private async Task CarregarTrabalhos(int turmaId)
+    {
+        TurmaSelecionada = TurmasDisponiveis.FirstOrDefault(t => t.Id == turmaId);
+        var trabs = await TrabalhoService.GetTrabalhosPorTurmaAsync(turmaId);
+
+        int totalAlunos = TurmaSelecionada?.Alunos?.Count ?? 0;
+
+        TrabalhosTurma = trabs.GroupBy(t => t.Titulo).Select(g =>
+        {
+            var trabalho = g.First();
+            var enviaramCount = g.Count(t => t.TrabalhoVertentes.Any(v => v.DataEnvio.HasValue));
+
+            return new TrabalhoViewModel
+            {
+                Id = trabalho.Id,
+                Titulo = trabalho.Titulo,
+                AlunoNome = trabalho.AlunoId == null ? "Turma Toda" : TrabalhoService.ObterNomeAluno(trabalho.Aluno),
+                TotalAlunos = totalAlunos,
+                EnviaramCount = enviaramCount
+            };
+        }).ToList();
+    }
+
+    private async Task ProrrogarPrazo(int trabalhoId)
+    {
+        // Exemplo: adiciona 3 dias ao prazo
+        var trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(trabalhoId);
+        if (trabalho != null)
+        {
+            trabalho.PrazoEntrega = trabalho.PrazoEntrega.AddDays(3);
+            await TrabalhoService.AddTrabalhoAsync(trabalho); // Salva alteração
+            await CarregarTrabalhos(SelectedTurmaId);
+        }
+    }
+
+    private async Task EliminarTrabalho(int id)
+    {
+        await TrabalhoService.ApagarTrabalhoAsync(id);
+        await CarregarTrabalhos(SelectedTurmaId);
+    }
+
+    public class TrabalhoViewModel
+    {
+        public int Id { get; set; }
+        public string Titulo { get; set; } = "";
+        public string AlunoNome { get; set; } = "Turma Toda";
+        public int TotalAlunos { get; set; } = 0;
+        public int EnviaramCount { get; set; } = 0;
+    }
+}

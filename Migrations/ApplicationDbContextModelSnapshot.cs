@@ -22,28 +22,6 @@ namespace gestaopedagogica.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Disciplina", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("CursoId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Nome")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CursoId");
-
-                    b.ToTable("Disciplinas", (string)null);
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
@@ -248,21 +226,22 @@ namespace gestaopedagogica.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Email")
-                        .HasColumnType("text");
-
                     b.Property<string>("Nome")
+                        .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int?>("TurmaId")
+                    b.Property<int>("TurmaId")
                         .HasColumnType("integer");
 
                     b.Property<string>("UserId")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
 
                     b.HasIndex("TurmaId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Alunos", (string)null);
                 });
@@ -297,47 +276,6 @@ namespace gestaopedagogica.Migrations
                     b.ToTable("Avaliacoes", (string)null);
                 });
 
-            modelBuilder.Entity("gestaopedagogica.Models.Comentario", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AutorId")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("ComentarioPaiId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Conteudo")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("DataAtualizacao")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("DataCriacao")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Tipo")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("TrabalhoId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AutorId");
-
-                    b.HasIndex("ComentarioPaiId");
-
-                    b.HasIndex("TrabalhoId");
-
-                    b.ToTable("Comentarios", (string)null);
-                });
-
             modelBuilder.Entity("gestaopedagogica.Models.Curso", b =>
                 {
                     b.Property<int>("Id")
@@ -370,35 +308,14 @@ namespace gestaopedagogica.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("CriterioAptidao")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("CriterioCompetencia")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("CriterioConhecimento")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("DisciplinaId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Numero")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int?>("ProfessorId")
+                    b.Property<int>("ProfessorId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("DisciplinaId");
 
                     b.HasIndex("ProfessorId");
 
@@ -412,9 +329,6 @@ namespace gestaopedagogica.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Email")
-                        .HasColumnType("text");
 
                     b.Property<string>("Nome")
                         .IsRequired()
@@ -445,12 +359,6 @@ namespace gestaopedagogica.Migrations
                     b.Property<DateTime>("DataCriacao")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int?>("DisciplinaId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("ModuloId")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime>("PrazoEntrega")
                         .HasColumnType("timestamp with time zone");
 
@@ -461,20 +369,11 @@ namespace gestaopedagogica.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int?>("TurmaId")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
                     b.HasIndex("AlunoId");
 
-                    b.HasIndex("DisciplinaId");
-
-                    b.HasIndex("ModuloId");
-
                     b.HasIndex("ProfessorId");
-
-                    b.HasIndex("TurmaId");
 
                     b.ToTable("Trabalhos", (string)null);
                 });
@@ -540,7 +439,7 @@ namespace gestaopedagogica.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int?>("CursoId")
+                    b.Property<int>("CursoId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Nome")
@@ -554,21 +453,6 @@ namespace gestaopedagogica.Migrations
                     b.ToTable("Turmas", (string)null);
                 });
 
-            modelBuilder.Entity("gestaopedagogica.Models.TurmaModulo", b =>
-                {
-                    b.Property<int>("TurmaId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ModuloId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("TurmaId", "ModuloId");
-
-                    b.HasIndex("ModuloId");
-
-                    b.ToTable("TurmaModulos", (string)null);
-                });
-
             modelBuilder.Entity("gestaopedagogica.Models.TurmaProfessor", b =>
                 {
                     b.Property<int>("TurmaId")
@@ -577,29 +461,11 @@ namespace gestaopedagogica.Migrations
                     b.Property<int>("ProfessorId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("DisciplinaId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Modulo")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("TurmaId", "ProfessorId", "DisciplinaId");
-
-                    b.HasIndex("DisciplinaId");
+                    b.HasKey("TurmaId", "ProfessorId");
 
                     b.HasIndex("ProfessorId");
 
                     b.ToTable("TurmaProfessores", (string)null);
-                });
-
-            modelBuilder.Entity("Disciplina", b =>
-                {
-                    b.HasOne("gestaopedagogica.Models.Curso", "Curso")
-                        .WithMany()
-                        .HasForeignKey("CursoId");
-
-                    b.Navigation("Curso");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -657,9 +523,19 @@ namespace gestaopedagogica.Migrations
                 {
                     b.HasOne("gestaopedagogica.Models.Turma", "Turma")
                         .WithMany("Alunos")
-                        .HasForeignKey("TurmaId");
+                        .HasForeignKey("TurmaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("gestaopedagogica.Data.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Turma");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("gestaopedagogica.Models.Avaliacao", b =>
@@ -673,43 +549,13 @@ namespace gestaopedagogica.Migrations
                     b.Navigation("Aluno");
                 });
 
-            modelBuilder.Entity("gestaopedagogica.Models.Comentario", b =>
-                {
-                    b.HasOne("gestaopedagogica.Data.ApplicationUser", "Autor")
-                        .WithMany()
-                        .HasForeignKey("AutorId");
-
-                    b.HasOne("gestaopedagogica.Models.Comentario", "ComentarioPai")
-                        .WithMany("Respostas")
-                        .HasForeignKey("ComentarioPaiId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("gestaopedagogica.Models.Trabalho", "Trabalho")
-                        .WithMany()
-                        .HasForeignKey("TrabalhoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Autor");
-
-                    b.Navigation("ComentarioPai");
-
-                    b.Navigation("Trabalho");
-                });
-
             modelBuilder.Entity("gestaopedagogica.Models.Modulo", b =>
                 {
-                    b.HasOne("Disciplina", "Disciplina")
-                        .WithMany("Modulos")
-                        .HasForeignKey("DisciplinaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("gestaopedagogica.Models.Professor", "Professor")
                         .WithMany("Modulos")
-                        .HasForeignKey("ProfessorId");
-
-                    b.Navigation("Disciplina");
+                        .HasForeignKey("ProfessorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Professor");
                 });
@@ -731,31 +577,13 @@ namespace gestaopedagogica.Migrations
                         .WithMany()
                         .HasForeignKey("AlunoId");
 
-                    b.HasOne("Disciplina", "Disciplina")
-                        .WithMany()
-                        .HasForeignKey("DisciplinaId");
-
-                    b.HasOne("gestaopedagogica.Models.Modulo", "Modulo")
-                        .WithMany()
-                        .HasForeignKey("ModuloId");
-
                     b.HasOne("gestaopedagogica.Data.ApplicationUser", "Professor")
                         .WithMany()
                         .HasForeignKey("ProfessorId");
 
-                    b.HasOne("gestaopedagogica.Models.Turma", "Turma")
-                        .WithMany()
-                        .HasForeignKey("TurmaId");
-
                     b.Navigation("Aluno");
 
-                    b.Navigation("Disciplina");
-
-                    b.Navigation("Modulo");
-
                     b.Navigation("Professor");
-
-                    b.Navigation("Turma");
                 });
 
             modelBuilder.Entity("gestaopedagogica.Models.TrabalhoVertente", b =>
@@ -773,38 +601,15 @@ namespace gestaopedagogica.Migrations
                 {
                     b.HasOne("gestaopedagogica.Models.Curso", "Curso")
                         .WithMany()
-                        .HasForeignKey("CursoId");
+                        .HasForeignKey("CursoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Curso");
                 });
 
-            modelBuilder.Entity("gestaopedagogica.Models.TurmaModulo", b =>
-                {
-                    b.HasOne("gestaopedagogica.Models.Modulo", "Modulo")
-                        .WithMany("Turmas")
-                        .HasForeignKey("ModuloId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("gestaopedagogica.Models.Turma", "Turma")
-                        .WithMany("Modulos")
-                        .HasForeignKey("TurmaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Modulo");
-
-                    b.Navigation("Turma");
-                });
-
             modelBuilder.Entity("gestaopedagogica.Models.TurmaProfessor", b =>
                 {
-                    b.HasOne("Disciplina", "Disciplina")
-                        .WithMany()
-                        .HasForeignKey("DisciplinaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("gestaopedagogica.Models.Professor", "Professor")
                         .WithMany("Turmas")
                         .HasForeignKey("ProfessorId")
@@ -817,26 +622,9 @@ namespace gestaopedagogica.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Disciplina");
-
                     b.Navigation("Professor");
 
                     b.Navigation("Turma");
-                });
-
-            modelBuilder.Entity("Disciplina", b =>
-                {
-                    b.Navigation("Modulos");
-                });
-
-            modelBuilder.Entity("gestaopedagogica.Models.Comentario", b =>
-                {
-                    b.Navigation("Respostas");
-                });
-
-            modelBuilder.Entity("gestaopedagogica.Models.Modulo", b =>
-                {
-                    b.Navigation("Turmas");
                 });
 
             modelBuilder.Entity("gestaopedagogica.Models.Professor", b =>
@@ -854,8 +642,6 @@ namespace gestaopedagogica.Migrations
             modelBuilder.Entity("gestaopedagogica.Models.Turma", b =>
                 {
                     b.Navigation("Alunos");
-
-                    b.Navigation("Modulos");
 
                     b.Navigation("Professores");
                 });
