@@ -1,0 +1,75 @@
+﻿@page "/Conta/MudarSenha"
+@attribute [Authorize]
+
+@using Microsoft.AspNetCore.Identity
+@using gestaopedagogica.Data
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<h3>Mudar Senha</h3>
+
+<div class="card p-4" style="max-width:500px">
+
+    <div class="mb-3">
+        <label>Senha Atual</label>
+        <input type="password" class="form-control" @bind="SenhaAtual" />
+    </div>
+
+    <div class="mb-3">
+        <label>Nova Senha</label>
+        <input type="password" class="form-control" @bind="NovaSenha" />
+    </div>
+
+    <div class="mb-3">
+        <label>Confirmar Nova Senha</label>
+        <input type="password" class="form-control" @bind="ConfirmarSenha" />
+    </div>
+
+    <button class="btn btn-primary" @onclick="AlterarSenha">
+        Alterar Senha
+    </button>
+
+</div>
+
+@code {
+
+    private string SenhaAtual = "";
+    private string NovaSenha = "";
+    private string ConfirmarSenha = "";
+
+    private async Task AlterarSenha()
+    {
+        if (NovaSenha != ConfirmarSenha)
+        {
+            await JS.InvokeVoidAsync("alert", "As novas senhas não coincidem.");
+            return;
+        }
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
+
+        if (user == null)
+        {
+            await JS.InvokeVoidAsync("alert", "Utilizador não encontrado.");
+            return;
+        }
+
+        var result = await UserManager.ChangePasswordAsync(user, SenhaAtual, NovaSenha);
+
+        if (result.Succeeded)
+        {
+            await JS.InvokeVoidAsync("alert", "Senha alterada com sucesso.");
+            Nav.NavigateTo("/");
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "Erro ao alterar senha.");
+        }
+    }
+
+}

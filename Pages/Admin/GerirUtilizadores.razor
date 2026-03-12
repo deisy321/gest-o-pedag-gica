@@ -3,90 +3,106 @@
 @using Microsoft.AspNetCore.Identity
 @using gestaopedagogica.Data
 @using Microsoft.EntityFrameworkCore
+
 @attribute [Authorize(Roles = "Administrador")]
+
 @inject UserManager<ApplicationUser> UserManager
 @inject RoleManager<IdentityRole> RoleManager
+@inject IJSRuntime JS
+
 @namespace gestaopedagogica.Pages.Admin
 @layout MainLayout
 
-<AuthorizeView Roles="Administrador">
-    <Authorized>
-        <h3>Gerir Utilizadores</h3>
-        <button class="btn btn-success mb-3" @onclick="MostrarCriar">Adicionar Utilizador</button>
+<h3>Gerir Utilizadores</h3>
 
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Nome</th>
-                    <th>Email</th>
-                    <th>Perfil</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var user in Usuarios)
-                {
-                    <tr>
-                        <td>@user.UserName</td>
-                        <td>@user.Email</td>
-                        <td>@string.Join(", ", UserRoles[user.Id])</td>
-                        <td>
-                            <button class="btn btn-primary btn-sm" @onclick="() => Editar(user)">Editar</button>
-                            <button class="btn btn-danger btn-sm" @onclick="() => Remover(user)">Remover</button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
 
-        @if (MostrarModalCriar)
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Nome</th>
+            <th>Email</th>
+            <th>Perfil</th>
+            <th>Ações</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in Usuarios)
         {
-            <div class="modal-bg">
-                <div class="modal-card">
-                    <h4>Novo Utilizador</h4>
-
-                    <input class="form-control mb-2" placeholder="Username" @bind="NovoUser.UserName" />
-                    <input class="form-control mb-2" placeholder="Email" @bind="NovoUser.Email" />
-
-                    <select class="form-control mb-2" @bind="NovoRole">
-                        @foreach (var r in Roles)
-                        {
-                            <option value="@r">@r</option>
-                        }
-                    </select>
-
-                    <button class="btn btn-success" @onclick="SalvarNovo">Guardar</button>
-                    <button class="btn btn-secondary" @onclick="() => MostrarModalCriar = false">Cancelar</button>
-                </div>
-            </div>
+            <tr>
+                <td>@user.UserName</td>
+                <td>@user.Email</td>
+                <td>@string.Join(", ", UserRoles[user.Id])</td>
+                <td>
+                    <button class="btn btn-warning btn-sm me-1" @onclick="() => ResetarSenha(user)">Resetar Senha</button>
+                    <button class="btn btn-danger btn-sm" @onclick="() => Remover(user)">Remover</button>
+                </td>
+            </tr>
         }
-    </Authorized>
-    <NotAuthorized>
-        <div class="alert alert-danger">Acesso negado. Administrador apenas.</div>
-    </NotAuthorized>
-</AuthorizeView>
+    </tbody>
+</table>
+
+@if (MostrarModalCriar)
+{
+    <div class="modal-bg">
+        <div class="modal-card">
+
+            <h4>Novo Utilizador</h4>
+
+            <input class="form-control mb-2"
+                   placeholder="Username"
+                   @bind="NovoUser.UserName" />
+
+            <input class="form-control mb-2"
+                   placeholder="Email"
+                   @bind="NovoUser.Email" />
+
+            <select class="form-control mb-2" @bind="NovoRole">
+                @foreach (var r in Roles)
+                {
+                    <option value="@r">@r</option>
+                }
+            </select>
+
+            <button class="btn btn-success me-2" @onclick="SalvarNovo">Guardar</button>
+            <button class="btn btn-secondary" @onclick="() => MostrarModalCriar = false">Cancelar</button>
+
+        </div>
+    </div>
+}
 
 @code {
-    private List<ApplicationUser> Usuarios { get; set; } = new();
-    private Dictionary<string, List<string>> UserRoles { get; set; } = new();
-    private List<string> Roles { get; set; } = new();
-    private ApplicationUser NovoUser { get; set; } = new();
-    private string NovoRole { get; set; } = "Professor";
-    private bool MostrarModalCriar { get; set; } = false;
+
+    private List<ApplicationUser> Usuarios = new();
+    private Dictionary<string, List<string>> UserRoles = new();
+    private List<string> Roles = new();
+
+    private ApplicationUser NovoUser = new();
+    private string NovoRole = "Professor";
+
+    private bool MostrarModalCriar = false;
+
 
     protected override async Task OnInitializedAsync()
     {
-        // Carrega usuários e roles de forma assíncrona
+        await CarregarUsuarios();
+    }
+
+
+    private async Task CarregarUsuarios()
+    {
         Usuarios = await UserManager.Users.ToListAsync();
         Roles = await RoleManager.Roles.Select(r => r.Name!).ToListAsync();
 
         UserRoles.Clear();
+
         foreach (var u in Usuarios)
         {
             var rolesForUser = await UserManager.GetRolesAsync(u);
             UserRoles[u.Id] = rolesForUser.ToList();
         }
     }
+
 
     private void MostrarCriar()
     {
@@ -95,44 +111,74 @@
         MostrarModalCriar = true;
     }
 
+
     private async Task SalvarNovo()
     {
-        // valida se o username e email não são nulos ou vazios
-        if (string.IsNullOrWhiteSpace(NovoUser.UserName) || string.IsNullOrWhiteSpace(NovoUser.Email))
+        if (string.IsNullOrWhiteSpace(NovoUser.UserName) ||
+            string.IsNullOrWhiteSpace(NovoUser.Email))
         {
-            // Aqui você pode mostrar uma mensagem de erro ao usuário
+            await JS.InvokeVoidAsync("alert", "Preencha username e email.");
             return;
         }
 
-        var result = await UserManager.CreateAsync(new ApplicationUser
-        {
-            UserName = NovoUser.UserName,
-            Email = NovoUser.Email
-        }, "Temp123!"); // senha temporária
+        var result = await UserManager.CreateAsync(
+            new ApplicationUser
+            {
+                UserName = NovoUser.UserName,
+                Email = NovoUser.Email
+            },
+            "Temp123!" // senha inicial
+        );
 
         if (result.Succeeded)
         {
-            // garante que o parâmetro não é nulo
-            var created = await UserManager.FindByNameAsync(NovoUser.UserName!);
+            var created = await UserManager.FindByNameAsync(NovoUser.UserName);
+
             if (created != null)
             {
                 await UserManager.AddToRoleAsync(created, NovoRole);
             }
+
+            await JS.InvokeVoidAsync("alert", "Utilizador criado com senha Temp123!");
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "Erro ao criar utilizador.");
         }
 
         MostrarModalCriar = false;
-        await OnInitializedAsync(); // recarrega lista de usuários
+
+        await CarregarUsuarios();
     }
 
-    private Task Editar(ApplicationUser u)
+
+    private async Task ResetarSenha(ApplicationUser user)
     {
-        // Aqui você poderia abrir um modal de edição
-        return Task.CompletedTask;
+        var token = await UserManager.GeneratePasswordResetTokenAsync(user);
+
+        var result = await UserManager.ResetPasswordAsync(user, token, "Temp123!");
+
+        if (result.Succeeded)
+        {
+            await JS.InvokeVoidAsync("alert", $"Senha do utilizador {user.UserName} foi resetada para Temp123!");
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "Erro ao resetar senha.");
+        }
     }
 
-    private async Task Remover(ApplicationUser u)
+
+    private async Task Remover(ApplicationUser user)
     {
-        await UserManager.DeleteAsync(u);
-        await OnInitializedAsync(); // recarrega lista de usuários
+        var confirmado = await JS.InvokeAsync<bool>("confirm", $"Excluir utilizador {user.UserName}?");
+
+        if (!confirmado)
+            return;
+
+        await UserManager.DeleteAsync(user);
+
+        await CarregarUsuarios();
     }
+
 }
