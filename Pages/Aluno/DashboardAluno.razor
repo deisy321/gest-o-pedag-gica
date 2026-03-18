@@ -1,4 +1,4 @@
-@page "/aluno/DashboardAluno"
+ï»¿@page "/aluno/DashboardAluno"
 @using gestaopedagogica.Services
 @using gestaopedagogica.Models
 @inject TurmaService TurmaService
@@ -11,165 +11,162 @@
 <div class="container-fluid mt-4">
     <div class="card shadow-sm border-0" style="border-radius: 15px;">
         <div class="card-header bg-dark text-white p-3" style="border-radius: 15px 15px 0 0;">
-            <h4 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Dashboard do Aluno</h4>
+            <h4 class="mb-0">
+                <i class="bi bi-speedometer2 me-2"></i>Dashboard do Aluno
+            </h4>
         </div>
 
         <div class="card-body p-4 bg-light">
+
             @if (!string.IsNullOrEmpty(ErrorMessage))
             {
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="bi bi-exclamation-triangle me-2"></i> @ErrorMessage
-                    <button type="button" class="btn-close" @onclick='() => ErrorMessage = ""'></button>
-                </div>
+                <div class="alert alert-danger">@ErrorMessage</div>
             }
 
             @if (IsLoading)
             {
                 <div class="text-center p-5">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2">A carregar os teus dados pedagógicos...</p>
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-2">A carregar...</p>
                 </div>
             }
             else
             {
-                <!-- Cards de Estatísticas -->
                 <div class="row mb-4">
                     <div class="col-md-3">
-                        <div class="card text-white shadow-sm border-0" style="background-color: #f1b40e; border-radius: 15px;">
+                        <div class="card text-white border-0" style="background:#f1b40e; border-radius:15px;">
                             <div class="card-body">
-                                <h6 class="card-title text-uppercase small">Trabalhos Pendentes</h6>
-                                <h2 class="fw-bold">@TrabalhosPendentes.Count</h2>
+                                <small>Trabalhos Pendentes</small>
+                                <h2>@TrabalhosPendentes.Count</h2>
                             </div>
                         </div>
                     </div>
+
                     <div class="col-md-3">
-                        <div class="card text-white shadow-sm border-0" style="background-color: #0d6efd; border-radius: 15px;">
+                        <div class="card text-white border-0" style="background:#0d6efd; border-radius:15px;">
                             <div class="card-body">
-                                <h6 class="card-title text-uppercase small">Minhas Disciplinas</h6>
-                                <h2 class="fw-bold">@DisciplinasUnicas.Count</h2>
+                                <small>Disciplinas</small>
+                                <h2>@DisciplinasUnicas.Count</h2>
                             </div>
                         </div>
                     </div>
+
                     <div class="col-md-3">
-                        <div class="card text-white shadow-sm border-0" style="background-color: #198754; border-radius: 15px;">
+                        <div class="card text-white border-0" style="background:#198754; border-radius:15px;">
                             <div class="card-body">
-                                <h6 class="card-title text-uppercase small">Média Geral</h6>
-                                <h2 class="fw-bold">@MediaGeral.ToString("F1")</h2>
+                                <small>MÃ©dia</small>
+                                <h2>@MediaGeral.ToString("F1")</h2>
                             </div>
                         </div>
                     </div>
+
                     <div class="col-md-3">
-                        <div class="card bg-white shadow-sm border-0" style="border-radius: 15px; height: 100%;">
-                            <div class="card-body d-flex align-items-center justify-content-center py-2">
-                                <div class="text-center">
-                                    <span class="badge bg-info text-dark">@TurmaAtual?.Nome ?? "N/D"</span><br />
-                                    <small class="text-muted" style="font-size: 0.7rem">@TurmaAtual?.Curso?.Nome ?? "N/D"</small>
-                                </div>
+                        <div class="card bg-white border-0" style="border-radius:15px;">
+                            <div class="card-body text-center">
+                                <span class="badge bg-info text-dark">
+                                    @TurmaAtual?.Nome ?? "N/D"
+                                </span><br />
+                                <small>@TurmaAtual?.Curso?.Nome ?? "N/D"</small>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Filtros -->
-                <div class="card shadow-sm border-0 mb-4" style="border-radius: 15px;">
+                <div class="card mb-4" style="border-radius:15px;">
                     <div class="card-body">
                         <div class="row">
+
                             <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">DISCIPLINA</label>
-                                <select class="form-select border-0 bg-light" @onchange="OnDisciplinaChanged">
-                                    <option value="">Todas as Disciplinas</option>
-                                    @foreach (var disc in DisciplinasUnicas)
+                                <label>Disciplina</label>
+                                <select class="form-control" @onchange="OnDisciplinaChanged">
+                                    <option value="">Todas</option>
+                                    @foreach (var d in DisciplinasUnicas)
                                     {
-                                        <option value="@disc" selected="@(disc == DisciplinaSelecionada)">@disc</option>
+                                        <option value="@d">@d</option>
                                     }
                                 </select>
                             </div>
+
                             <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">MÓDULO</label>
-                                <select class="form-select border-0 bg-light" @bind="ModuloSelecionado" @bind:after="FiltrarTrabalhos">
-                                    <option value="">Todos os Módulos</option>
-                                    @foreach (var mod in ModulosDisponiveis)
+                                <label>MÃ³dulo</label>
+                                <select class="form-control" @bind="ModuloSelecionado" @bind:after="FiltrarTrabalhos">
+                                    <option value="">Todos</option>
+                                    @foreach (var m in ModulosDisponiveis)
                                     {
-                                        <option value="@mod" selected="@(mod == ModuloSelecionado)">@mod</option>
+                                        <option value="@m">@m</option>
                                     }
                                 </select>
                             </div>
+
                         </div>
                     </div>
                 </div>
 
-                <!-- Tabela de Trabalhos -->
-                <div class="card shadow-sm border-0" style="border-radius: 15px;">
+                <div class="card" style="border-radius:15px;">
                     <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light text-muted small">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>TÃ­tulo</th>
+                                    <th>Professor</th>
+                                    <th>MÃ³dulo</th>
+                                    <th>Prazo</th>
+                                    <th>Progresso</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @foreach (var t in TrabalhosFiltrados)
+                                {
+                                    var perc = CalcularPercentualConclusao(t.TrabalhoVertentes);
+
                                     <tr>
-                                        <th class="ps-4">TRABALHO / DISCIPLINA</th>
-                                        <th>PROFESSOR</th>
-                                        <th>MÓDULO</th>
-                                        <th>PRAZO</th>
-                                        <th>ESTADO</th>
-                                        <th class="text-center">ACÇÃO</th>
+                                        <td>
+                                            <b>@t.Titulo</b><br />
+                                            <small>@t.Disciplina?.Nome</small>
+                                        </td>
+
+                                        <td>@t.Professor?.UserName</td>
+
+                                        <td>@t.Modulo?.Nome</td>
+
+                                        <td>
+                                            <span class="@(t.PrazoEntrega < DateTime.UtcNow ? "text-danger" : "")">
+                                                @t.PrazoEntrega.ToString("dd/MM/yyyy")
+                                            </span>
+                                        </td>
+
+                                        <td>
+                                            <div class="progress" style="height:6px;">
+                                                <div class="progress-bar" style="width:@perc%"></div>
+                                            </div>
+                                            <small>@perc.ToString("F0")%</small>
+                                        </td>
+
+                                        <td>
+                                            <button class="btn btn-sm btn-primary"
+                                                    @onclick="() => ResolverTrabalho(t.Id)">
+                                                Abrir
+                                            </button>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    @if (!TrabalhosFiltrados.Any())
-                                    {
-                                        <tr>
-                                            <td colspan="6" class="text-center p-5 text-muted">Nenhum trabalho encontrado.</td>
-                                        </tr>
-                                    }
-                                    else
-                                    {
-                                        @foreach (var trabalho in TrabalhosFiltrados)
-                                        {
-                                            <tr>
-                                                <td class="ps-4">
-                                                    <span class="fw-bold d-block">@trabalho.Titulo</span>
-                                                    <small class="text-primary">@(trabalho.Disciplina?.Nome ?? "N/D")</small>
-                                                </td>
-                                                <td><span class="badge bg-light text-dark fw-normal">@(trabalho.Professor?.UserName ?? "N/D")</span></td>
-                                                <td>@(trabalho.Modulo?.Nome ?? "N/D")</td>
-                                                <td>
-                                                    <small class="@(trabalho.PrazoEntrega < DateTime.UtcNow ? "text-danger fw-bold" : "")">
-                                                        @trabalho.PrazoEntrega.ToString("dd/MM/yyyy")
-                                                    </small>
-                                                </td>
-                                                <td>
-                                                    @{
-                                                        var perc = CalcularPercentualConclusao(trabalho.TrabalhoVertentes);
-                                                    }
-                                                    <div class="progress" style="height: 6px; width: 80px;">
-                                                        <div class="progress-bar" style="width: @perc%"></div>
-                                                    </div>
-                                                    <small style="font-size: 0.7rem">@perc.ToString("F0")%</small>
-                                                </td>
-                                                <td class="text-center">
-                                                    <button class="btn btn-sm btn-primary rounded-pill px-3" @onclick="() => ResolverTrabalho(trabalho.Id)">
-                                                        Abrir
-                                                    </button>
-                                                    @if (trabalho.TrabalhoVertentes != null && trabalho.TrabalhoVertentes.Any(v => !string.IsNullOrEmpty(v.Feedback)))
-                                                    {
-                                                        <button class="btn btn-sm btn-outline-success ms-1" @onclick="() => IrParaFeedback(trabalho.Id)">
-                                                            Feedback
-                                                        </button>
-                                                    }
-                                                </td>
-                                            </tr>
-                                        }
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
+                                }
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
-                <!-- Navegação -->
-                <div class="mt-4">
-                    <button class="btn btn-outline-primary me-2" @onclick="IrParaMinhasNotas">Minhas Notas</button>
-                    <button class="btn btn-outline-secondary me-2" @onclick="IrParaHistorico">Histórico</button>
-                    <button class="btn btn-outline-info me-2" @onclick="IrParaTrabalhosDisponiveis">Trabalhos Disponíveis</button>
+                <div class="mt-4 d-flex justify-content-end">
+                    <button class="btn btn-outline-primary me-2"
+                            @onclick="IrParaMinhasNotas">
+                        Minhas Notas
+                    </button>
+
+                    <button class="btn btn-outline-secondary"
+                            @onclick="IrParaHistorico">
+                        HistÃ³rico
+                    </button>
                 </div>
             }
         </div>
@@ -179,14 +176,17 @@
 @code {
     private Aluno? AlunoAtual;
     private Turma? TurmaAtual;
+
     private List<Trabalho> TodosTrabalhos = new();
     private List<Trabalho> TrabalhosPendentes = new();
     private List<Trabalho> TrabalhosFiltrados = new();
 
     private List<string> DisciplinasUnicas = new();
     private List<string> ModulosDisponiveis = new();
+
     private string DisciplinaSelecionada = "";
     private string ModuloSelecionado = "";
+
     private double MediaGeral = 0;
 
     private string? ErrorMessage;
@@ -195,27 +195,11 @@
 
     protected override async Task OnInitializedAsync()
     {
-        try
-        {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            AlunoUserId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        AlunoUserId = auth.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            if (string.IsNullOrEmpty(AlunoUserId))
-            {
-                ErrorMessage = "Não foi possível identificar o aluno logado.";
-                return;
-            }
-
-            await CarregarDados();
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = $"Erro ao carregar dados: {ex.Message}";
-        }
-        finally
-        {
-            IsLoading = false;
-        }
+        await CarregarDados();
+        IsLoading = false;
     }
 
     private async Task CarregarDados()
@@ -226,9 +210,7 @@
         if (AlunoAtual?.TurmaId != null)
             TurmaAtual = await TurmaService.GetTurmaByIdAsync(AlunoAtual.TurmaId.Value);
 
-        TodosTrabalhos = (await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(AlunoUserId))
-            .Where(t => t != null)
-            .ToList();
+        TodosTrabalhos = await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(AlunoUserId);
 
         TrabalhosPendentes = TodosTrabalhos
             .Where(t => t.TrabalhoVertentes == null || t.TrabalhoVertentes.Any(v => !v.Nota.HasValue))
@@ -236,66 +218,49 @@
 
         TrabalhosFiltrados = TodosTrabalhos;
 
-        // Preenche lista de disciplinas únicas
         DisciplinasUnicas = TodosTrabalhos
-            .Where(t => t.Disciplina != null)
-            .Select(t => t.Disciplina!.Nome)
+            .Select(t => t.Disciplina?.Nome)
+            .Where(n => n != null)
             .Distinct()
-            .ToList();
+            .ToList()!;
 
-        // Inicializa módulos disponíveis com todos os módulos válidos
         ModulosDisponiveis = TodosTrabalhos
-            .Where(t => t.Modulo != null)
-            .Select(t => t.Modulo!.Nome)
+            .Select(t => t.Modulo?.Nome)
+            .Where(n => n != null)
             .Distinct()
-            .ToList();
+            .ToList()!;
 
-        // Calcula média geral
-        var notasValidas = TodosTrabalhos
-            .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+        var notas = TodosTrabalhos
+            .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()) // âœ” FIX
             .Where(v => v.Nota.HasValue)
             .Select(v => (double)v.Nota!.Value);
 
-        MediaGeral = notasValidas.Any() ? notasValidas.Average() : 0;
+        MediaGeral = notas.Any() ? notas.Average() : 0;
     }
 
     private void OnDisciplinaChanged(ChangeEventArgs e)
     {
         DisciplinaSelecionada = e.Value?.ToString() ?? "";
-        ModuloSelecionado = "";
-
-        ModulosDisponiveis = TodosTrabalhos
-            .Where(t => t.Disciplina != null && t.Disciplina.Nome == DisciplinaSelecionada && t.Modulo != null)
-            .Select(t => t.Modulo!.Nome)
-            .Distinct()
-            .ToList();
-
         FiltrarTrabalhos();
     }
 
     private void FiltrarTrabalhos()
     {
-        var query = TodosTrabalhos.AsEnumerable();
-
-        if (!string.IsNullOrEmpty(DisciplinaSelecionada))
-            query = query.Where(t => t.Disciplina?.Nome == DisciplinaSelecionada);
-
-        if (!string.IsNullOrEmpty(ModuloSelecionado))
-            query = query.Where(t => t.Modulo?.Nome == ModuloSelecionado);
-
-        TrabalhosFiltrados = query.ToList();
+        TrabalhosFiltrados = TodosTrabalhos
+            .Where(t =>
+                (string.IsNullOrEmpty(DisciplinaSelecionada) || t.Disciplina?.Nome == DisciplinaSelecionada) &&
+                (string.IsNullOrEmpty(ModuloSelecionado) || t.Modulo?.Nome == ModuloSelecionado))
+            .ToList();
     }
 
-    private double CalcularPercentualConclusao(ICollection<TrabalhoVertente>? vertentes)
+    private double CalcularPercentualConclusao(ICollection<TrabalhoVertente>? v)
     {
-        if (vertentes == null || !vertentes.Any()) return 0;
-        var concluidas = vertentes.Count(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null);
-        return (double)concluidas / vertentes.Count * 100;
+        if (v == null || !v.Any()) return 0;
+        var done = v.Count(x => !string.IsNullOrEmpty(x.ConteudoTextoAluno) || x.FicheiroBytes != null);
+        return (double)done / v.Count * 100;
     }
 
     private void ResolverTrabalho(int id) => Nav.NavigateTo($"/aluno/EnviarTrabalho/{id}");
-    private void IrParaFeedback(int id) => Nav.NavigateTo($"/aluno/Feedback/{id}");
     private void IrParaMinhasNotas() => Nav.NavigateTo("/aluno/MinhasNotas");
     private void IrParaHistorico() => Nav.NavigateTo("/aluno/Historico");
-    private void IrParaTrabalhosDisponiveis() => Nav.NavigateTo("/aluno/TrabalhosDisponiveis");
 }

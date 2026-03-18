@@ -27,13 +27,24 @@
                     <td>@item.Professor</td>
                     <td>@item.ClassificacaoFinal.ToString("F1")</td>
                     <td>
-                        @if (item.Aprovado)
+                        @if (item.TemNota)
                         {
-                            <span class="badge bg-success">Aprovado</span>
+                            if (item.Aprovado)
+                            {
+                                <span class="badge bg-success">Aprovado</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">Reprovado</span>
+                            }
+                        }
+                        else if (item.PassouPrazo)
+                        {
+                            <span class="badge bg-danger">Não Entregue</span>
                         }
                         else
                         {
-                            <span class="badge bg-danger">Reprovado</span>
+                            <span class="badge bg-warning text-dark">Em Curso</span>
                         }
                     </td>
                 </tr>
@@ -62,16 +73,26 @@
 
             historico = trabalhos.Select(t =>
             {
-                var notas = t.TrabalhoVertentes.Where(v => v.Nota.HasValue).Select(v => v.Nota!.Value).ToList();
+                var notas = t.TrabalhoVertentes?
+                    .Where(v => v.Nota.HasValue)
+                    .Select(v => v.Nota!.Value)
+                    .ToList() ?? new List<decimal>(); // ✔ corrigido
+
                 var media = notas.Any() ? notas.Average() : 0;
+
+                bool temNota = notas.Any();
+                bool passouPrazo = t.PrazoEntrega < DateTime.UtcNow;
+                bool aprovado = temNota && media >= 10;
 
                 return new HistoricoItem
                 {
                     AnoLetivo = t.DataCriacao.Year.ToString(),
                     Modulo = t.Modulo?.Nome ?? "N/D",
                     Professor = t.Professor?.UserName ?? "N/D",
-                    ClassificacaoFinal = (decimal)media,
-                    Aprovado = media >= 10
+                    ClassificacaoFinal = media,
+                    Aprovado = aprovado,
+                    TemNota = temNota,
+                    PassouPrazo = passouPrazo
                 };
             }).ToList();
         }
@@ -83,6 +104,9 @@
         public string Modulo { get; set; } = "";
         public string Professor { get; set; } = "";
         public decimal ClassificacaoFinal { get; set; }
+
         public bool Aprovado { get; set; }
+        public bool TemNota { get; set; }
+        public bool PassouPrazo { get; set; }
     }
 }
