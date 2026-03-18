@@ -1,47 +1,66 @@
 ﻿@page "/aluno/Feedback"
-@namespace gestaopedagogica.Pages.Aluno
-@layout MainLayout
+@using gestaopedagogica.Services
+@using gestaopedagogica.Models
+@inject AuthenticationStateProvider AuthStateProvider
+@inject TrabalhoService TrabalhoService
 
 <h3>Feedback dos Professores</h3>
 
 <div class="card p-4">
     <h5>Comentários e Sugestões</h5>
-  @if (feedbacks?.Count > 0)
+    @if (feedbacks?.Count > 0)
     {
-       <div class="list-group">
-   @foreach (var feedback in feedbacks)
-         {
-   <div class="list-group-item mb-2">
-      <div class="d-flex justify-content-between align-items-start">
-       <div class="flex-grow-1">
-   <h6>@feedback.ProfessorNome</h6>
-         <p class="text-muted small mb-1">@feedback.Modulo - @feedback.Data.ToShortDateString()</p>
-            <p>@feedback.Comentario</p>
-  </div>
- </div>
-  </div>
-      }
-      </div>
+        <div class="list-group">
+            @foreach (var fb in feedbacks)
+            {
+                <div class="list-group-item mb-2">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h6>@fb.ProfessorNome</h6>
+                            <p class="text-muted small mb-1">@fb.Modulo - @fb.Data.ToShortDateString()</p>
+                            <p>@fb.Comentario</p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
     }
-  else
+    else
     {
-  <p class="text-muted">Sem feedback disponível no momento.</p>
-     }
+        <p class="text-muted">Sem feedback disponível no momento.</p>
+    }
 </div>
 
 @code {
-   private List<FeedbackItem> feedbacks = new();
+    private List<FeedbackItem> feedbacks = new();
 
-    protected override void OnInitialized()
-   {
-        // TODO: Carregar feedback do banco de dados
-  }
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(userId);
+
+            feedbacks = trabalhos
+                .SelectMany(t => t.TrabalhoVertentes.Where(v => !string.IsNullOrEmpty(v.Feedback))
+                    .Select(v => new FeedbackItem
+                    {
+                        ProfessorNome = t.Professor?.UserName ?? "Desconhecido",
+                        Modulo = t.Modulo?.Nome ?? "N/D",
+                        Data = v.DataEnvio ?? t.DataCriacao,
+                        Comentario = v.Feedback
+                    }))
+                .ToList();
+        }
+    }
 
     private class FeedbackItem
-   {
-      public string ProfessorNome { get; set; }
-     public string Modulo { get; set; }
+    {
+        public string ProfessorNome { get; set; } = "";
+        public string Modulo { get; set; } = "";
         public DateTime Data { get; set; }
-     public string Comentario { get; set; }
+        public string Comentario { get; set; } = "";
     }
 }

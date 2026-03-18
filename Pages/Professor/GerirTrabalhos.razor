@@ -113,25 +113,31 @@ else
 
         int totalAlunos = TurmaSelecionada?.Alunos?.Count ?? 0;
 
-        TrabalhosTurma = trabs.GroupBy(t => t.Titulo).Select(g =>
+        // Usando Task.WhenAll para lidar com chamadas assíncronas de ObterNomeAluno
+        var tarefas = trabs.GroupBy(t => t.Titulo).Select(async g =>
         {
             var trabalho = g.First();
             var enviaramCount = g.Count(t => t.TrabalhoVertentes.Any(v => v.DataEnvio.HasValue));
+
+            string alunoNome = trabalho.AlunoId == null
+                ? "Turma Toda"
+                : await TrabalhoService.ObterNomeAluno(trabalho.AlunoId);
 
             return new TrabalhoViewModel
             {
                 Id = trabalho.Id,
                 Titulo = trabalho.Titulo,
-                AlunoNome = trabalho.AlunoId == null ? "Turma Toda" : TrabalhoService.ObterNomeAluno(trabalho.Aluno),
+                AlunoNome = alunoNome,
                 TotalAlunos = totalAlunos,
                 EnviaramCount = enviaramCount
             };
-        }).ToList();
+        });
+
+        TrabalhosTurma = (await Task.WhenAll(tarefas)).ToList();
     }
 
     private async Task ProrrogarPrazo(int trabalhoId)
     {
-        // Exemplo: adiciona 3 dias ao prazo
         var trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(trabalhoId);
         if (trabalho != null)
         {

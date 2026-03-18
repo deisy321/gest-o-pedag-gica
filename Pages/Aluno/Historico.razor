@@ -1,69 +1,88 @@
 ﻿@page "/aluno/Historico"
-@namespace gestaopedagogica.Pages.Aluno
-@layout MainLayout
-@using gestaopedagogica.Data
+@using gestaopedagogica.Services
+@using gestaopedagogica.Models
+@inject AuthenticationStateProvider AuthStateProvider
+@inject TrabalhoService TrabalhoService
 
 <h3>Histórico Académico</h3>
 
-<div class="card p-4">
-    <h5>Histórico Completo</h5>
- <table class="table table-striped">
+<table class="table table-striped">
     <thead>
-  <tr>
-        <th>Ano Letivo</th>
-  <th>Módulo</th>
-   <th>Professor</th>
-       <th>Classificação Final</th>
-      <th>Status</th>
- </tr>
-        </thead>
-  <tbody>
-@if (historico?.Count > 0)
-           {
-         @foreach (var item in historico)
-        {
-    <tr>
-    <td>@item.AnoLetivo</td>
-  <td>@item.Modulo</td>
-    <td>@item.Professor</td>
-   <td>@item.ClassificacaoFinal</td>
-      <td>
-     @if (item.Aprovado)
-        {
-          <span class="badge bg-success">Aprovado</span>
-          }
-    else
-          {
-<span class="badge bg-danger">Reprovado</span>
-        }
-</td>
-   </tr>
-      }
-      }
-   else
-    {
-      <tr>
-  <td colspan="5" class="text-center">Sem histórico disponível</td>
+        <tr>
+            <th>Ano Letivo</th>
+            <th>Módulo</th>
+            <th>Professor</th>
+            <th>Classificação Final</th>
+            <th>Status</th>
         </tr>
-   }
-  </tbody>
- </table>
-</div>
+    </thead>
+    <tbody>
+        @if (historico?.Count > 0)
+        {
+            foreach (var item in historico)
+            {
+                <tr>
+                    <td>@item.AnoLetivo</td>
+                    <td>@item.Modulo</td>
+                    <td>@item.Professor</td>
+                    <td>@item.ClassificacaoFinal.ToString("F1")</td>
+                    <td>
+                        @if (item.Aprovado)
+                        {
+                            <span class="badge bg-success">Aprovado</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Reprovado</span>
+                        }
+                    </td>
+                </tr>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="5" class="text-center">Sem histórico disponível</td>
+            </tr>
+        }
+    </tbody>
+</table>
 
 @code {
-   private List<HistoricoItem> historico = new();
+    private List<HistoricoItem> historico = new();
 
-     protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // TODO: Carregar histórico do banco de dados
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(userId);
+
+            historico = trabalhos.Select(t =>
+            {
+                var notas = t.TrabalhoVertentes.Where(v => v.Nota.HasValue).Select(v => v.Nota!.Value).ToList();
+                var media = notas.Any() ? notas.Average() : 0;
+
+                return new HistoricoItem
+                {
+                    AnoLetivo = t.DataCriacao.Year.ToString(),
+                    Modulo = t.Modulo?.Nome ?? "N/D",
+                    Professor = t.Professor?.UserName ?? "N/D",
+                    ClassificacaoFinal = (decimal)media,
+                    Aprovado = media >= 10
+                };
+            }).ToList();
+        }
     }
 
-     private class HistoricoItem
+    private class HistoricoItem
     {
-   public string AnoLetivo { get; set; }
-        public string Modulo { get; set; }
-       public string Professor { get; set; }
+        public string AnoLetivo { get; set; } = "";
+        public string Modulo { get; set; } = "";
+        public string Professor { get; set; } = "";
         public decimal ClassificacaoFinal { get; set; }
-  public bool Aprovado { get; set; }
-   }
+        public bool Aprovado { get; set; }
+    }
 }

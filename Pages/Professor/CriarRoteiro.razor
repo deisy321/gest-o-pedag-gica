@@ -15,7 +15,102 @@
 @inject NavigationManager Nav
 
 <div class="container-fluid mt-4">
-    <!-- Conteúdo do formulário (igual ao seu) -->
+    @if (IsLoading)
+    {
+        <div class="text-center mt-5">
+            <div class="spinner-border text-primary"></div>
+            <p>Carregando dados...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(StatusMessage))
+    {
+        <div class="alert alert-info">@StatusMessage</div>
+    }
+    else if (TurmaSelecionada == null)
+    {
+        <div class="alert alert-danger">Turma não encontrada!</div>
+    }
+    else
+    {
+        <h3>Criar Trabalho para @TurmaSelecionada.Nome</h3>
+
+        <div class="mb-3">
+            <label>Título</label>
+            <input class="form-control" @bind="Titulo" />
+        </div>
+
+        <div class="mb-3">
+            <label>Módulo</label>
+            <select class="form-control" @bind="ModuloSelecionadoId">
+                <option value="0">-- Selecione um módulo --</option>
+                @foreach (var mod in ListaModulos)
+                {
+                    <option value="@mod.Id">@mod.Nome</option>
+                }
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label>Disciplina</label>
+            <select class="form-control" @bind="DisciplinaSelecionadaId">
+                <option value="0">-- Selecione uma disciplina --</option>
+                @foreach (var disc in ListaDisciplinas)
+                {
+                    <option value="@disc.Id">@disc.Nome</option>
+                }
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label>Prazo de Entrega</label>
+            <input type="date" class="form-control" @bind="PrazoEntrega" />
+        </div>
+
+        <div class="mb-3">
+            <label>Tipo de Atribuição</label>
+            <select class="form-control" @bind="TipoAtribuicao">
+                <option value="turma">Para toda a turma</option>
+                <option value="aluno">Para aluno específico</option>
+            </select>
+        </div>
+
+        @if (TipoAtribuicao == "aluno")
+        {
+            <div class="mb-3">
+                <label>Aluno</label>
+                <select class="form-control" @bind="AlunoSelecionadoId">
+                    <option value="0">-- Selecione um aluno --</option>
+                    @foreach (var aluno in TurmaSelecionada.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)))
+                    {
+                        <option value="@aluno.Id">@aluno.Nome</option>
+                    }
+                </select>
+            </div>
+        }
+
+        <div class="mb-3">
+            <h5>Vertentes</h5>
+            @foreach (var vert in Vertentes)
+            {
+                <div class="mb-2">
+                    <label>@vert.Tipo</label>
+                    <input class="form-control" @bind="vert.ConteudoTexto" placeholder="Conteúdo inicial (opcional)" />
+                </div>
+            }
+        </div>
+
+        <button class="btn btn-success" @onclick="SalvarRoteiro" disabled="@IsSaving">
+            @if (IsSaving)
+            {
+                <span class="spinner-border spinner-border-sm"></span>
+                <span>Salvando...</span>
+            }
+            else
+            {
+                <span>Criar Trabalho</span>
+            }
+        </button>
+    }
 </div>
 
 @code {
@@ -145,10 +240,11 @@
             Titulo = Titulo.Trim(),
             ProfessorId = professorId,
             AlunoId = alunoId,
+            TurmaId = TurmaSelecionada?.Id ?? 0, // Passa TurmaId se existir
             ModuloId = ModuloSelecionadoId,
             DisciplinaId = DisciplinaSelecionadaId,
             DataCriacao = DateTime.UtcNow,
-            PrazoEntrega = DateTime.SpecifyKind(PrazoEntrega!.Value, DateTimeKind.Utc),
+            PrazoEntrega = PrazoEntrega ?? DateTime.UtcNow,
             TrabalhoVertentes = new List<TrabalhoVertente>()
         };
 
@@ -156,6 +252,7 @@
 
         foreach (var vertente in Vertentes)
         {
+            // Cria vertente apenas se tiver conteúdo
             var vertDb = new TrabalhoVertente
             {
                 TrabalhoId = trabalhoId,

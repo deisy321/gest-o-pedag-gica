@@ -1,185 +1,106 @@
 ﻿@page "/professor/TrabalhosRecebidos"
 @page "/professor/TrabalhosRecebidos/{TurmaId:int}"
-@layout MainLayout
-@using gestaopedagogica.Models
 @using gestaopedagogica.Services
-@using Microsoft.AspNetCore.Components.Authorization
-
 @inject TrabalhoService TrabalhoService
 @inject AuthenticationStateProvider AuthStateProvider
-@inject NavigationManager Nav
 
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3><i class="bi bi-inbox-fill me-2 text-primary"></i>Trabalhos Enviados</h3>
-        <button class="btn btn-outline-secondary btn-sm" @onclick='() => Nav.NavigateTo("/professor/DashboardProfessor")'>
-            <i class="bi bi-arrow-left"></i> Voltar ao Dashboard
-        </button>
-    </div>
 
-    @if (ListaTrabalhos == null)
+<h3>Trabalhos </h3>
+
+@if (ListaTrabalhos == null)
+{
+    <div class="spinner-border text-primary"></div>
+}
+else if (!ListaTrabalhos.Any())
+{
+    <div class="alert alert-info">Nenhum trabalho enviado.</div>
+}
+else
+{
+    @foreach (var t in ListaTrabalhos)
     {
-        <div class="text-center p-5">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2">A carregar submissões...</p>
-        </div>
-    }
-    else if (!ListaTrabalhos.Any())
-    {
-        <div class="alert alert-info shadow-sm">
-            <i class="bi bi-info-circle me-2"></i> Nenhum trabalho pendente para esta seleção.
-        </div>
-    }
-    else
-    {
-        <div class="row">
-            @foreach (var trab in ListaTrabalhos)
-            {
-                <div class="col-12 mb-3">
-                    <div class="card shadow-sm border-0 border-start border-4 @(trab.EstaTodoAvaliado ? "border-success" : "border-warning")">
-                        <div class="card-body">
-                            <div class="row align-items-center">
-                                <div class="col-md-5">
-                                    <h5 class="mb-1 text-primary">@trab.Titulo</h5>
-                                    <div class="text-muted small">
-                                        @* CORREÇÃO AQUI: Usamos a propriedade mapeada no ViewModel *@
-                                        <i class="bi bi-person me-1"></i><strong>@trab.AlunoIdentificador</strong> |
-                                        <i class="bi bi-book me-1"></i>@trab.DisciplinaNome - @trab.ModuloNome
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="d-flex gap-2">
-                                        @foreach (var v in trab.Vertentes)
-                                        {
-                                            <span class="badge @(v.Nota.HasValue ? "bg-success" : "bg-light text-dark border")"
-                                                  style="cursor:pointer" @onclick="() => AbrirAvaliar(v.Id)">
-                                                @v.Tipo: @(v.Nota.HasValue? v.Nota.ToString() : "Pendente")
-                                            </span>
-                                        }
-                                    </div>
-                                </div>
-                                <div class="col-md-3 text-end">
-                                    <button class="btn btn-primary rounded-pill px-4" @onclick="() => AbrirAvaliarTrabalhoTodo(trab)">
-                                        <i class="bi bi-pencil-square me-1"></i> Corrigir
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
-        </div>
-    }
-
-    @if (Selecionado != null)
-    {
-        <div class="modal-backdrop fade show"></div>
-        <div class="modal fade show d-block" tabindex="-1">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content shadow-lg border-0">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title">Avaliar @Selecionado.Tipo</h5>
-                        <button type="button" class="btn-close btn-close-white" @onclick="CancelarAvaliacao"></button>
-                    </div>
-                    <div class="modal-body p-4">
-                        <p class="mb-3"><strong>Trabalho:</strong> @Selecionado.Titulo</p>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Nota (0-20)</label>
-                            <input class="form-control form-control-lg" type="number" step="0.1" max="20" @bind="Selecionado.Nota" />
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Feedback / Observações</label>
-                            <textarea class="form-control" rows="3" @bind="Selecionado.Feedback"></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer bg-light">
-                        <button class="btn btn-secondary" @onclick="CancelarAvaliacao">Cancelar</button>
-                        <button class="btn btn-success px-4" @onclick="SalvarAvaliacao">Salvar Nota</button>
-                    </div>
+        <div class="card mb-3">
+            <div class="card-body">
+                <strong>@t.Titulo</strong> - @t.Aluno?.UserName ?? "Desconhecido"
+                <div class="d-flex flex-wrap mt-2 gap-2">
+                    @foreach (var v in t.TrabalhoVertentes)
+                    {
+                        <button class="btn btn-outline-primary btn-sm" @onclick="() => AbrirVertente(v)">
+                            @v.Tipo (@(v.Nota.HasValue? v.Nota.ToString() : "Pendente"))
+                        </button>
+                    }
                 </div>
             </div>
         </div>
     }
-</div>
+}
+
+@if (Selecionado != null)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5>Avaliar @Selecionado.Tipo</h5>
+                    <button class="btn-close btn-close-white" @onclick="CancelarAvaliacao"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Conteúdo do aluno:</strong></p>
+                    <div class="border p-2 mb-3">@Selecionado.ConteudoTexto</div>
+                    @if (Selecionado.FicheiroBytes != null)
+                    {
+                        <p>Ficheiro enviado: <a href="@($"data:application/octet-stream;base64,{Convert.ToBase64String(Selecionado.FicheiroBytes)}")" target="_blank">@Selecionado.FicheiroNome</a></p>
+                    }
+
+                    <label>Nota (0-20)</label>
+                    <input type="number" class="form-control" @bind="Selecionado.Nota" min="0" max="20" />
+
+                    <label>Feedback</label>
+                    <textarea class="form-control" @bind="Selecionado.Feedback"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelarAvaliacao">Cancelar</button>
+                    <button class="btn btn-success" @onclick="SalvarAvaliacao">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     [Parameter] public int? TurmaId { get; set; }
 
-    public class TrabalhoAgrupadoViewModel
-    {
-        public int Id { get; set; }
-        public string Titulo { get; set; } = "";
-        public string AlunoIdentificador { get; set; } = ""; // Alterado de AlunoNome para evitar confusão
-        public string ModuloNome { get; set; } = "";
-        public string DisciplinaNome { get; set; } = "";
-        public List<VertenteViewModel> Vertentes { get; set; } = new();
-        public bool EstaTodoAvaliado => Vertentes.All(v => v.Nota.HasValue);
-    }
-
-    public class VertenteViewModel
-    {
-        public int Id { get; set; }
-        public string Titulo { get; set; } = "";
-        public string Tipo { get; set; } = "";
-        public decimal? Nota { get; set; }
-        public string Feedback { get; set; } = "";
-        public string ConteudoTexto { get; set; } = "";
-    }
-
-    private List<TrabalhoAgrupadoViewModel>? ListaTrabalhos;
-    private VertenteViewModel? Selecionado;
+    private List<Trabalho> ListaTrabalhos;
+    private TrabalhoVertente? Selecionado;
 
     protected override async Task OnInitializedAsync()
     {
-        await CarregarDados();
+        await CarregarTrabalhos();
     }
 
-    private async Task CarregarDados()
+    private async Task CarregarTrabalhos()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                     ?? authState.User.FindFirst("sub")?.Value ?? "";
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
 
-        var trabalhosRaw = await TrabalhoService.GetTrabalhosDoProfessorAsync(userId);
+        var trabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(userId);
 
-        if (TurmaId.HasValue && TurmaId > 0)
-        {
-            trabalhosRaw = trabalhosRaw.Where(t => t.TurmaId == TurmaId).ToList();
-        }
+        if (TurmaId.HasValue)
+            trabalhos = trabalhos.Where(t => t.TurmaId == TurmaId).ToList();
 
-        ListaTrabalhos = trabalhosRaw.Select(t => new TrabalhoAgrupadoViewModel
-        {
-            Id = t.Id,
-            Titulo = t.Titulo,
-            // CORREÇÃO: Usamos UserName porque Nome não existe na classe ApplicationUser
-            AlunoIdentificador = t.Aluno?.UserName ?? "Utilizador Desconhecido",
-            ModuloNome = t.Modulo?.Nome ?? "N/D",
-            DisciplinaNome = t.Disciplina?.Nome ?? "N/D",
-            Vertentes = t.TrabalhoVertentes.Select(v => new VertenteViewModel
-            {
-                Id = v.Id,
-                Titulo = t.Titulo,
-                Tipo = v.Tipo,
-                Nota = v.Nota,
-                Feedback = v.Feedback,
-                ConteudoTexto = v.ConteudoTexto
-            }).ToList()
-        }).ToList();
+        ListaTrabalhos = trabalhos;
     }
 
-    void AbrirAvaliar(int id) => Selecionado = ListaTrabalhos?.SelectMany(t => t.Vertentes).FirstOrDefault(v => v.Id == id);
+    void AbrirVertente(TrabalhoVertente v) => Selecionado = v;
 
-    void AbrirAvaliarTrabalhoTodo(TrabalhoAgrupadoViewModel trab) => Selecionado = trab.Vertentes.FirstOrDefault(v => !v.Nota.HasValue) ?? trab.Vertentes.FirstOrDefault();
+    void CancelarAvaliacao() => Selecionado = null;
 
     async Task SalvarAvaliacao()
     {
         if (Selecionado == null) return;
         await TrabalhoService.AtualizarNotaEFeedbackAsync(Selecionado.Id, Selecionado.Nota, Selecionado.Feedback);
         Selecionado = null;
-        await CarregarDados();
+        await CarregarTrabalhos();
     }
-
-    void CancelarAvaliacao() => Selecionado = null;
 }

@@ -1,52 +1,60 @@
 ﻿@page "/aluno/MinhasNotas"
-@namespace gestaopedagogica.Pages.Aluno
-@layout MainLayout
-@using gestaopedagogica.Data
+@using gestaopedagogica.Services
 @using gestaopedagogica.Models
+@inject AuthenticationStateProvider AuthStateProvider
+@inject TrabalhoService TrabalhoService
 
 <h3>Minhas Notas</h3>
 
 <div class="card p-4">
     <h5>Avaliações Recebidas</h5>
-   <table class="table table-striped">
-    <thead>
-       <tr>
-      <th>Conhecimento</th>
-  <th>Aptidão</th>
- <th>Competência</th>
-   <th>Nota Final</th>
-  <th>Data</th>
-</tr>
-  </thead>
-    <tbody>
-   @if (avaliacoes?.Count > 0)
-        {
-   @foreach (var avaliacao in avaliacoes)
-{
-   <tr>
-    <td>@avaliacao.Conhecimento</td>
-   <td>@avaliacao.Aptidao</td>
-      <td>@avaliacao.Competencia</td>
-<td>@avaliacao.NotaFinal</td>
-    <td>@avaliacao.Data.ToShortDateString()</td>
-   </tr>
-      }
-     }
-    else
-  {
-   <tr>
-   <td colspan="5" class="text-center">Sem avaliações disponíveis</td>
-  </tr>
-   }
- </tbody>
-  </table>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Trabalho</th>
+                <th>Nota</th>
+                <th>Feedback</th>
+                <th>Data de Envio</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (trabalhos?.Count > 0)
+            {
+                foreach (var trabalho in trabalhos)
+                {
+                    foreach (var vert in trabalho.TrabalhoVertentes.Where(v => v.Nota.HasValue || !string.IsNullOrEmpty(v.Feedback)))
+                    {
+                        <tr>
+                            <td>@trabalho.Titulo</td>
+                            <td>@(vert.Nota.HasValue? vert.Nota.Value.ToString("F1") : "-")</td>
+                            <td>@(!string.IsNullOrEmpty(vert.Feedback) ? vert.Feedback : "-")</td>
+                            <td>@(vert.DataEnvio.HasValue? vert.DataEnvio.Value.ToShortDateString() : "-")</td>
+                        </tr>
+                    }
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="4" class="text-center">Sem avaliações disponíveis</td>
+                </tr>
+            }
+        </tbody>
+    </table>
 </div>
 
 @code {
-    private List<Avaliacao> avaliacoes = new();
+    private List<Trabalho> trabalhos = new();
 
-  protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-  // TODO: Carregar avaliações do banco de dados baseado no aluno autenticado
-   }
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            // Aqui garantimos que carregamos somente os trabalhos com vertentes enviadas
+            trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(userId);
+        }
+    }
 }

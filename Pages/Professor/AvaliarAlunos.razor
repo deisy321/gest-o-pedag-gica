@@ -1,94 +1,178 @@
-﻿@page "/professor/AvaliarAlunos"
-@using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = "Professor")]
-@namespace gestaopedagogica.Pages.Professor
-@layout MainLayout
-@using Microsoft.AspNetCore.Components
-@using Microsoft.AspNetCore.Components.Authorization
+﻿@page "/professor/AvaliarAlunos/{AlunoId:int}"
+@using gestaopedagogica.Services
+@using gestaopedagogica.Models
+@inject AlunoService AlunoService
+@inject TrabalhoService TrabalhoService
 
-<AuthorizeView Roles="Professor">
-    <Authorized>
-        <h3>Avaliar Alunos</h3>
-        <div>
-            <div class="mb-3">
-                <label>Turma:</label>
-                <select class="form-select" @bind="SelectedClass">
-                    @foreach(var c in Classes)
+<h3>Avaliar Aluno</h3>
+
+@if (IsLoading)
+{
+    <div class="spinner-border text-primary"></div>
+}
+else if (AlunoAtual == null)
+{
+    <div class="alert alert-danger">Aluno não encontrado</div>
+}
+else if (!Trabalhos.Any())
+{
+    <div class="alert alert-warning">Aluno ainda não enviou trabalhos</div>
+}
+else
+{
+    <div class="card mb-3 p-3">
+        <strong>@AlunoAtual.Email</strong><br />
+        Turma: @(AlunoAtual.Turma?.Nome ?? "Sem turma")
+    </div>
+
+    @foreach (var trabalho in Trabalhos)
+    {
+        <div class="card mb-3 p-2">
+            <strong>@trabalho.Titulo</strong>
+            @foreach (var vertente in trabalho.TrabalhoVertentes)
+            {
+                <div class="border p-2 mt-2">
+                    <strong>Vertente:</strong> @vertente.Tipo
+                    <p>@vertente.ConteudoTextoAluno</p>
+
+                    @if (vertente.FicheiroBytes != null)
                     {
-                        <option value="@c">@c</option>
+                        <p>
+                            Ficheiro:
+                            <button class="btn btn-link p-0"
+                                    @onclick="() => AbrirModal(vertente.Id, vertente.FicheiroNome, vertente.FicheiroContentType)">
+                                @vertente.FicheiroNome
+                            </button>
+                            <a class="ms-2 btn btn-sm btn-outline-secondary"
+                               href="@($"/ficheiro/vertente/{vertente.Id}")"
+                               target="_blank">
+                                Download
+                            </a>
+                        </p>
                     }
-                </select>
-            </div>
 
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Nome</th>
-                        <th>Módulo</th>
-                        <th>Conhecimento</th>
-                        <th>Aptidão</th>
-                        <th>Competência</th>
-                        <th>Nota Final</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach(var s in FilteredStudents)
-                    {
+                    <table class="table">
                         <tr>
-                            <td>@s.Name</td>
-                            <td>@s.Module</td>
-                            <td><input type="number" class="form-control" style="width:90px;" @bind="s.Knowledge" min="0" max="20" /></td>
-                            <td><input type="number" class="form-control" style="width:90px;" @bind="s.Aptitude" min="0" max="20" /></td>
-                            <td><input type="number" class="form-control" style="width:90px;" @bind="s.Competence" min="0" max="20" /></td>
-                            <td>@ComputeFinal(s)</td>
+                            <td>Nota</td>
                             <td>
-                                <button class="btn btn-sm btn-success" @onclick="() => Save(s)">Salvar</button>
+                                <input type="number" class="form-control"
+                                       @bind-value="vertente.Nota"
+                                       @bind-value:event="oninput"
+                                       min="0" max="20" />
                             </td>
                         </tr>
+                        <tr>
+                            <td>Feedback</td>
+                            <td>
+                                <textarea class="form-control"
+                                          @bind-value="vertente.Feedback"
+                                          @bind-value:event="oninput"></textarea>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <button class="btn btn-success mb-2"
+                            @onclick="() => SalvarVertente(vertente)">
+                        Salvar Avaliação
+                    </button>
+
+                    @if (FoiSalvo(vertente.Id))
+                    {
+                        <span class="text-success ms-2">Avaliação salva!</span>
                     }
-                </tbody>
-            </table>
+                </div>
+            }
         </div>
-    </Authorized>
-    <NotAuthorized>
-        <div class="alert alert-danger">Acesso negado. Faça login com uma conta de Professor.</div>
-    </NotAuthorized>
-</AuthorizeView>
+    }
+}
+
+@if (ModalAberto)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@FicheiroNomeModal</h5>
+                    <button type="button" class="btn-close" @onclick="FecharModal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    @if (!string.IsNullOrEmpty(ModalContentTypeModal) && ModalContentTypeModal.StartsWith("image/"))
+                    {
+                        <img src="@ModalUrl" class="img-fluid" />
+                    }
+                    else if (ModalContentTypeModal == "application/pdf")
+                    {
+                        <iframe src="@ModalUrl" style="width:100%; height:600px;" frameborder="0"></iframe>
+                    }
+                    else
+                    {
+                        <p>Não é possível visualizar este ficheiro aqui. Use o botão de download.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
-    [Parameter]
-    [SupplyParameterFromQuery]
-    public int? moduleId { get; set; }
+    [Parameter] public int AlunoId { get; set; }
 
-    private string SelectedClass = "Turma A";
-    private List<string> Classes = new() { "Turma A", "Turma B", "Turma C" };
+    private Aluno? AlunoAtual;
+    private List<Trabalho> Trabalhos = new();
+    private bool IsLoading = true;
 
-    private List<Student> Students = new()
+    private bool ModalAberto = false;
+    private string ModalUrl = "";
+    private string ModalContentTypeModal = "";
+    private string FicheiroNomeModal = "";
+
+    // Dicionário para rastrear vertentes salvas
+    private Dictionary<int, bool> VertentesSalvas = new();
+
+    protected override async Task OnInitializedAsync()
     {
-        new Student{ Id=1, Name="Ana Silva", Module="Matemática", ClassName="Turma A", Knowledge=12, Aptitude=14, Competence=13 },
-        new Student{ Id=2, Name="João Souza", Module="Matemática", ClassName="Turma B", Knowledge=10, Aptitude=11, Competence=12 },
-        new Student{ Id=3, Name="Pedro Alves", Module="Física", ClassName="Turma C", Knowledge=15, Aptitude=16, Competence=15 }
-    };
+        IsLoading = true;
 
-    private IEnumerable<Student> FilteredStudents => Students.Where(s => s.ClassName == SelectedClass && (moduleId == null || s.ModuleId == moduleId));
+        AlunoAtual = await AlunoService.GetAlunoByIdAsync(AlunoId);
 
-    private double ComputeFinal(Student s) => Math.Round((s.Knowledge + s.Aptitude + s.Competence) /3.0,2);
+        if (AlunoAtual != null && !string.IsNullOrEmpty(AlunoAtual.UserId))
+        {
+            Trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoAtual.UserId);
+        }
 
-    private void Save(Student s)
-    {
-        // Aqui você pode enviar para backend. No front-end mock apenas exibir mensagem.
-        Console.WriteLine($"Salvando notas do aluno {s.Name}: {ComputeFinal(s)}");
+        IsLoading = false;
     }
 
-    public class Student{
-        public int Id{get;set;}
-        public string Name{get;set;} = "";
-        public string Module{get;set;} = "";
-        public int ModuleId { get; set; }
-        public string ClassName{get;set;} = "";
-        public double Knowledge{get;set;}
-        public double Aptitude{get;set;}
-        public double Competence{get;set;}
+    private async Task SalvarVertente(TrabalhoVertente vertente)
+    {
+        if (vertente == null) return;
+
+        await TrabalhoService.AtualizarVertenteAsync(vertente);
+
+        // marca como salva no dicionário
+        VertentesSalvas[vertente.Id] = true;
+
+        StateHasChanged();
+    }
+
+    private bool FoiSalvo(int vertenteId)
+    {
+        return VertentesSalvas.ContainsKey(vertenteId) && VertentesSalvas[vertenteId];
+    }
+
+    private void AbrirModal(int vertenteId, string nome, string contentType)
+    {
+        ModalAberto = true;
+        FicheiroNomeModal = nome;
+        ModalContentTypeModal = contentType ?? "application/octet-stream";
+        ModalUrl = $"/ficheiro/vertente/{vertenteId}";
+    }
+
+    private void FecharModal()
+    {
+        ModalAberto = false;
+        ModalUrl = "";
+        ModalContentTypeModal = "";
+        FicheiroNomeModal = "";
     }
 }

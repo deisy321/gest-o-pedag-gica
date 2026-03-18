@@ -62,8 +62,8 @@
                         <div class="card bg-white shadow-sm border-0" style="border-radius: 15px; height: 100%;">
                             <div class="card-body d-flex align-items-center justify-content-center py-2">
                                 <div class="text-center">
-                                    <span class="badge bg-info text-dark">@TurmaAtual?.Nome</span><br />
-                                    <small class="text-muted" style="font-size: 0.7rem">@TurmaAtual?.Curso?.Nome</small>
+                                    <span class="badge bg-info text-dark">@TurmaAtual?.Nome ?? "N/D"</span><br />
+                                    <small class="text-muted" style="font-size: 0.7rem">@TurmaAtual?.Curso?.Nome ?? "N/D"</small>
                                 </div>
                             </div>
                         </div>
@@ -80,7 +80,7 @@
                                     <option value="">Todas as Disciplinas</option>
                                     @foreach (var disc in DisciplinasUnicas)
                                     {
-                                        <option value="@disc">@disc</option>
+                                        <option value="@disc" selected="@(disc == DisciplinaSelecionada)">@disc</option>
                                     }
                                 </select>
                             </div>
@@ -90,7 +90,7 @@
                                     <option value="">Todos os Módulos</option>
                                     @foreach (var mod in ModulosDisponiveis)
                                     {
-                                        <option value="@mod">@mod</option>
+                                        <option value="@mod" selected="@(mod == ModuloSelecionado)">@mod</option>
                                     }
                                 </select>
                             </div>
@@ -98,7 +98,7 @@
                     </div>
                 </div>
 
-                <!-- Tabela de Conteúdo -->
+                <!-- Tabela de Trabalhos -->
                 <div class="card shadow-sm border-0" style="border-radius: 15px;">
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -117,7 +117,7 @@
                                     @if (!TrabalhosFiltrados.Any())
                                     {
                                         <tr>
-                                            <td colspan="6" class="text-center p-5 text-muted">Nenhum trabalho pendente encontrado.</td>
+                                            <td colspan="6" class="text-center p-5 text-muted">Nenhum trabalho encontrado.</td>
                                         </tr>
                                     }
                                     else
@@ -127,12 +127,12 @@
                                             <tr>
                                                 <td class="ps-4">
                                                     <span class="fw-bold d-block">@trabalho.Titulo</span>
-                                                    <small class="text-primary">@(trabalho.Disciplina?.Nome ?? "N/A")</small>
+                                                    <small class="text-primary">@(trabalho.Disciplina?.Nome ?? "N/D")</small>
                                                 </td>
-                                                <td><span class="badge bg-light text-dark fw-normal">@(trabalho.Professor?.UserName ?? "N/A")</span></td>
-                                                <td>@(trabalho.Modulo?.Nome ?? "N/A")</td>
+                                                <td><span class="badge bg-light text-dark fw-normal">@(trabalho.Professor?.UserName ?? "N/D")</span></td>
+                                                <td>@(trabalho.Modulo?.Nome ?? "N/D")</td>
                                                 <td>
-                                                    <small class="@(trabalho.PrazoEntrega < DateTime.Now ? "text-danger fw-bold" : "")">
+                                                    <small class="@(trabalho.PrazoEntrega < DateTime.UtcNow ? "text-danger fw-bold" : "")">
                                                         @trabalho.PrazoEntrega.ToString("dd/MM/yyyy")
                                                     </small>
                                                 </td>
@@ -149,25 +149,27 @@
                                                     <button class="btn btn-sm btn-primary rounded-pill px-3" @onclick="() => ResolverTrabalho(trabalho.Id)">
                                                         Abrir
                                                     </button>
+                                                    @if (trabalho.TrabalhoVertentes != null && trabalho.TrabalhoVertentes.Any(v => !string.IsNullOrEmpty(v.Feedback)))
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-success ms-1" @onclick="() => IrParaFeedback(trabalho.Id)">
+                                                            Feedback
+                                                        </button>
+                                                    }
                                                 </td>
                                             </tr>
-                                            @if (trabalho.TrabalhoVertentes != null && trabalho.TrabalhoVertentes.Any(v => !string.IsNullOrEmpty(v.Feedback)))
-                                            {
-                                                <tr class="table-warning border-0">
-                                                    <td colspan="6" class="py-1 ps-4">
-                                                        <small class="text-dark">
-                                                            <i class="bi bi-chat-left-dots me-2"></i>
-                                                            <strong>Feedback:</strong> @trabalho.TrabalhoVertentes.First(v => !string.IsNullOrEmpty(v.Feedback)).Feedback
-                                                        </small>
-                                                    </td>
-                                                </tr>
-                                            }
                                         }
                                     }
                                 </tbody>
                             </table>
                         </div>
                     </div>
+                </div>
+
+                <!-- Navegação -->
+                <div class="mt-4">
+                    <button class="btn btn-outline-primary me-2" @onclick="IrParaMinhasNotas">Minhas Notas</button>
+                    <button class="btn btn-outline-secondary me-2" @onclick="IrParaHistorico">Histórico</button>
+                    <button class="btn btn-outline-info me-2" @onclick="IrParaTrabalhosDisponiveis">Trabalhos Disponíveis</button>
                 </div>
             }
         </div>
@@ -177,8 +179,8 @@
 @code {
     private Aluno? AlunoAtual;
     private Turma? TurmaAtual;
+    private List<Trabalho> TodosTrabalhos = new();
     private List<Trabalho> TrabalhosPendentes = new();
-    private List<Trabalho> TrabalhosAvaliados = new();
     private List<Trabalho> TrabalhosFiltrados = new();
 
     private List<string> DisciplinasUnicas = new();
@@ -218,41 +220,43 @@
 
     private async Task CarregarDados()
     {
-        var alunos = await AlunoService.GetAlunosAsync();
-        AlunoAtual = alunos?.FirstOrDefault(a => a.UserId == AlunoUserId);
+        AlunoAtual = (await AlunoService.GetAlunosAsync())
+            .FirstOrDefault(a => a.UserId == AlunoUserId);
 
-        if (AlunoAtual?.TurmaId.HasValue == true)
+        if (AlunoAtual?.TurmaId != null)
             TurmaAtual = await TurmaService.GetTurmaByIdAsync(AlunoAtual.TurmaId.Value);
 
-        // Trazer todos os trabalhos para memória
-        var todosTrabalhos = (await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(AlunoUserId)).ToList();
+        TodosTrabalhos = (await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(AlunoUserId))
+            .Where(t => t != null)
+            .ToList();
 
-        TrabalhosPendentes = todosTrabalhos
+        TrabalhosPendentes = TodosTrabalhos
             .Where(t => t.TrabalhoVertentes == null || t.TrabalhoVertentes.Any(v => !v.Nota.HasValue))
             .ToList();
 
-        TrabalhosAvaliados = todosTrabalhos
-            .Where(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.All(v => v.Nota.HasValue))
-            .ToList();
+        TrabalhosFiltrados = TodosTrabalhos;
 
-        TrabalhosFiltrados = TrabalhosPendentes;
-
-        DisciplinasUnicas = TrabalhosPendentes
+        // Preenche lista de disciplinas únicas
+        DisciplinasUnicas = TodosTrabalhos
             .Where(t => t.Disciplina != null)
             .Select(t => t.Disciplina!.Nome)
             .Distinct()
             .ToList();
 
-        if (TrabalhosAvaliados.Any())
-        {
-            var notasValidas = TrabalhosAvaliados
-                .SelectMany(t => t.TrabalhoVertentes!)
-                .Where(v => v.Nota.HasValue)
-                .Select(v => v.Nota!.Value);
+        // Inicializa módulos disponíveis com todos os módulos válidos
+        ModulosDisponiveis = TodosTrabalhos
+            .Where(t => t.Modulo != null)
+            .Select(t => t.Modulo!.Nome)
+            .Distinct()
+            .ToList();
 
-            if (notasValidas.Any())
-                MediaGeral = (double)notasValidas.Average(); // converte decimal para double
-        }
+        // Calcula média geral
+        var notasValidas = TodosTrabalhos
+            .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+            .Where(v => v.Nota.HasValue)
+            .Select(v => (double)v.Nota!.Value);
+
+        MediaGeral = notasValidas.Any() ? notasValidas.Average() : 0;
     }
 
     private void OnDisciplinaChanged(ChangeEventArgs e)
@@ -260,7 +264,7 @@
         DisciplinaSelecionada = e.Value?.ToString() ?? "";
         ModuloSelecionado = "";
 
-        ModulosDisponiveis = TrabalhosPendentes
+        ModulosDisponiveis = TodosTrabalhos
             .Where(t => t.Disciplina != null && t.Disciplina.Nome == DisciplinaSelecionada && t.Modulo != null)
             .Select(t => t.Modulo!.Nome)
             .Distinct()
@@ -271,13 +275,13 @@
 
     private void FiltrarTrabalhos()
     {
-        var query = TrabalhosPendentes.AsEnumerable();
+        var query = TodosTrabalhos.AsEnumerable();
 
         if (!string.IsNullOrEmpty(DisciplinaSelecionada))
-            query = query.Where(t => t.Disciplina != null && t.Disciplina.Nome == DisciplinaSelecionada);
+            query = query.Where(t => t.Disciplina?.Nome == DisciplinaSelecionada);
 
         if (!string.IsNullOrEmpty(ModuloSelecionado))
-            query = query.Where(t => t.Modulo != null && t.Modulo.Nome == ModuloSelecionado);
+            query = query.Where(t => t.Modulo?.Nome == ModuloSelecionado);
 
         TrabalhosFiltrados = query.ToList();
     }
@@ -290,4 +294,8 @@
     }
 
     private void ResolverTrabalho(int id) => Nav.NavigateTo($"/aluno/EnviarTrabalho/{id}");
+    private void IrParaFeedback(int id) => Nav.NavigateTo($"/aluno/Feedback/{id}");
+    private void IrParaMinhasNotas() => Nav.NavigateTo("/aluno/MinhasNotas");
+    private void IrParaHistorico() => Nav.NavigateTo("/aluno/Historico");
+    private void IrParaTrabalhosDisponiveis() => Nav.NavigateTo("/aluno/TrabalhosDisponiveis");
 }
