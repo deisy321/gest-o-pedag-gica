@@ -19,26 +19,27 @@ else if (AlunoSelecionado == null)
 }
 else
 {
+    <!-- INFO BÁSICA -->
     <div class="row g-3 mb-4">
-        <div class="col-md-4 col-lg-3">
+        <div class="col-md-3">
             <div class="card shadow-sm border-0 bg-primary text-white p-3" style="border-radius: 15px;">
                 <h6>Nome</h6>
                 <h5 class="fw-bold">@AlunoSelecionado.Nome</h5>
             </div>
         </div>
-        <div class="col-md-4 col-lg-3">
+        <div class="col-md-3">
             <div class="card shadow-sm border-0 bg-info text-white p-3" style="border-radius: 15px;">
                 <h6>Email</h6>
                 <h5 class="fw-bold">@AlunoSelecionado.Email</h5>
             </div>
         </div>
-        <div class="col-md-4 col-lg-3">
+        <div class="col-md-3">
             <div class="card shadow-sm border-0 bg-success text-white p-3" style="border-radius: 15px;">
                 <h6>Turma</h6>
                 <h5 class="fw-bold">@AlunoSelecionado.Turma?.Nome ?? "Sem turma"</h5>
             </div>
         </div>
-        <div class="col-md-4 col-lg-3">
+        <div class="col-md-3">
             <div class="card shadow-sm border-0 bg-warning text-dark p-3" style="border-radius: 15px;">
                 <h6>Total de Trabalhos</h6>
                 <h5 class="fw-bold">@TrabalhosAluno.Count</h5>
@@ -46,77 +47,63 @@ else
         </div>
     </div>
 
-    <div class="card shadow-sm border-0 p-3 mb-4" style="border-radius: 15px;">
-        <div class="card-body">
-            <h5 class="fw-bold mb-3">Trabalhos do Aluno</h5>
-            @if (TrabalhosAluno.Any())
-            {
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Título</th>
-                                <th>Módulo</th>
-                                <th>Disciplina</th>
-                                <th class="text-center">Vertentes</th>
-                                <th class="text-center">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var trab in TrabalhosAluno)
-                            {
-                                <tr>
-                                    <td>@trab.Titulo</td>
-                                    <td>@trab.ModuloNome</td>
-                                    <td>@trab.DisciplinaNome</td>
-                                    <td class="text-center">@trab.Vertentes.Count</td>
-                                    <td class="text-center">
-                                        <button class="btn btn-sm btn-success rounded-pill px-3"
-                                                @onclick='() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoSelecionado.Id}")'>
-                                            Avaliar
-                                        </button>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td colspan="5">
-                                        @foreach (var vert in trab.Vertentes)
-                                        {
-                                            <div class="border p-2 mb-2">
-                                                <strong>@vert.Tipo</strong><br />
-                                                <p>@vert.Conteudo</p>
-                                                @if (vert.Nota.HasValue)
-                                                {
-                                                    <p>Nota: <strong>@vert.Nota</strong></p>
-                                                    <p>Feedback: @vert.Feedback</p>
-                                                }
-                                                else
-                                                {
-                                                    <p class="text-muted">Ainda não avaliado</p>
-                                                }
-                                            </div>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-            else
-            {
-                <p class="text-muted">Nenhum trabalho encontrado para este aluno.</p>
-            }
+    <!-- MÉTRICAS DE DESEMPENHO -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#f0f8ff;">
+                <h6>Trabalhos Entregues</h6>
+                <h5 class="fw-bold">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Enviado))</h5>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#fff3cd;">
+                <h6>Trabalhos Pendentes</h6>
+                <h5 class="fw-bold">@TrabalhosAluno.Count(t => t.Vertentes.All(v => !v.Enviado))</h5>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#d4edda;">
+                <h6>Trabalhos Corrigidos</h6>
+                <h5 class="fw-bold">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue))</h5>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#e2e3e5;">
+                <h6>Média de Notas</h6>
+                <h5 class="fw-bold">@((TrabalhosAluno.SelectMany(t => t.Vertentes).Where(v => v.Nota.HasValue).Select(v => v.Nota.Value).DefaultIfEmpty(0).Average()).ToString("0.##"))</h5>
+            </div>
         </div>
     </div>
 
-    <button class="btn btn-secondary rounded-pill px-4" @onclick="VoltarParaDashboard">
-        <i class="bi bi-arrow-left me-2"></i> Voltar
-    </button>
+    <!-- BOTÕES DE AÇÃO -->
+    <div class="d-flex justify-content-end mb-4 gap-2">
+        <button class="btn btn-success rounded-pill px-4"
+                @onclick='() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoSelecionado.Id}")'>
+            Avaliar Aluno
+        </button>
+        <button class="btn btn-secondary rounded-pill px-4"
+                @onclick="VoltarParaDashboard">
+            <i class="bi bi-arrow-left me-2"></i> Voltar
+        </button>
+    </div>
+
+    <!-- RESUMO DE DESEMPENHO GRÁFICO (OPCIONAL) -->
+    <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
+        <h5 class="fw-bold mb-4">Progresso do Aluno</h5>
+        <div class="progress mb-2" style="height:25px; border-radius:12px;">
+            <div class="progress-bar bg-success" role="progressbar"
+                 style="width: @(TrabalhosAluno.Count > 0 ? (TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue)) * 100 / TrabalhosAluno.Count) : 0)%"
+                 aria-valuenow="@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue))"
+                 aria-valuemin="0" aria-valuemax="@TrabalhosAluno.Count">
+                @((TrabalhosAluno.Count > 0 ? (TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue)) * 100 / TrabalhosAluno.Count) : 0))%
+            </div>
+        </div>
+        <small class="text-muted">Percentual de trabalhos corrigidos</small>
+    </div>
 }
 
 @code {
-    [Parameter]
-    public int AlunoId { get; set; }
+    [Parameter] public int AlunoId { get; set; }
 
     private Aluno? AlunoSelecionado;
     private List<TrabalhoAluno> TrabalhosAluno = new();
@@ -126,41 +113,45 @@ else
     {
         IsLoading = true;
 
-        // Buscar aluno
-        AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
-
-        // Buscar trabalhos do aluno com vertentes e notas
-        if (AlunoSelecionado != null && !string.IsNullOrEmpty(AlunoSelecionado.UserId))
+        try
         {
-            var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
-            TrabalhosAluno = trabalhos.Select(t => new TrabalhoAluno
+            AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
+
+            if (AlunoSelecionado != null && !string.IsNullOrEmpty(AlunoSelecionado.UserId))
             {
-                TrabalhoId = t.Id,
-                Titulo = t.Titulo,
-                AlunoNome = AlunoSelecionado.Nome,
-                AlunoEmail = AlunoSelecionado.Email,
-                ModuloNome = t.Modulo?.Nome ?? "Módulo não definido",
-                DisciplinaNome = t.Disciplina?.Nome ?? "Disciplina não definida",
-                Vertentes = t.TrabalhoVertentes.Select(v => new VertenteStatus
+                var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
+
+                TrabalhosAluno = trabalhos?.Select(t => new TrabalhoAluno
                 {
-                    Tipo = v.Tipo,
-                    Conteudo = v.ConteudoTextoAluno ?? "",
-                    Enviado = !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null,
-                    Nota = v.Nota,
-                    Feedback = v.Feedback
-                }).ToList()
-            }).ToList();
+                    TrabalhoId = t.Id,
+                    Titulo = t.Titulo,
+                    AlunoNome = AlunoSelecionado.Nome,
+                    AlunoEmail = AlunoSelecionado.Email,
+                    ModuloNome = t.Modulo?.Nome ?? "Módulo não definido",
+                    DisciplinaNome = t.Disciplina?.Nome ?? "Disciplina não definida",
+                    Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatus
+                    {
+                        Tipo = v.Tipo,
+                        Conteudo = v.ConteudoTextoAluno ?? "",
+                        Enviado = !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null,
+                        Nota = v.Nota,
+                        Feedback = v.Feedback
+                    }).ToList() ?? new List<VertenteStatus>()
+                }).ToList() ?? new List<TrabalhoAluno>();
+            }
         }
-
-        IsLoading = false;
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar dados: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
-    private void VoltarParaDashboard()
-    {
-        Nav.NavigateTo("/professor/dashboard");
-    }
+    private void VoltarParaDashboard() => Nav.NavigateTo("/professor/dashboard");
 
-    // DTOs para exibição
     public class TrabalhoAluno
     {
         public int TrabalhoId { get; set; }

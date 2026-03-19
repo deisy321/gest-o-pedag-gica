@@ -103,13 +103,13 @@ namespace gestaopedagogica.Services
                 .FirstOrDefaultAsync(v => v.Id == vertenteId);
         }
 
-        // Obter trabalhos de um aluno com vertentes enviadas
+        // Obter trabalhos de um aluno com todas as vertentes (corrigido)
         public async Task<List<Trabalho>> GetTrabalhosDoAlunoComVertentesAsync(string alunoUserId)
         {
             if (string.IsNullOrEmpty(alunoUserId)) return new List<Trabalho>();
 
             var trabalhos = await _context.Trabalhos
-                .Include(t => t.TrabalhoVertentes)
+                .Include(t => t.TrabalhoVertentes) // traz todas, mesmo não enviadas
                 .Include(t => t.Modulo)
                 .Include(t => t.Disciplina)
                 .Include(t => t.Professor)
@@ -117,13 +117,6 @@ namespace gestaopedagogica.Services
                 .Where(t => t.AlunoId == alunoUserId)
                 .AsNoTracking()
                 .ToListAsync();
-
-            foreach (var t in trabalhos)
-            {
-                t.TrabalhoVertentes = t.TrabalhoVertentes
-                    .Where(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null)
-                    .ToList();
-            }
 
             return trabalhos;
         }
@@ -172,6 +165,15 @@ namespace gestaopedagogica.Services
                 .Include(t => t.Turma)
                 .AsNoTracking()
                 .Where(t => t.TurmaId == turmaId)
+                .ToListAsync();
+        }
+
+        // Obter todos os trabalhos com notas
+        public async Task<List<Trabalho>> GetTodosTrabalhosComNotasAsync()
+        {
+            return await _context.Trabalhos
+                .Include(t => t.TrabalhoVertentes)
+                .Include(t => t.Turma)
                 .ToListAsync();
         }
 

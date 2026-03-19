@@ -1,14 +1,18 @@
 ﻿@page "/professor/AvaliarAlunos/{AlunoId:int}"
 @using gestaopedagogica.Services
 @using gestaopedagogica.Models
+
 @inject AlunoService AlunoService
 @inject TrabalhoService TrabalhoService
+@inject NavigationManager Nav
 
-<h3>Avaliar Aluno</h3>
+<h3 class="fw-bold mb-4">Avaliar Aluno</h3>
 
 @if (IsLoading)
 {
-    <div class="spinner-border text-primary"></div>
+    <div class="text-center mt-5">
+        <div class="spinner-border text-primary"></div>
+    </div>
 }
 else if (AlunoAtual == null)
 {
@@ -16,102 +20,102 @@ else if (AlunoAtual == null)
 }
 else if (!Trabalhos.Any())
 {
-    <div class="alert alert-warning">Aluno ainda não enviou trabalhos</div>
+    <div class="alert alert-warning">Aluno ainda não tem trabalhos</div>
 }
 else
 {
-    <div class="card mb-3 p-3">
+    <!-- INFO DO ALUNO -->
+    <div class="card mb-4 p-3 shadow-sm" style="border-radius: 12px;">
         <strong>@AlunoAtual.Email</strong><br />
         Turma: @(AlunoAtual.Turma?.Nome ?? "Sem turma")
     </div>
 
+    <!-- TRABALHOS -->
     @foreach (var trabalho in Trabalhos)
     {
-        <div class="card mb-3 p-2">
-            <strong>@trabalho.Titulo</strong>
-            @foreach (var vertente in trabalho.TrabalhoVertentes)
-            {
-                <div class="border p-2 mt-2">
-                    <strong>Vertente:</strong> @vertente.Tipo
-                    <p>@vertente.ConteudoTextoAluno</p>
+        <div class="card mb-4 shadow-sm border-0" style="border-radius: 15px;">
 
-                    @if (vertente.FicheiroBytes != null)
-                    {
-                        <p>
-                            Ficheiro:
-                            <button class="btn btn-link p-0"
-                                    @onclick="() => AbrirModal(vertente.Id, vertente.FicheiroNome, vertente.FicheiroContentType)">
-                                @vertente.FicheiroNome
-                            </button>
-                            <a class="ms-2 btn btn-sm btn-outline-secondary"
-                               href="@($"/ficheiro/vertente/{vertente.Id}")"
-                               target="_blank">
-                                Download
-                            </a>
-                        </p>
-                    }
+            <!-- HEADER -->
+            <div class="card-header bg-light fw-bold d-flex justify-content-between">
+                <span>@trabalho.Titulo</span>
+            </div>
 
-                    <table class="table">
-                        <tr>
-                            <td>Nota</td>
-                            <td>
-                                <input type="number" class="form-control"
-                                       @bind-value="vertente.Nota"
-                                       @bind-value:event="oninput"
-                                       min="0" max="20" />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Feedback</td>
-                            <td>
-                                <textarea class="form-control"
-                                          @bind-value="vertente.Feedback"
-                                          @bind-value:event="oninput"></textarea>
-                            </td>
-                        </tr>
-                    </table>
+            <div class="card-body">
 
-                    <button class="btn btn-success mb-2"
-                            @onclick="() => SalvarVertente(vertente)">
-                        Salvar Avaliação
-                    </button>
+                @if (!trabalho.TrabalhoVertentes.Any())
+                {
+                    <div class="alert alert-warning mb-0">
+                        Este trabalho ainda não tem vertentes.
+                    </div>
+                }
+                else if (trabalho.TrabalhoVertentes.All(v =>
+                string.IsNullOrEmpty(v.ConteudoTextoAluno) && v.FicheiroBytes == null))
+                {
+                    <div class="alert alert-secondary mb-3">
+                        O aluno ainda não enviou nenhuma resposta para este trabalho.
+                    </div>
+                }
 
-                    @if (FoiSalvo(vertente.Id))
+                <!-- VERTENTES EM CARDS -->
+                <div class="row g-3">
+                    @foreach (var vertente in trabalho.TrabalhoVertentes)
                     {
-                        <span class="text-success ms-2">Avaliação salva!</span>
-                    }
-                </div>
-            }
-        </div>
-    }
-}
+                        var enviado = !string.IsNullOrEmpty(vertente.ConteudoTextoAluno) || vertente.FicheiroBytes != null;
 
-@if (ModalAberto)
-{
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">@FicheiroNomeModal</h5>
-                    <button type="button" class="btn-close" @onclick="FecharModal"></button>
-                </div>
-                <div class="modal-body text-center">
-                    @if (!string.IsNullOrEmpty(ModalContentTypeModal) && ModalContentTypeModal.StartsWith("image/"))
-                    {
-                        <img src="@ModalUrl" class="img-fluid" />
-                    }
-                    else if (ModalContentTypeModal == "application/pdf")
-                    {
-                        <iframe src="@ModalUrl" style="width:100%; height:600px;" frameborder="0"></iframe>
-                    }
-                    else
-                    {
-                        <p>Não é possível visualizar este ficheiro aqui. Use o botão de download.</p>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card h-100 border-0 shadow-sm" style="border-radius: 12px;">
+
+                                <div class="card-body d-flex flex-column">
+
+                                    <!-- TIPO -->
+                                    <h6 class="fw-bold">@vertente.Tipo</h6>
+
+                                    <!-- STATUS -->
+                                    @if (!enviado)
+                                    {
+                                        <span class="badge bg-secondary mb-2">Não enviado</span>
+                                    }
+                                    else if (vertente.Nota.HasValue)
+                                    {
+                                        <span class="badge bg-success mb-2">Corrigido</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark mb-2">Enviado</span>
+                                    }
+
+                                    <!-- TEXTO -->
+                                    @if (!string.IsNullOrEmpty(vertente.ConteudoTextoAluno))
+                                    {
+                                        <p class="text-muted small">
+                                            @vertente.ConteudoTextoAluno
+                                        </p>
+                                    }
+
+                                    <!-- NOTA -->
+                                    @if (vertente.Nota.HasValue)
+                                    {
+                                        <div class="mt-auto">
+                                            <strong>Nota:</strong> @vertente.Nota<br />
+                                            <small class="text-muted">@vertente.Feedback</small>
+                                        </div>
+                                    }
+
+                                    <!-- BOTÃO -->
+                                    <button class="btn btn-sm btn-success rounded-pill mt-3"
+                                            @onclick='() => IrAvaliar(trabalho.Id, vertente.Tipo)'>
+                                        Avaliar
+                                    </button>
+
+                                </div>
+                            </div>
+                        </div>
                     }
                 </div>
+
             </div>
         </div>
-    </div>
+    }
 }
 
 @code {
@@ -121,14 +125,6 @@ else
     private List<Trabalho> Trabalhos = new();
     private bool IsLoading = true;
 
-    private bool ModalAberto = false;
-    private string ModalUrl = "";
-    private string ModalContentTypeModal = "";
-    private string FicheiroNomeModal = "";
-
-    // Dicionário para rastrear vertentes salvas
-    private Dictionary<int, bool> VertentesSalvas = new();
-
     protected override async Task OnInitializedAsync()
     {
         IsLoading = true;
@@ -137,42 +133,15 @@ else
 
         if (AlunoAtual != null && !string.IsNullOrEmpty(AlunoAtual.UserId))
         {
-            Trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoAtual.UserId);
+            Trabalhos = await TrabalhoService
+                .GetTrabalhosDoAlunoComVertentesAsync(AlunoAtual.UserId);
         }
 
         IsLoading = false;
     }
 
-    private async Task SalvarVertente(TrabalhoVertente vertente)
+    private void IrAvaliar(int trabalhoId, string tipo)
     {
-        if (vertente == null) return;
-
-        await TrabalhoService.AtualizarVertenteAsync(vertente);
-
-        // marca como salva no dicionário
-        VertentesSalvas[vertente.Id] = true;
-
-        StateHasChanged();
-    }
-
-    private bool FoiSalvo(int vertenteId)
-    {
-        return VertentesSalvas.ContainsKey(vertenteId) && VertentesSalvas[vertenteId];
-    }
-
-    private void AbrirModal(int vertenteId, string nome, string contentType)
-    {
-        ModalAberto = true;
-        FicheiroNomeModal = nome;
-        ModalContentTypeModal = contentType ?? "application/octet-stream";
-        ModalUrl = $"/ficheiro/vertente/{vertenteId}";
-    }
-
-    private void FecharModal()
-    {
-        ModalAberto = false;
-        ModalUrl = "";
-        ModalContentTypeModal = "";
-        FicheiroNomeModal = "";
+        Nav.NavigateTo($"/professor/AvaliarVertente/{trabalhoId}/{tipo}");
     }
 }
