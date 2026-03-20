@@ -38,7 +38,7 @@
     {
         <!-- CARDS DE RESUMO -->
         <div class="row mb-4 g-3" style="position:sticky; top:70px; z-index:1040; background:white; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <div class="card text-white" style="background:#f1b40e; border-radius:15px;">
                     <div class="card-body text-center">
                         <small>Trabalhos Pendentes</small>
@@ -50,7 +50,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <div class="card text-white" style="background:#0d6efd; border-radius:15px;">
                     <div class="card-body text-center">
                         <small>Disciplinas</small>
@@ -58,7 +58,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <div class="card text-white" style="background:#198754; border-radius:15px;">
                     <div class="card-body text-center">
                         <small>Média Geral</small>
@@ -70,11 +70,27 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <div class="card bg-white text-center" style="border-radius:15px;">
                     <div class="card-body">
                         <span class="badge bg-info text-dark">@TurmaAtual?.Nome ?? "N/D"</span><br />
                         <small>@TurmaAtual?.Curso?.Nome ?? "N/D"</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card text-white" style="background:#6f42c1; border-radius:15px;">
+                    <div class="card-body text-center">
+                        <small>Percentual Entregue</small>
+                        <h3>@PercentualEntregue.ToString("F0")%</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card text-white" style="background:#fd7e14; border-radius:15px;">
+                    <div class="card-body text-center">
+                        <small>Pontos Acumulados</small>
+                        <h3>@PontosAcumulados</h3>
                     </div>
                 </div>
             </div>
@@ -91,7 +107,7 @@
                         <div class="d-flex flex-column align-items-center justify-content-center text-center badge-card p-2"
                              style="width:120px; height:120px; cursor:pointer;">
                             <div style="width:90px; height:90px; border-radius:50%; overflow:hidden; border:@(conquistado ? "3px solid #ffc107" : "1px solid #ccc");
-                                                box-shadow:@(conquistado ? "0 0 10px #ffc107" : "none"); transition: all 0.3s; display:flex; align-items:center; justify-content:center; background:#fff;">
+                                                        box-shadow:@(conquistado ? "0 0 10px #ffc107" : "none"); transition: all 0.3s; display:flex; align-items:center; justify-content:center; background:#fff;">
                                 <img src="@("/images/" + badge.Key.Replace(" ", "") + ".png")"
                                      style="max-width:100%; max-height:100%; object-fit:contain;" />
                             </div>
@@ -99,21 +115,6 @@
                         </div>
                     }
                 </div>
-
-                @if (!BadgesConquistados.Any())
-                {
-                    <div class="p-3 mt-3 text-center text-muted border rounded" style="background:#f8f9fa;">
-                        <p class="mb-1"><strong>Nenhum badge conquistado ainda</strong></p>
-                        <small>Badges reconhecem seu desempenho e engajamento.</small>
-                        <ul class="list-unstyled mt-2 mb-0 text-start small">
-                            @foreach (var badge in TodosBadges)
-                            {
-                                <li><i class="bi bi-check-circle-fill text-secondary me-1"></i> @badge.Value.Descricao</li>
-                            }
-                        </ul>
-                        <small class="d-block mt-2 text-muted">Ganhe badges e destaque-se no seu desempenho!</small>
-                    </div>
-                }
             </div>
         </div>
 
@@ -140,7 +141,40 @@
             </div>
         </div>
 
-        <!-- FILTROS -->
+        <!-- TIMELINE DE ATIVIDADES -->
+        <div class="card mb-4 shadow-sm" style="border-radius:15px;">
+            <div class="card-body">
+                <h6>Timeline de Atividades</h6>
+                <ul class="timeline list-unstyled">
+                    @foreach (var t in TodosTrabalhos.OrderByDescending(t => t.PrazoEntrega))
+                    {
+                        <li class="mb-2">
+                            <span class="badge bg-primary">@t.PrazoEntrega.ToString("dd/MM")</span>
+                            <strong>@t.Titulo</strong> -
+                            <small>@(t.TrabalhoVertentes?.Any(v => v.Nota.HasValue) == true ? $"Nota: {CalcularNotaTrabalho(t.TrabalhoVertentes):F1}" : "Pendente")</small>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+
+        <!-- ALERTAS INTELIGENTES -->
+        <div class="card mb-4 shadow-sm" style="border-radius:15px; background:#fff3cd; border-color:#ffeeba;">
+            <div class="card-body">
+                <h6>Alertas</h6>
+                @if (TrabalhosPendentes.Any())
+                {
+                    <p><strong>Você tem @TrabalhosPendentes.Count trabalho(s) pendente(s) nesta semana</strong></p>
+                }
+                @if (MediaGeral < 6)
+                {
+                    <p><strong>Sua média geral está baixa: @MediaGeral.ToString("F1")</strong></p>
+                }
+            </div>
+        </div>
+
+        <!-- FILTROS E TABELA DETALHADA -->
+        @* Mantidos exatamente como estavam *@
         <div class="card mb-4" style="border-radius:15px;">
             <div class="card-body">
                 <div class="row g-3">
@@ -168,7 +202,6 @@
             </div>
         </div>
 
-        <!-- TABELA DETALHADA -->
         <div class="card mb-4 shadow-sm" style="border-radius:15px;">
             <div class="card-body p-0">
                 <table class="table mb-0">
@@ -226,6 +259,8 @@
     private string DisciplinaSelecionada = "";
     private string ModuloSelecionado = "";
     private double MediaGeral = 0;
+    private double PercentualEntregue = 0;
+    private int PontosAcumulados = 0;
 
     private string? AlunoUserId;
     private bool IsLoading = true;
@@ -248,21 +283,16 @@
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
         AlunoUserId = auth.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         await CarregarDados();
-
-        // Lógica de conquista dos badges
-        BadgesConquistados.Clear();
-        if (TrabalhosPendentes.All(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.All(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno))))
-            BadgesConquistados.Add("Entrega no Prazo");
-        if (MediaGeral >= 9.5) BadgesConquistados.Add("Notas Altas");
-        if (TodosTrabalhos.All(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null)))
-            BadgesConquistados.Add("Envio Consistente");
-        if (EngajamentoPorDia.Values.Sum() >= 20) BadgesConquistados.Add("Engajamento Diário");
-        if (TodosTrabalhos.Count(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => v.Nota.HasValue && v.Nota.Value >= 9)) >= 3)
-            BadgesConquistados.Add("Top Performer");
-        if (TodosTrabalhos.Count(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno))) >= 5)
-            BadgesConquistados.Add("Participação Ativa");
-
+        CalcularPercentualEPontos();
         IsLoading = false;
+    }
+
+    private void CalcularPercentualEPontos()
+    {
+        var totalTrabalhos = TodosTrabalhos.Count;
+        var entregues = TodosTrabalhos.Count(t => t.TrabalhoVertentes?.All(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null) == true);
+        PercentualEntregue = totalTrabalhos > 0 ? (double)entregues / totalTrabalhos * 100 : 0;
+        PontosAcumulados = BadgesConquistados.Count * 10 + (int)PercentualEntregue; // exemplo de pontuação
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -304,6 +334,21 @@
                                           .ToDictionary(g => g.Key, g => g.Count());
         foreach (DayOfWeek dia in Enum.GetValues(typeof(DayOfWeek)))
             if (!EngajamentoPorDia.ContainsKey(dia)) EngajamentoPorDia[dia] = 0;
+
+        // Atualiza badges e pontos
+        BadgesConquistados.Clear();
+        if (TrabalhosPendentes.All(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.All(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno))))
+            BadgesConquistados.Add("Entrega no Prazo");
+        if (MediaGeral >= 9.5) BadgesConquistados.Add("Notas Altas");
+        if (TodosTrabalhos.All(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null)))
+            BadgesConquistados.Add("Envio Consistente");
+        if (EngajamentoPorDia.Values.Sum() >= 20) BadgesConquistados.Add("Engajamento Diário");
+        if (TodosTrabalhos.Count(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => v.Nota.HasValue && v.Nota.Value >= 9)) >= 3)
+            BadgesConquistados.Add("Top Performer");
+        if (TodosTrabalhos.Count(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno))) >= 5)
+            BadgesConquistados.Add("Participação Ativa");
+
+        CalcularPercentualEPontos();
     }
 
     private void OnDisciplinaChanged(ChangeEventArgs e)
