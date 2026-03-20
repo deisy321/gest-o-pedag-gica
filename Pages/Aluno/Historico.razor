@@ -11,8 +11,11 @@
         <tr>
             <th>Ano Letivo</th>
             <th>Módulo</th>
+            <th>Disciplina</th>
             <th>Professor</th>
-            <th>Classificação Final</th>
+            <th>Média Final</th>
+            <th>Entregues</th>
+            <th>Corrigidos</th>
             <th>Status</th>
         </tr>
     </thead>
@@ -24,8 +27,11 @@
                 <tr>
                     <td>@item.AnoLetivo</td>
                     <td>@item.Modulo</td>
+                    <td>@item.Disciplina</td>
                     <td>@item.Professor</td>
                     <td>@item.ClassificacaoFinal.ToString("F1")</td>
+                    <td>@item.VertentesEntregues/@item.TotalVertentes</td>
+                    <td>@item.VertentesCorrigidas/@item.TotalVertentes</td>
                     <td>
                         @if (item.TemNota)
                         {
@@ -53,7 +59,7 @@
         else
         {
             <tr>
-                <td colspan="5" class="text-center">Sem histórico disponível</td>
+                <td colspan="8" class="text-center">Sem histórico disponível</td>
             </tr>
         }
     </tbody>
@@ -73,13 +79,10 @@
 
             historico = trabalhos.Select(t =>
             {
-                var notas = t.TrabalhoVertentes?
-                    .Where(v => v.Nota.HasValue)
-                    .Select(v => v.Nota!.Value)
-                    .ToList() ?? new List<decimal>(); // ✔ corrigido
+                var vertentes = t.TrabalhoVertentes ?? new List<TrabalhoVertente>();
+                var notas = vertentes.Where(v => v.Nota.HasValue).Select(v => v.Nota!.Value).ToList();
 
                 var media = notas.Any() ? notas.Average() : 0;
-
                 bool temNota = notas.Any();
                 bool passouPrazo = t.PrazoEntrega < DateTime.UtcNow;
                 bool aprovado = temNota && media >= 10;
@@ -88,11 +91,15 @@
                 {
                     AnoLetivo = t.DataCriacao.Year.ToString(),
                     Modulo = t.Modulo?.Nome ?? "N/D",
+                    Disciplina = t.Modulo?.Disciplina?.Nome ?? "N/D",
                     Professor = t.Professor?.UserName ?? "N/D",
                     ClassificacaoFinal = media,
-                    Aprovado = aprovado,
                     TemNota = temNota,
-                    PassouPrazo = passouPrazo
+                    PassouPrazo = passouPrazo,
+                    Aprovado = aprovado,
+                    TotalVertentes = vertentes.Count,
+                    VertentesEntregues = vertentes.Count(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null),
+                    VertentesCorrigidas = vertentes.Count(v => v.Nota.HasValue)
                 };
             }).ToList();
         }
@@ -102,11 +109,16 @@
     {
         public string AnoLetivo { get; set; } = "";
         public string Modulo { get; set; } = "";
+        public string Disciplina { get; set; } = "";
         public string Professor { get; set; } = "";
         public decimal ClassificacaoFinal { get; set; }
 
         public bool Aprovado { get; set; }
         public bool TemNota { get; set; }
         public bool PassouPrazo { get; set; }
+
+        public int TotalVertentes { get; set; }
+        public int VertentesEntregues { get; set; }
+        public int VertentesCorrigidas { get; set; }
     }
 }
