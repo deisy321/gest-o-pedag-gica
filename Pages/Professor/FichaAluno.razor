@@ -19,63 +19,78 @@ else if (AlunoSelecionado == null)
 }
 else
 {
-    <!-- INFO BÁSICA -->
+    <!-- PERFIL + TOTAL -->
     <div class="row g-3 mb-4">
+
+        <!-- PERFIL PEQUENO -->
         <div class="col-md-3">
-            <div class="card shadow-sm border-0 bg-primary text-white p-3" style="border-radius: 15px;">
-                <h6>Nome</h6>
-                <h5 class="fw-bold">@AlunoSelecionado.Nome</h5>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0 bg-info text-white p-3" style="border-radius: 15px;">
-                <h6>Email</h6>
-                <h5 class="fw-bold">@AlunoSelecionado.Email</h5>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0 bg-success text-white p-3" style="border-radius: 15px;">
-                <h6>Turma</h6>
-                <h5 class="fw-bold">@AlunoSelecionado.Turma?.Nome ?? "Sem turma"</h5>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0 bg-warning text-dark p-3" style="border-radius: 15px;">
-                <h6>Total de Trabalhos</h6>
-                <h5 class="fw-bold">@TrabalhosAluno.Count</h5>
-            </div>
+            <div class="card shadow-sm border-0 p-3 d-flex align-items-center justify-content-center"
+                 style="border-radius: 15px; cursor:pointer; width: 100%; text-align:center;"
+                 @onclick="ToggleDetalhes">
+
+                <div class="bg-primary text-white d-flex align-items-center justify-content-center mb-2"
+                     style="width:50px; height:50px; border-radius:50%; font-size:20px; margin:auto;">
+                    @AlunoSelecionado.Nome.Substring(0, 1).ToUpper()
+                </div>
+
+                <div class="fw-bold">@AlunoSelecionado.Nome</div>
+
+                @if (MostrarDetalhes)
+                {
+                    <div class="mt-2 border-top pt-2 text-start">
+                        <div><strong>Email:</strong> @AlunoSelecionado.Email</div>
+                        <div><strong>Turma:</strong> @AlunoSelecionado.Turma?.Nome ?? "Sem turma"</div>
+                    </div>
+                }
+
         </div>
     </div>
 
-    <!-- MÉTRICAS DE DESEMPENHO -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#f0f8ff;">
-                <h6>Trabalhos Entregues</h6>
-                <h5 class="fw-bold">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Enviado))</h5>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#fff3cd;">
-                <h6>Trabalhos Pendentes</h6>
-                <h5 class="fw-bold">@TrabalhosAluno.Count(t => t.Vertentes.All(v => !v.Enviado))</h5>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#d4edda;">
-                <h6>Trabalhos Corrigidos</h6>
-                <h5 class="fw-bold">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue))</h5>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#e2e3e5;">
-                <h6>Média de Notas</h6>
-                <h5 class="fw-bold">@((TrabalhosAluno.SelectMany(t => t.Vertentes).Where(v => v.Nota.HasValue).Select(v => v.Nota.Value).DefaultIfEmpty(0).Average()).ToString("0.##"))</h5>
-            </div>
+    <!-- TOTAL TRABALHOS -->
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 bg-warning text-dark p-3" style="border-radius: 15px;">
+            <h6>Total de Trabalhos</h6>
+            <h5 class="fw-bold">@TrabalhosAluno.Count</h5>
         </div>
     </div>
 
-    <!-- BOTÕES DE AÇÃO -->
+</div>
+
+<!-- MÉTRICAS DE DESEMPENHO -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#f0f8ff;">
+            <h6>Trabalhos Entregues</h6>
+            <h5 class="fw-bold">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Enviado))</h5>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#fff3cd;">
+            <h6>Trabalhos Pendentes</h6>
+            <h5 class="fw-bold">@TrabalhosAluno.Count(t => t.Vertentes.All(v => !v.Enviado))</h5>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#d4edda;">
+            <h6>Trabalhos Corrigidos</h6>
+            <h5 class="fw-bold">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue))</h5>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#e2e3e5;">
+            <h6>Média de Notas</h6>
+            <h5 class="fw-bold">
+                @((TrabalhosAluno.SelectMany(t => t.Vertentes)
+                                .Where(v => v.Nota.HasValue)
+                                .Select(v => v.Nota.Value)
+                                .DefaultIfEmpty(0)
+                                .Average()).ToString("0.##"))
+            </h5>
+        </div>
+    </div>
+</div>
+
+    <!-- BOTÕES -->
     <div class="d-flex justify-content-end mb-4 gap-2">
         <button class="btn btn-success rounded-pill px-4"
                 @onclick='() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoSelecionado.Id}")'>
@@ -87,7 +102,7 @@ else
         </button>
     </div>
 
-    <!-- RESUMO DE DESEMPENHO GRÁFICO (OPCIONAL) -->
+    <!-- PROGRESSO -->
     <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
         <h5 class="fw-bold mb-4">Progresso do Aluno</h5>
         <div class="progress mb-2" style="height:25px; border-radius:12px;">
@@ -108,6 +123,13 @@ else
     private Aluno? AlunoSelecionado;
     private List<TrabalhoAluno> TrabalhosAluno = new();
     private bool IsLoading = true;
+
+    private bool MostrarDetalhes = false;
+
+    private void ToggleDetalhes()
+    {
+        MostrarDetalhes = !MostrarDetalhes;
+    }
 
     protected override async Task OnInitializedAsync()
     {
