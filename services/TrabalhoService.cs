@@ -7,13 +7,17 @@ namespace gestaopedagogica.Services
     public class TrabalhoService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IAService _iaService;
 
-        public TrabalhoService(ApplicationDbContext context)
+        public TrabalhoService(ApplicationDbContext context, IAService iaService)
         {
             _context = context;
+            _iaService = iaService;
         }
 
-        // Criar trabalho
+        // =============================
+        // CRIAR TRABALHO E VERTENTES
+        // =============================
         public async Task<int> AddTrabalhoAsync(Trabalho trabalho)
         {
             if (trabalho == null) throw new ArgumentNullException(nameof(trabalho));
@@ -34,7 +38,6 @@ namespace gestaopedagogica.Services
             return trabalho.Id;
         }
 
-        // Adicionar vertente
         public async Task AddVertenteAsync(TrabalhoVertente vertente)
         {
             vertente.Feedback ??= "";
@@ -45,7 +48,6 @@ namespace gestaopedagogica.Services
             await _context.SaveChangesAsync();
         }
 
-        // Atualizar vertente
         public async Task AtualizarVertenteAsync(TrabalhoVertente vertente)
         {
             var existente = await _context.TrabalhoVertentes.FindAsync(vertente.Id);
@@ -63,7 +65,9 @@ namespace gestaopedagogica.Services
             await _context.SaveChangesAsync();
         }
 
-        // Atualizar nota e feedback do professor
+        // =============================
+        // NOTA E FEEDBACK PROFESSOR
+        // =============================
         public async Task<bool> AtualizarNotaEFeedbackAsync(int vertenteId, decimal? nota, string? feedback)
         {
             var vertente = await _context.TrabalhoVertentes.FindAsync(vertenteId);
@@ -75,7 +79,9 @@ namespace gestaopedagogica.Services
             return true;
         }
 
-        // Obter trabalho por id com todas as relações
+        // =============================
+        // OBTER TRABALHOS E VERTENTES
+        // =============================
         public async Task<Trabalho?> GetTrabalhoPorIdAsync(int id)
         {
             return await _context.Trabalhos
@@ -103,13 +109,12 @@ namespace gestaopedagogica.Services
                 .FirstOrDefaultAsync(v => v.Id == vertenteId);
         }
 
-        // Obter trabalhos de um aluno com todas as vertentes (corrigido)
         public async Task<List<Trabalho>> GetTrabalhosDoAlunoComVertentesAsync(string alunoUserId)
         {
             if (string.IsNullOrEmpty(alunoUserId)) return new List<Trabalho>();
 
-            var trabalhos = await _context.Trabalhos
-                .Include(t => t.TrabalhoVertentes) // traz todas, mesmo não enviadas
+            return await _context.Trabalhos
+                .Include(t => t.TrabalhoVertentes)
                 .Include(t => t.Modulo)
                 .Include(t => t.Disciplina)
                 .Include(t => t.Professor)
@@ -117,44 +122,35 @@ namespace gestaopedagogica.Services
                 .Where(t => t.AlunoId == alunoUserId)
                 .AsNoTracking()
                 .ToListAsync();
-
-            return trabalhos;
         }
 
-        // Obter trabalhos disponíveis para aluno (pela turma)
         public async Task<List<Trabalho>> GetTrabalhosDisponiveisParaAlunoAsync(string alunoUserId)
         {
             var aluno = await _context.Alunos.FirstOrDefaultAsync(a => a.UserId == alunoUserId);
             if (aluno?.TurmaId == null) return new List<Trabalho>();
 
             return await _context.Trabalhos
-                .Include(t => t.Disciplina)
-                .Include(t => t.Modulo)
-                .Include(t => t.Professor)
                 .Include(t => t.TrabalhoVertentes)
-                .Include(t => t.Turma)
+                .Include(t => t.Modulo)
+                .Include(t => t.Disciplina)
+                .Include(t => t.Professor)
                 .Where(t => t.TurmaId == aluno.TurmaId)
                 .AsNoTracking()
                 .ToListAsync();
         }
 
-        // Obter trabalhos de um professor
         public async Task<List<Trabalho>> GetTrabalhosDoProfessorAsync(string professorUserId)
         {
-            if (string.IsNullOrEmpty(professorUserId)) return new List<Trabalho>();
-
             return await _context.Trabalhos
                 .Include(t => t.TrabalhoVertentes)
-                .Include(t => t.Disciplina)
                 .Include(t => t.Modulo)
+                .Include(t => t.Disciplina)
                 .Include(t => t.Turma)
-                .Include(t => t.Aluno)
                 .Where(t => t.ProfessorId == professorUserId)
                 .AsNoTracking()
                 .ToListAsync();
         }
 
-        // Obter trabalhos por turma
         public async Task<List<Trabalho>> GetTrabalhosPorTurmaAsync(int turmaId)
         {
             return await _context.Trabalhos
@@ -162,22 +158,17 @@ namespace gestaopedagogica.Services
                 .Include(t => t.Modulo)
                 .Include(t => t.Disciplina)
                 .Include(t => t.Professor)
-                .Include(t => t.Turma)
-                .AsNoTracking()
                 .Where(t => t.TurmaId == turmaId)
+                .AsNoTracking()
                 .ToListAsync();
         }
 
-        // Obter todos os trabalhos com notas
-        public async Task<List<Trabalho>> GetTodosTrabalhosComNotasAsync()
+        public async Task<string> ObterNomeAluno(string alunoUserId)
         {
-            return await _context.Trabalhos
-                .Include(t => t.TrabalhoVertentes)
-                .Include(t => t.Turma)
-                .ToListAsync();
+            var aluno = await _context.Alunos.FirstOrDefaultAsync(a => a.UserId == alunoUserId);
+            return aluno?.Nome ?? "Aluno Desconhecido";
         }
 
-        // Apagar trabalho
         public async Task<bool> ApagarTrabalhoAsync(int trabalhoId)
         {
             var trabalho = await _context.Trabalhos.FindAsync(trabalhoId);
@@ -188,11 +179,29 @@ namespace gestaopedagogica.Services
             return true;
         }
 
-        // Obter nome do aluno
-        public async Task<string> ObterNomeAluno(string alunoUserId)
+        public async Task<List<Trabalho>> GetTodosTrabalhosComNotasAsync()
         {
-            var aluno = await _context.Alunos.FirstOrDefaultAsync(a => a.UserId == alunoUserId);
-            return aluno?.Nome ?? "Aluno Desconhecido";
+            return await _context.Trabalhos
+                .Include(t => t.TrabalhoVertentes)
+                .Include(t => t.Turma)
+                .ToListAsync();
+        }
+
+        // =============================
+        // FEEDBACK INSTANTÂNEO COM IA
+        // =============================
+        public async Task<string> GerarFeedbackIAAsync(string conteudoAluno, int trabalhoId)
+        {
+            if (string.IsNullOrWhiteSpace(conteudoAluno))
+                return "Conteúdo vazio, impossível gerar feedback.";
+
+            var trabalho = await GetTrabalhoPorIdAsync(trabalhoId);
+            if (trabalho == null)
+                return "Trabalho não encontrado.";
+
+            var descricaoTrabalho = trabalho.Descricao ?? trabalho.Titulo ?? "Descrição indisponível";
+            var feedback = await _iaService.ObterSugestoes(conteudoAluno, descricaoTrabalho);
+            return feedback;
         }
     }
 }

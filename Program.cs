@@ -5,6 +5,7 @@ using gestaopedagogica.Shared;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +36,20 @@ builder.Services.AddScoped<ProfessorService>(); // <--- ADICIONE ESTA (NOVA)
 builder.Services.AddScoped<AlunoService>();
 builder.Services.AddScoped<DisciplinaService>();
 builder.Services.AddScoped<CursoService>();
+
+// ==== CORREÇÃO: openAiApiKey ====
+// Pegar a chave antes de usar
+var openAiApiKey = builder.Configuration["OpenAI:ApiKey"];
+
+// Registrar HttpClient
+builder.Services.AddHttpClient();
+
+// Registrar IAService corretamente
+builder.Services.AddSingleton<IAService>(sp =>
+{
+    var httpClient = sp.GetRequiredService<HttpClient>();
+    return new IAService(httpClient, openAiApiKey);
+});
 
 // Configure Identity using AddIdentity (supports roles)
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>

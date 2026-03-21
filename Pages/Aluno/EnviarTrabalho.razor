@@ -1,4 +1,4 @@
-@page "/aluno/EnviarTrabalho/{Id:int}"
+﻿@page "/aluno/EnviarTrabalho/{Id:int}"
 @namespace gestaopedagogica.Pages.Aluno
 @layout MainLayout
 @using gestaopedagogica.Models
@@ -43,7 +43,7 @@
             else
             {
 
-                <EditForm Model="Vertentes" OnValidSubmit="EnviarTrabalhoAsync">
+                <EditForm Model="Vertentes">
 
                     @foreach (var vert in Vertentes ?? new())
                     {
@@ -57,13 +57,12 @@
 
                                 <label class="form-label fw-bold">Sua Resposta:</label>
 
-        <textarea class="form-control"
-                  rows="5"
-                  @bind="vert.ConteudoTextoAluno">
-        </textarea>
+                                <textarea class="form-control"
+                                          rows="5"
+                                          @bind="vert.ConteudoTextoAluno">
+                                        </textarea>
 
                                 <div class="mt-3">
-
                                     <label class="form-label fw-bold">Enviar Ficheiro:</label>
 
                                     <InputFile OnChange="async e => await UploadArquivo(e, vert)"
@@ -75,7 +74,16 @@
                                             <strong>Ficheiro:</strong> @vert.ArquivoNome
                                         </div>
                                     }
+                                </div>
 
+                                <div class="form-check mt-3">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           id="feedbackCheckbox_@vert.Id"
+                                           @bind="vert.SolicitarFeedback" />
+                                    <label class="form-check-label" for="feedbackCheckbox_@vert.Id">
+                                        Quero receber feedback automático antes de enviar
+                                    </label>
                                 </div>
 
                             </div>
@@ -91,12 +99,17 @@
                         Cancelar
                     </button>
 
-                    <button class="btn btn-primary"
-                            @onclick="EnviarTrabalhoAsync"
+                    <!-- Novo botão para gerar feedback antes de enviar -->
+                    <button class="btn btn-warning"
+                            @onclick="GerarFeedbackSelecionadoAsync"
                             disabled="@IsSaving">
+                        @(IsSaving ? "Gerando..." : "Gerar Feedback")
+                    </button>
 
-                        @(IsSaving ? "Enviando..." : "Enviar Trabalho")
-
+                    <button class="btn btn-primary"
+                            @onclick="EnviarVertentesAsync"
+                            disabled="@IsSaving">
+                        Enviar Trabalho
                     </button>
 
                 </div>
@@ -106,6 +119,34 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Feedback -->
+@if (MostrarModalFeedback)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Feedback Automático</h5>
+                    <button type="button" class="btn-close" @onclick="FecharModalFeedback"></button>
+                </div>
+                <div class="modal-body">
+                    @foreach (var fb in FeedbacksGerados)
+                    {
+                        <div class="mb-3">
+                            <h6>@fb.Tipo</h6>
+                            <div class="alert alert-info">@fb.Texto</div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="FecharModalFeedback">Ignorar Feedback</button>
+                    <button class="btn btn-primary" @onclick="AceitarFeedback">Aceitar Feedback e Enviar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
 
@@ -117,6 +158,10 @@
 
     private string StatusMessage = "";
     private bool IsSaving = false;
+
+    // Modal feedback
+    private bool MostrarModalFeedback = false;
+    private List<FeedbackModel> FeedbacksGerados = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -137,44 +182,40 @@
                 ArquivoBytes = v.FicheiroBytes,
                 ArquivoContentType = v.FicheiroContentType,
                 Feedback = v.Feedback,
-                Nota = v.Nota
+                Nota = v.Nota,
+                SolicitarFeedback = false
             }).ToList();
         }
     }
 
-    private async Task EnviarTrabalhoAsync()
+    private async Task GerarFeedbackSelecionadoAsync()
     {
+        if (Vertentes == null) return;
+
         IsSaving = true;
+        FeedbacksGerados.Clear();
 
         try
         {
-
-            if (Vertentes == null)
-                return;
-
-            foreach (var vert in Vertentes)
+            foreach (var vert in Vertentes.Where(v => v.SolicitarFeedback))
             {
+               
+             var texto = vert.ConteudoTextoAluno;
+               
 
-                var vertDb =
-                    await TrabalhoService.GetVertentePorIdAsync(vert.Id);
-
-                if (vertDb == null)
-                    continue;
-
-                vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-
-                if (vert.ArquivoBytes != null)
-                {
-                    vertDb.FicheiroBytes = vert.ArquivoBytes;
-                    vertDb.FicheiroNome = vert.ArquivoNome;
-                    vertDb.FicheiroContentType = vert.ArquivoContentType;
-                }
-
-                await TrabalhoService.AtualizarVertenteAsync(vertDb);
+                // Por isto:
+                var feedback = await TrabalhoService.GerarFeedbackIAAsync(texto, Trabalho!.Id);
+                FeedbacksGerados.Add(new FeedbackModel { Tipo = vert.Tipo, Texto = feedback });
             }
 
-            Nav.NavigateTo("/aluno/DashboardAluno");
-
+            if (FeedbacksGerados.Any())
+            {
+                MostrarModalFeedback = true;
+            }
+            else
+            {
+                StatusMessage = "Nenhuma vertente selecionada para feedback.";
+            }
         }
         catch (Exception ex)
         {
@@ -186,8 +227,65 @@
         }
     }
 
-    private async Task UploadArquivo(InputFileChangeEventArgs e,
-                                     AlunoVertenteModel vert)
+    private async Task EnviarVertentesAsync()
+    {
+        if (Vertentes == null) return;
+
+        IsSaving = true;
+        StatusMessage = "";
+
+        try
+        {
+            foreach (var vert in Vertentes)
+            {
+                var vertDb = await TrabalhoService.GetVertentePorIdAsync(vert.Id);
+                if (vertDb == null) continue;
+
+                vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno;
+
+                if (vert.ArquivoBytes != null)
+                {
+                    vertDb.FicheiroBytes = vert.ArquivoBytes;
+                    vertDb.FicheiroNome = vert.ArquivoNome;
+                    vertDb.FicheiroContentType = vert.ArquivoContentType;
+                }
+
+                if (vert.AceitouFeedback && !string.IsNullOrWhiteSpace(vert.Feedback))
+                    vertDb.Feedback += "\n[Feedback Automático]: " + vert.Feedback;
+
+                await TrabalhoService.AtualizarVertenteAsync(vertDb);
+            }
+
+            Nav.NavigateTo("/aluno/DashboardAluno");
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    private void FecharModalFeedback()
+    {
+        MostrarModalFeedback = false;
+    }
+
+    private async Task AceitarFeedback()
+    {
+        foreach (var vert in Vertentes!)
+        {
+            if (vert.SolicitarFeedback)
+                vert.AceitouFeedback = true;
+        }
+
+        MostrarModalFeedback = false;
+        await EnviarVertentesAsync();
+    }
+
+    private async Task UploadArquivo(InputFileChangeEventArgs e, AlunoVertenteModel vert)
     {
         try
         {
@@ -197,10 +295,7 @@
             vert.ArquivoContentType = file.ContentType;
 
             using var ms = new MemoryStream();
-
-            await file.OpenReadStream(10_000_000)
-                      .CopyToAsync(ms);
-
+            await file.OpenReadStream(10_000_000).CopyToAsync(ms);
             vert.ArquivoBytes = ms.ToArray();
         }
         catch (Exception ex)
@@ -220,6 +315,14 @@
         public string? ArquivoContentType { get; set; }
         public string? Feedback { get; set; }
         public decimal? Nota { get; set; }
+
+        public bool SolicitarFeedback { get; set; } = false;
+        public bool AceitouFeedback { get; set; } = false;
     }
 
+    public class FeedbackModel
+    {
+        public string Tipo { get; set; } = "";
+        public string Texto { get; set; } = "";
+    }
 }
