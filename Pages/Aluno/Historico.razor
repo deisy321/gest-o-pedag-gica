@@ -12,9 +12,7 @@
             <th>Ano Letivo</th>
             <th>Módulo</th>
             <th>Professor</th>
-            <th>Média Final</th>
-            <th>Entregues</th>
-            <th>Corrigidos</th>
+            <th>Classificação Final</th>
             <th>Status</th>
         </tr>
     </thead>
@@ -28,8 +26,6 @@
                     <td>@item.Modulo</td>
                     <td>@item.Professor</td>
                     <td>@item.ClassificacaoFinal.ToString("F1")</td>
-                    <td>@item.VertentesEntregues/@item.TotalVertentes</td>
-                    <td>@item.VertentesCorrigidas/@item.TotalVertentes</td>
                     <td>
                         @if (item.TemNota)
                         {
@@ -57,7 +53,7 @@
         else
         {
             <tr>
-                <td colspan="7" class="text-center">Sem histórico disponível</td>
+                <td colspan="5" class="text-center">Sem histórico disponível</td>
             </tr>
         }
     </tbody>
@@ -77,10 +73,13 @@
 
             historico = trabalhos.Select(t =>
             {
-                var vertentes = t.TrabalhoVertentes ?? new List<TrabalhoVertente>();
-                var notas = vertentes.Where(v => v.Nota.HasValue).Select(v => v.Nota!.Value).ToList();
+                var notas = t.TrabalhoVertentes?
+                    .Where(v => v.Nota.HasValue)
+                    .Select(v => v.Nota!.Value)
+                    .ToList() ?? new List<decimal>(); // ✔ corrigido
 
                 var media = notas.Any() ? notas.Average() : 0;
+
                 bool temNota = notas.Any();
                 bool passouPrazo = t.PrazoEntrega < DateTime.UtcNow;
                 bool aprovado = temNota && media >= 10;
@@ -91,12 +90,9 @@
                     Modulo = t.Modulo?.Nome ?? "N/D",
                     Professor = t.Professor?.UserName ?? "N/D",
                     ClassificacaoFinal = media,
-                    TemNota = temNota,
-                    PassouPrazo = passouPrazo,
                     Aprovado = aprovado,
-                    TotalVertentes = vertentes.Count,
-                    VertentesEntregues = vertentes.Count(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null),
-                    VertentesCorrigidas = vertentes.Count(v => v.Nota.HasValue)
+                    TemNota = temNota,
+                    PassouPrazo = passouPrazo
                 };
             }).ToList();
         }
@@ -112,9 +108,5 @@
         public bool Aprovado { get; set; }
         public bool TemNota { get; set; }
         public bool PassouPrazo { get; set; }
-
-        public int TotalVertentes { get; set; }
-        public int VertentesEntregues { get; set; }
-        public int VertentesCorrigidas { get; set; }
     }
 }
