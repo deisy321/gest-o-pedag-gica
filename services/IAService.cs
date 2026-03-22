@@ -1,8 +1,12 @@
-﻿using System;
+﻿using UglyToad.PdfPig;
+using UglyToad.PdfPig.Content;
+using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -26,26 +30,60 @@ public class IAService
     public async Task<string> ObterSugestoes(string textoAluno, string descricaoTrabalho)
     {
         // Chama a versão nova com valores padrão para IDs (sem cache por usuário/trabalho)
-        return await ObterSugestoes("defaultAlunoId", "defaultTrabalhoId", textoAluno, descricaoTrabalho, useCache: false);
+        return await ObterSugestoes("defaultAlunoId", "defaultTrabalhoId", textoAluno, descricaoTrabalho, null, useCache: false);
     }
 
     /// <summary>
-    /// Versão completa com cache por aluno e trabalho.
+    /// Versão completa com cache por aluno e trabalho, podendo ler ficheiro PDF.
     /// </summary>
-    public async Task<string> ObterSugestoes(string alunoId, string trabalhoId, string textoAluno, string descricaoTrabalho, bool useCache = true)
+    public async Task<string> ObterSugestoes(
+        string alunoId,
+        string trabalhoId,
+        string textoAluno,
+        string descricaoTrabalho,
+        byte[]? arquivoBytes,
+        bool useCache = true)
     {
-        if (string.IsNullOrWhiteSpace(textoAluno))
+        if (string.IsNullOrWhiteSpace(textoAluno) && arquivoBytes == null)
             return "Conteúdo do aluno vazio, impossível gerar feedback.";
 
         if (string.IsNullOrWhiteSpace(descricaoTrabalho))
             descricaoTrabalho = "Descrição do trabalho indisponível.";
+
+        // Extrair texto do ficheiro (PDF)
+        string textoArquivo = "";
+        if (arquivoBytes != null)
+        {
+            try
+            {
+                using (var ms = new MemoryStream(arquivoBytes))
+                using (var pdf = PdfDocument.Open(ms))
+                {
+                    var sb = new StringBuilder();
+
+                    foreach (Page page in pdf.GetPages())
+                    {
+                        sb.AppendLine(page.Text);
+                    }
+
+                    textoArquivo = sb.ToString();
+                }
+            }
+            catch
+            {
+                textoArquivo = ""; // se falhar, ignora
+            }
+        }
+
+        // Concatenar texto escrito pelo aluno + texto do ficheiro
+        string textoCompleto = (textoAluno ?? "") + "\n" + textoArquivo;
 
         // Criar chave do cache
         var cacheKey = $"{alunoId}_{trabalhoId}";
         if (useCache && _cache.TryGetValue(cacheKey, out var cachedFeedback))
             return cachedFeedback;
 
-        // Mensagens no formato de chat (requerido para gpt-3.5-turbo)
+        // Mensagens no formato de chat
         var messages = new[]
         {
             new { role = "system", content = "Você é um assistente que fornece feedback construtivo para trabalhos escolares." },
@@ -54,7 +92,7 @@ Leia a descrição do trabalho:
 {descricaoTrabalho}
 
 Agora analise a resposta do aluno:
-{textoAluno}
+{textoCompleto}
 
 Forneça:
 1. Pontos positivos do texto.
@@ -84,7 +122,6 @@ Retorne o feedback de forma objetiva e organizada." }
             {
                 var content = await response.Content.ReadAsStringAsync();
 
-                // Se for limite ou cota, retornar mensagem amigável
                 if ((int)response.StatusCode == 429 || content.Contains("insufficient_quota"))
                     return "Não foi possível gerar feedback neste momento: limite de requisições atingido ou cota esgotada.";
 

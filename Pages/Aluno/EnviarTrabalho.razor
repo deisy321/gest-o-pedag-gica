@@ -60,7 +60,7 @@
                                 <textarea class="form-control"
                                           rows="5"
                                           @bind="vert.ConteudoTextoAluno">
-                                        </textarea>
+                                                </textarea>
 
                                 <div class="mt-3">
                                     <label class="form-label fw-bold">Enviar Ficheiro:</label>
@@ -199,13 +199,19 @@
         {
             foreach (var vert in Vertentes.Where(v => v.SolicitarFeedback))
             {
-               
-             var texto = vert.ConteudoTextoAluno;
-               
+                var texto = vert.ConteudoTextoAluno;
 
-                // Por isto:
-                var feedback = await TrabalhoService.GerarFeedbackIAAsync(texto, Trabalho!.Id);
-                FeedbacksGerados.Add(new FeedbackModel { Tipo = vert.Tipo, Texto = feedback });
+                var feedback = await TrabalhoService.GerarFeedbackIAAsync(
+                    texto,
+                    vert.ArquivoBytes,
+                    Trabalho!.Id
+                );
+
+                FeedbacksGerados.Add(new FeedbackModel
+                {
+                    Tipo = vert.Tipo,
+                    Texto = feedback
+                });
             }
 
             if (FeedbacksGerados.Any())
@@ -226,7 +232,6 @@
             IsSaving = false;
         }
     }
-
     private async Task EnviarVertentesAsync()
     {
         if (Vertentes == null) return;
@@ -250,8 +255,9 @@
                     vertDb.FicheiroContentType = vert.ArquivoContentType;
                 }
 
-                if (vert.AceitouFeedback && !string.IsNullOrWhiteSpace(vert.Feedback))
-                    vertDb.Feedback += "\n[Feedback Automático]: " + vert.Feedback;
+                // REMOVIDO: não salvar feedback da IA no banco
+                // if (vert.AceitouFeedback && !string.IsNullOrWhiteSpace(vert.Feedback))
+                //     vertDb.Feedback += "\n[Feedback Automático]: " + vert.Feedback;
 
                 await TrabalhoService.AtualizarVertenteAsync(vertDb);
             }

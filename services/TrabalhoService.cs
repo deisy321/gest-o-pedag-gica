@@ -188,11 +188,11 @@ namespace gestaopedagogica.Services
         }
 
         // =============================
-        // FEEDBACK INSTANTÂNEO COM IA
+        // FEEDBACK INSTANTÂNEO COM IA (AGORA COM PDF)
         // =============================
-        public async Task<string> GerarFeedbackIAAsync(string conteudoAluno, int trabalhoId)
+        public async Task<string> GerarFeedbackIAAsync(string conteudoAluno, byte[]? arquivoBytes, int trabalhoId)
         {
-            if (string.IsNullOrWhiteSpace(conteudoAluno))
+            if (string.IsNullOrWhiteSpace(conteudoAluno) && arquivoBytes == null)
                 return "Conteúdo vazio, impossível gerar feedback.";
 
             var trabalho = await GetTrabalhoPorIdAsync(trabalhoId);
@@ -200,8 +200,51 @@ namespace gestaopedagogica.Services
                 return "Trabalho não encontrado.";
 
             var descricaoTrabalho = trabalho.Descricao ?? trabalho.Titulo ?? "Descrição indisponível";
-            var feedback = await _iaService.ObterSugestoes(conteudoAluno, descricaoTrabalho);
+
+            var feedback = await _iaService.ObterSugestoes(
+                "alunoId",
+                trabalhoId.ToString(),
+                conteudoAluno,
+                descricaoTrabalho,
+                arquivoBytes
+            );
+
             return feedback;
+        }
+
+        // =============================
+        // FEEDBACK POR VERTENTE COM IA (AGORA COM PDF)
+        // =============================
+        public async Task<Dictionary<int, string>> GerarFeedbackIAPorVertenteAsync(int trabalhoId)
+        {
+            var trabalho = await GetTrabalhoPorIdAsync(trabalhoId);
+            if (trabalho == null)
+                return new Dictionary<int, string>();
+
+            var feedbacks = new Dictionary<int, string>();
+
+            foreach (var vertente in trabalho.TrabalhoVertentes)
+            {
+                if (string.IsNullOrWhiteSpace(vertente.ConteudoTextoAluno) && vertente.FicheiroBytes == null)
+                {
+                    feedbacks[vertente.Id] = "Conteúdo da vertente vazio, impossível gerar feedback.";
+                    continue;
+                }
+
+                var descricao = trabalho.Descricao ?? trabalho.Titulo ?? "Descrição indisponível";
+
+                var feedback = await _iaService.ObterSugestoes(
+                    "alunoId",
+                    trabalhoId.ToString(),
+                    vertente.ConteudoTextoAluno,
+                    descricao,
+                    vertente.FicheiroBytes
+                );
+
+                feedbacks[vertente.Id] = feedback;
+            }
+
+            return feedbacks;
         }
     }
 }
