@@ -4,38 +4,26 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 public class IAService
 {
     private readonly HttpClient _httpClient;
-    private readonly string _apiKey;
-
-    // Cache simples em memória: chave = alunoId + trabalhoId
     private readonly ConcurrentDictionary<string, string> _cache = new();
 
-    public IAService(HttpClient httpClient, string apiKey)
+    public IAService(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        _apiKey = apiKey ?? throw new Exception("OpenAI API key não fornecida");
     }
 
-    /// <summary>
-    /// Sobrecarga compatível com chamadas antigas (apenas texto do aluno + descrição do trabalho).
-    /// </summary>
     public async Task<string> ObterSugestoes(string textoAluno, string descricaoTrabalho)
     {
-        // Chama a versão nova com valores padrão para IDs (sem cache por usuário/trabalho)
-        return await ObterSugestoes("defaultAlunoId", "defaultTrabalhoId", textoAluno, descricaoTrabalho, null, useCache: false);
+        return await ObterSugestoes("defaultAlunoId", "defaultTrabalhoId", textoAluno, descricaoTrabalho, null, false);
     }
 
-    /// <summary>
-    /// Versão completa com cache por aluno e trabalho, podendo ler ficheiro PDF.
-    /// </summary>
     public async Task<string> ObterSugestoes(
         string alunoId,
         string trabalhoId,
@@ -50,104 +38,171 @@ public class IAService
         if (string.IsNullOrWhiteSpace(descricaoTrabalho))
             descricaoTrabalho = "Descrição do trabalho indisponível.";
 
-        // Extrair texto do ficheiro (PDF)
+        // ----------- PDF -----------
         string textoArquivo = "";
         if (arquivoBytes != null)
         {
             try
             {
-                using (var ms = new MemoryStream(arquivoBytes))
-                using (var pdf = PdfDocument.Open(ms))
-                {
-                    var sb = new StringBuilder();
+                using var ms = new MemoryStream(arquivoBytes);
+                using var pdf = PdfDocument.Open(ms);
 
-                    foreach (Page page in pdf.GetPages())
-                    {
-                        sb.AppendLine(page.Text);
-                    }
+                var sb = new StringBuilder();
+                foreach (Page page in pdf.GetPages())
+                    sb.AppendLine(page.Text);
 
-                    textoArquivo = sb.ToString();
-                }
+                textoArquivo = sb.ToString();
             }
             catch
             {
-                textoArquivo = ""; // se falhar, ignora
+                textoArquivo = "";
             }
         }
 
-        // Concatenar texto escrito pelo aluno + texto do ficheiro
+        // ----------- TEXTO FINAL -----------
         string textoCompleto = (textoAluno ?? "") + "\n" + textoArquivo;
 
-        // Criar chave do cache
         var cacheKey = $"{alunoId}_{trabalhoId}";
-        if (useCache && _cache.TryGetValue(cacheKey, out var cachedFeedback))
-            return cachedFeedback;
+        if (useCache && _cache.TryGetValue(cacheKey, out var cached))
+            return cached;
 
-        // Mensagens no formato de chat
-        var messages = new[]
+        string resultadoFinal;
+
+        // 🔥 DIVISÃO DE TEXTO GRANDE
+        if (textoCompleto.Length > 4000)
         {
-            new { role = "system", content = "Você é um assistente que fornece feedback construtivo para trabalhos escolares." },
-            new { role = "user", content = $@"
-Leia a descrição do trabalho:
+            var partes = DividirTexto(textoCompleto);
+            var resultados = new List<string>();
+
+            foreach (var parte in partes)
+            {
+                var promptParte = $@"
+És um professor do ensino secundário.
+
+Analisa esta parte de um trabalho:
+
+{parte}
+
+Dá feedback curto:
+- Pontos fortes
+- Problemas
+";
+
+                var resposta = await EnviarParaOllama(promptParte);
+                resultados.Add(resposta);
+            }
+
+            var feedbackParcial = string.Join("\n\n", resultados);
+
+            var promptFinal = $@"
+Com base nestes feedbacks:
+
+{feedbackParcial}
+
+Cria um feedback final organizado:
+
+1. Pontos positivos
+2. Pontos a melhorar
+3. Sugestões concretas
+";
+
+            resultadoFinal = await EnviarParaOllama(promptFinal);
+        }
+        else
+        {
+            var prompt = $@"
+És um professor do ensino secundário em Portugal.
+
+Descrição do trabalho:
 {descricaoTrabalho}
 
-Agora analise a resposta do aluno:
+Resposta do aluno:
 {textoCompleto}
 
-Forneça:
-1. Pontos positivos do texto.
-2. Sugestões de melhoria (clareza, estrutura, ortografia, argumentos).
-3. Dicas para aproximar melhor do objetivo do trabalho.
+Dá feedback estruturado:
+1. Pontos positivos
+2. Pontos a melhorar
+3. Sugestões concretas
+";
 
-Retorne o feedback de forma objetiva e organizada." }
-        };
+            resultadoFinal = await EnviarParaOllama(prompt);
+        }
 
-        var requestBody = new
+        if (string.IsNullOrWhiteSpace(resultadoFinal))
+            resultadoFinal = "Nenhum feedback gerado.";
+
+        if (useCache)
+            _cache[cacheKey] = resultadoFinal.Trim();
+
+        return resultadoFinal.Trim();
+    }
+
+    // =============================
+    // DIVIDIR TEXTO
+    // =============================
+    private List<string> DividirTexto(string texto, int tamanhoMax = 3000)
+    {
+        var partes = new List<string>();
+
+        for (int i = 0; i < texto.Length; i += tamanhoMax)
         {
-            model = "gpt-3.5-turbo",
-            messages,
-            max_tokens = 400,
-            temperature = 0.7
-        };
+            partes.Add(texto.Substring(i, Math.Min(tamanhoMax, texto.Length - i)));
+        }
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
-        request.Content = JsonContent.Create(requestBody);
+        return partes;
+    }
 
+    // =============================
+    // CHAMADA OLLAMA (CORRIGIDA)
+    // =============================
+    private async Task<string> EnviarParaOllama(string prompt)
+    {
         try
         {
-            var response = await _httpClient.SendAsync(request);
+            Console.WriteLine("➡️ A chamar Ollama...");
+
+            var requestBody = new
+            {
+                model = "llama3",
+                prompt = prompt,
+                stream = false
+            };
+
+            var content = new StringContent(
+                JsonSerializer.Serialize(requestBody),
+                Encoding.UTF8,
+                "application/json"
+            );
+
+            var response = await _httpClient.PostAsync("api/generate", content);
+
+            Console.WriteLine("⬅️ Resposta recebida");
 
             if (!response.IsSuccessStatusCode)
             {
-                var content = await response.Content.ReadAsStringAsync();
-
-                if ((int)response.StatusCode == 429 || content.Contains("insufficient_quota"))
-                    return "Não foi possível gerar feedback neste momento: limite de requisições atingido ou cota esgotada.";
-
-                return $"Não foi possível gerar feedback. Status: {response.StatusCode}. Detalhes: {content}";
+                var erro = await response.Content.ReadAsStringAsync();
+                Console.WriteLine("ERRO HTTP: " + erro);
+                return "Erro ao comunicar com IA.";
             }
 
             var json = await response.Content.ReadAsStringAsync();
+
             using var doc = JsonDocument.Parse(json);
 
-            var feedback = doc.RootElement
-                              .GetProperty("choices")[0]
-                              .GetProperty("message")
-                              .GetProperty("content")
-                              .GetString();
+            if (!doc.RootElement.TryGetProperty("response", out var resp))
+                return "Resposta inválida da IA.";
 
-            if (string.IsNullOrWhiteSpace(feedback))
-                feedback = "Nenhum feedback gerado pelo modelo.";
-
-            // Salvar no cache
-            if (useCache) _cache[cacheKey] = feedback.Trim();
-
-            return feedback.Trim();
+            return resp.GetString() ?? "";
         }
-        catch
+        catch (TaskCanceledException)
         {
-            return "Erro ao gerar feedback. Tente novamente mais tarde.";
+            Console.WriteLine("⏱️ Timeout");
+            return "A IA demorou demasiado tempo.";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("💥 ERRO: " + ex.ToString());
+            return "Erro interno ao chamar IA.";
         }
     }
 }

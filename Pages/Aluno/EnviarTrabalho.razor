@@ -42,7 +42,6 @@
             }
             else
             {
-
                 <EditForm Model="Vertentes">
 
                     @foreach (var vert in Vertentes ?? new())
@@ -55,12 +54,21 @@
 
                             <div class="card-body">
 
-                                <label class="form-label fw-bold">Sua Resposta:</label>
+                                <!-- Conteúdo do professor -->
+                                @if (!string.IsNullOrWhiteSpace(vert.ConteudoTextoProfessor))
+                                {
+                                    <label class="form-label fw-bold">Instrução do Professor:</label>
+                                    <div class="alert alert-secondary">
+                                        @vert.ConteudoTextoProfessor
+                                    </div>
+                                }
 
+                                <!-- Resposta do aluno -->
+                                <label class="form-label fw-bold mt-2">Sua Resposta:</label>
                                 <textarea class="form-control"
                                           rows="5"
                                           @bind="vert.ConteudoTextoAluno">
-                                                </textarea>
+                                        </textarea>
 
                                 <div class="mt-3">
                                     <label class="form-label fw-bold">Enviar Ficheiro:</label>
@@ -99,7 +107,6 @@
                         Cancelar
                     </button>
 
-                    <!-- Novo botão para gerar feedback antes de enviar -->
                     <button class="btn btn-warning"
                             @onclick="GerarFeedbackSelecionadoAsync"
                             disabled="@IsSaving">
@@ -113,14 +120,12 @@
                     </button>
 
                 </div>
-
             }
 
         </div>
     </div>
 </div>
 
-<!-- Modal de Feedback -->
 @if (MostrarModalFeedback)
 {
     <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -159,7 +164,6 @@
     private string StatusMessage = "";
     private bool IsSaving = false;
 
-    // Modal feedback
     private bool MostrarModalFeedback = false;
     private List<FeedbackModel> FeedbacksGerados = new();
 
@@ -202,6 +206,7 @@
                 var texto = vert.ConteudoTextoAluno;
 
                 var feedback = await TrabalhoService.GerarFeedbackIAAsync(
+                    Trabalho!.AlunoId!,
                     texto,
                     vert.ArquivoBytes,
                     Trabalho!.Id
@@ -232,6 +237,7 @@
             IsSaving = false;
         }
     }
+
     private async Task EnviarVertentesAsync()
     {
         if (Vertentes == null) return;
@@ -254,10 +260,6 @@
                     vertDb.FicheiroNome = vert.ArquivoNome;
                     vertDb.FicheiroContentType = vert.ArquivoContentType;
                 }
-
-                // REMOVIDO: não salvar feedback da IA no banco
-                // if (vert.AceitouFeedback && !string.IsNullOrWhiteSpace(vert.Feedback))
-                //     vertDb.Feedback += "\n[Feedback Automático]: " + vert.Feedback;
 
                 await TrabalhoService.AtualizarVertenteAsync(vertDb);
             }
@@ -321,7 +323,6 @@
         public string? ArquivoContentType { get; set; }
         public string? Feedback { get; set; }
         public decimal? Nota { get; set; }
-
         public bool SolicitarFeedback { get; set; } = false;
         public bool AceitouFeedback { get; set; } = false;
     }

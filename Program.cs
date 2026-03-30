@@ -36,23 +36,14 @@ builder.Services.AddScoped<ProfessorService>(); // <--- ADICIONE ESTA (NOVA)
 builder.Services.AddScoped<AlunoService>();
 builder.Services.AddScoped<DisciplinaService>();
 builder.Services.AddScoped<CursoService>();
-
-// ==== CORREÇÃO: openAiApiKey ====
-// Pegar a chave antes de usar
-var openAiApiKey = builder.Configuration["OpenAI:ApiKey"];
-
-// Registrar HttpClient
-builder.Services.AddHttpClient();
-
-// Registrar IAService corretamente
-builder.Services.AddSingleton<IAService>(sp =>
+builder.Services.AddHttpClient<IAService>(client =>
 {
-    var httpClient = sp.GetRequiredService<HttpClient>();
-    return new IAService(httpClient, openAiApiKey);
+    client.BaseAddress = new Uri("http://127.0.0.1:11434/");
+    client.Timeout = TimeSpan.FromMinutes(5);
 });
-
 // Configure Identity using AddIdentity (supports roles)
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+
 {
     options.SignIn.RequireConfirmedAccount = false;
     options.Password.RequireNonAlphanumeric = false;
