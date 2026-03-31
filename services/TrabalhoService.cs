@@ -16,7 +16,7 @@ namespace gestaopedagogica.Services
         }
 
         // =============================
-        // CRIAR TRABALHO E VERTENTES
+        // CRIAR TRABALHO E VERTENTES (Mantido)
         // =============================
         public async Task<int> AddTrabalhoAsync(Trabalho trabalho)
         {
@@ -77,7 +77,7 @@ namespace gestaopedagogica.Services
         }
 
         // =============================
-        // OBTER TRABALHOS (COM LIMPEZA DE DUPLICADOS)
+        // OBTER TRABALHOS (Mantido)
         // =============================
 
         public async Task<Trabalho?> GetTrabalhoPorIdAsync(int id)
@@ -107,7 +107,6 @@ namespace gestaopedagogica.Services
                 .AsNoTracking()
                 .ToListAsync();
 
-            // Resolve duplicados na memória antes de retornar
             return lista.DistinctBy(t => t.Id).ToList();
         }
 
@@ -125,7 +124,6 @@ namespace gestaopedagogica.Services
                 .AsNoTracking()
                 .ToListAsync();
 
-            // Resolve duplicados na memória antes de retornar
             return lista.DistinctBy(t => t.Id).ToList();
         }
 
@@ -169,7 +167,7 @@ namespace gestaopedagogica.Services
         }
 
         // =============================
-        // AUXILIARES E FEEDBACK
+        // AUXILIARES (Mantido)
         // =============================
 
         public async Task<List<TrabalhoVertente>> GetVertentesDoTrabalhoAsync(int trabalhoId)
@@ -202,17 +200,25 @@ namespace gestaopedagogica.Services
             return true;
         }
 
+        // =============================
+        // LÓGICA DE IA (CORRIGIDA)
+        // =============================
+
         public async Task<string> GerarFeedbackIAAsync(string alunoUserId, string conteudoAluno, byte[]? arquivoBytes, int trabalhoId, string vertenteId)
         {
             if (string.IsNullOrWhiteSpace(conteudoAluno) && arquivoBytes == null)
                 return "Conteúdo vazio.";
 
-            var trabalho = await GetTrabalhoPorIdAsync(trabalhoId);
-            if (trabalho == null) return "Trabalho não encontrado.";
+            // CORREÇÃO: Buscar a vertente para obter a instrução do professor ESPECÍFICA desta vertente
+            var vertente = await _context.TrabalhoVertentes.FindAsync(int.Parse(vertenteId));
+            if (vertente == null) return "Vertente não encontrada.";
 
-            var descricaoTrabalho = trabalho.Descricao ?? trabalho.Titulo ?? "Descrição indisponível";
+            // Se o professor não escreveu nada na vertente, usa a descrição do trabalho como fallback
+            string instrucaoIA = !string.IsNullOrWhiteSpace(vertente.ConteudoTexto)
+                ? vertente.ConteudoTexto
+                : (await _context.Trabalhos.FindAsync(trabalhoId))?.Descricao ?? "Instrução indisponível";
 
-            return await _iaService.ObterSugestoes(conteudoAluno, descricaoTrabalho, vertenteId, alunoUserId, trabalhoId.ToString(), arquivoBytes);
+            return await _iaService.ObterSugestoes(conteudoAluno, instrucaoIA, vertenteId, alunoUserId, trabalhoId.ToString(), arquivoBytes);
         }
 
         public async Task<Dictionary<int, string>> GerarFeedbackIAPorVertenteAsync(int trabalhoId)
@@ -228,8 +234,19 @@ namespace gestaopedagogica.Services
                     feedbacks[vertente.Id] = "Vazio.";
                     continue;
                 }
-                var desc = trabalho.Descricao ?? trabalho.Titulo ?? "";
-                feedbacks[vertente.Id] = await _iaService.ObterSugestoes(vertente.ConteudoTextoAluno ?? "", desc, vertente.Id.ToString(), trabalho.AlunoId ?? "", trabalhoId.ToString(), vertente.FicheiroBytes);
+
+                // CORREÇÃO: Usar a instrução da própria vertente para cada iteração
+                var instrucaoIA = !string.IsNullOrWhiteSpace(vertente.ConteudoTexto)
+                    ? vertente.ConteudoTexto
+                    : trabalho.Descricao ?? "Instrução indisponível";
+
+                feedbacks[vertente.Id] = await _iaService.ObterSugestoes(
+                    vertente.ConteudoTextoAluno ?? "",
+                    instrucaoIA,
+                    vertente.Id.ToString(),
+                    trabalho.AlunoId ?? "",
+                    trabalhoId.ToString(),
+                    vertente.FicheiroBytes);
             }
             return feedbacks;
         }
