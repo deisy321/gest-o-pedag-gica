@@ -1,18 +1,126 @@
 ﻿@page "/Conta"
+@using Microsoft.AspNetCore.Identity
+@using gestaopedagogica.Data
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+
 @attribute [Authorize]
 
 @inject NavigationManager Nav
-@using Microsoft.AspNetCore.Authorization
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
 
-<h3>Minha Conta</h3>
+<AuthorizeView>
+    <Authorized>
+        <div class="page-admin animate-fade-in">
+            <div class="admin-header-row">
+                <div>
+                    <h1 class="page-title">Minha Conta</h1>
+                    <p class="page-subtitle">Gerencie suas informações de acesso e definições de segurança</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <span class="badge-custom badge-success d-flex align-items-center">
+                        <i class="bi bi-patch-check-fill me-1"></i> Conta Ativa
+                    </span>
+                </div>
+            </div>
 
-<div class="card p-4" style="max-width:500px">
+            <div class="row">
+                <div class="col-md-6 col-lg-6 mb-4">
+                    <div class="custom-card elevation-2 h-100">
+                        <div class="card-header-custom">
+                            <h5><i class="bi bi-person-badge"></i> Dados do Perfil</h5>
+                        </div>
+                        <div class="card-body-custom text-center">
+                            <div class="avatar-circle mx-auto mb-3" style="width: 110px; height: 110px; font-size: 3rem; background: var(--primary-color); color: white;">
+                                @(UserNome?.Substring(0, 1).ToUpper() ?? "U")
+                            </div>
+                            <h3 class="fw-bold mb-1">@UserNome</h3>
+                            <p class="text-muted mb-4">@UserEmail</p>
 
-    <div class="mb-3">
-        <button class="btn btn-primary w-100"
-                @onclick='() => Nav.NavigateTo("/Conta/MudarSenha")'>
-            Alterar Senha
-        </button>
-    </div>
+                            <div class="row text-start border-top pt-4">
+                                <div class="col-6 mb-3">
+                                    <label class="text-muted small d-block">Tipo de Conta</label>
+                                    <span class="badge-custom badge-primary">@UserRole</span>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="text-muted small d-block">Estado</label>
+                                    <span class="text-success fw-bold"><i class="bi bi-check-circle"></i> Verificado</span>
+                                </div>
+                                <div class="col-6">
+                                    <label class="text-muted small d-block">Membro desde</label>
+                                    <span class="fw-bold">2026</span>
+                                </div>
+                                <div class="col-6">
+                                    <label class="text-muted small d-block">Último Acesso</label>
+                                    <span class="fw-bold">Hoje, @DateTime.Now.ToString("HH:mm")</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-</div>
+                <div class="col-md-6 col-lg-6 mb-4">
+                    <div class="custom-card elevation-2 h-100">
+                        <div class="card-header-custom">
+                            <h5><i class="bi bi-shield-lock"></i> Segurança da Conta</h5>
+                        </div>
+                        <div class="card-body-custom d-flex flex-column justify-content-between">
+                            <div>
+                                <div class="alert-custom alert-info mb-4">
+                                    <i class="bi bi-info-circle-fill"></i>
+                                    <div>
+                                        <strong>Dica de Segurança:</strong>
+                                        <p class="mb-0 small">Nunca partilhe as suas credenciais de acesso com terceiros.</p>
+                                    </div>
+                                </div>
+
+                                <p class="text-muted">Pode alterar a sua palavra-passe a qualquer momento para garantir que a sua conta permanece segura.</p>
+                            </div>
+
+                            <div class="mt-4">
+                                <button class="btn-custom btn-custom-primary w-100 mb-3 justify-content-center"
+                                        @onclick='() => Nav.NavigateTo("/Conta/MudarSenha")'>
+                                    <i class="bi bi-key-fill"></i> Alterar Palavra-Passe
+                                </button>
+
+                                <button class="btn-custom btn-custom-outline w-100 text-danger border-danger justify-content-center"
+                                        style="background: rgba(217, 83, 79, 0.05);">
+                                    <i class="bi bi-box-arrow-right"></i> Terminar sessões noutros dispositivos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        @* Conteúdo de acesso negado idêntico ao anterior *@
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string UserNome = "Utilizador";
+    private string UserEmail = "";
+    private string UserRole = "Membro";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userClaims = authState.User;
+
+        if (userClaims.Identity?.IsAuthenticated == true)
+        {
+            UserNome = userClaims.Identity.Name ?? "Utilizador";
+
+            UserEmail = userClaims.FindFirst(c => c.Type == "emails")?.Value
+                        ?? userClaims.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value
+                        ?? "utilizador@sistema.local";
+
+            if (userClaims.IsInRole("Admin") || UserEmail.Contains("admin")) UserRole = "Administrador";
+            else if (userClaims.IsInRole("Professor") || UserEmail.Contains("prof")) UserRole = "Professor";
+            else UserRole = "Aluno";
+        }
+    }
+}

@@ -14,151 +14,171 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 
-<div class="container-fluid mt-4">
+<div class="page-teacher animate-fade-in">
     @if (IsLoading)
     {
         <div class="text-center mt-5">
-            <div class="spinner-border text-primary"></div>
-            <p>Carregando dados...</p>
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">A preparar o ambiente...</p>
         </div>
     }
     else if (TurmaSelecionada == null)
     {
-        <div class="alert alert-danger">Turma não encontrada!</div>
+        <div class="alert-custom alert-danger">
+            <i class="fas fa-exclamation-circle"></i>
+            <span>Turma não encontrada!</span>
+        </div>
     }
     else
     {
-        <h3>Criar Trabalho para @TurmaSelecionada.Nome</h3>
-
-        <div class="mb-3">
-            <label><strong>Título</strong></label>
-            <input class="form-control" @bind="Titulo" placeholder="Ex: Relatório de Estágio" />
-            @if (!string.IsNullOrEmpty(ErroTitulo))
-            {
-                <small class="text-danger">@ErroTitulo</small>
-            }
-        </div>
-
-        @* NOVO CAMPO: Descrição (Obrigatório pelo seu Banco de Dados) *@
-        <div class="mb-3">
-            <label><strong>Descrição do Trabalho</strong></label>
-            <textarea class="form-control" @bind="Descricao" rows="3" placeholder="Descreva brevemente o que deve ser feito"></textarea>
-            @if (!string.IsNullOrEmpty(ErroDescricao))
-            {
-                <small class="text-danger">@ErroDescricao</small>
-            }
+        <div class="admin-header-row">
+            <div>
+                <h1 class="page-title">Novo Trabalho</h1>
+                <p class="page-subtitle">Turma: <span class="text-gradient">@TurmaSelecionada.Nome</span></p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn-custom btn-custom-outline" @onclick='() => Nav.NavigateTo("/professor/DashboardProfessor")'>
+                    <i class="fas fa-arrow-left"></i> Voltar
+                </button>
+            </div>
         </div>
 
         <div class="row">
-            @if (ListaModulos.Count > 0)
-            {
-                <div class="col-md-6 mb-3">
-                    <label>Módulo</label>
-                    <select class="form-control" @bind="ModuloSelecionadoId">
-                        <option value="0">-- Selecione um módulo --</option>
-                        @foreach (var mod in ListaModulos)
-                        {
-                            <option value="@mod.Id">@mod.Nome</option>
-                        }
-                    </select>
-                    @if (!string.IsNullOrEmpty(ErroModulo))
-                    {
-                        <small class="text-danger">@ErroModulo</small>
-                    }
-                </div>
-            }
-
-            @if (ListaDisciplinas.Count > 0)
-            {
-                <div class="col-md-6 mb-3">
-                    <label>Disciplina</label>
-                    <select class="form-control" @bind="DisciplinaSelecionadaId">
-                        <option value="0">-- Selecione uma disciplina --</option>
-                        @foreach (var disc in ListaDisciplinas)
-                        {
-                            <option value="@disc.Id">@disc.Nome</option>
-                        }
-                    </select>
-                    @if (!string.IsNullOrEmpty(ErroDisciplina))
-                    {
-                        <small class="text-danger">@ErroDisciplina</small>
-                    }
-                </div>
-            }
-        </div>
-
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <label>Prazo de Entrega</label>
-                <input type="date" class="form-control" @bind="PrazoEntrega" />
-                @if (!string.IsNullOrEmpty(ErroPrazo))
-                {
-                    <small class="text-danger">@ErroPrazo</small>
-                }
-            </div>
-
-            <div class="col-md-6 mb-3">
-                <label>Tipo de Atribuição</label>
-                <select class="form-control" @bind="TipoAtribuicao">
-                    <option value="turma">Para toda a turma</option>
-                    <option value="aluno">Para aluno específico</option>
-                </select>
-            </div>
-        </div>
-
-        @if (TipoAtribuicao == "aluno")
-        {
-            <div class="mb-3">
-                <label>Aluno</label>
-                <select class="form-control" @bind="AlunoSelecionadoId">
-                    <option value="0">-- Selecione um aluno --</option>
-                    @foreach (var aluno in TurmaSelecionada.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)))
-                    {
-                        <option value="@aluno.Id">@aluno.Nome</option>
-                    }
-                </select>
-                @if (!string.IsNullOrEmpty(ErroAluno))
-                {
-                    <small class="text-danger">@ErroAluno</small>
-                }
-            </div>
-        }
-
-        <div class="card mb-3 shadow-sm">
-            <div class="card-body">
-                <h5>Vertentes</h5>
-                @foreach (var vert in Vertentes)
-                {
-                    <div class="mb-2">
-                        <label>@vert.Tipo</label>
-                        <input class="form-control" @bind="vert.ConteudoTexto" placeholder="Conteúdo inicial (opcional)" />
+            <div class="col-lg-8">
+                <div class="custom-card mb-4 elevation-2 border-start-primary">
+                    <div class="card-header-custom">
+                        <h5><i class="fas fa-pen-nib me-2"></i>Informações Gerais</h5>
                     </div>
-                }
+                    <div class="card-body-custom">
+                        <div class="form-group">
+                            <label class="form-label">Título do Trabalho</label>
+                            <input class="form-control @(string.IsNullOrEmpty(ErroTitulo) ? "" : "is-invalid")"
+                                   @bind="Titulo" placeholder="Ex: Relatório de Atividades Práticas" />
+                            <small class="text-danger">@ErroTitulo</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Descrição / Instruções</label>
+                            <textarea class="form-control @(string.IsNullOrEmpty(ErroDescricao) ? "" : "is-invalid")"
+                                      @bind="Descricao" rows="4" placeholder="Descreva os objetivos e o que é esperado do aluno..."></textarea>
+                            <small class="text-danger">@ErroDescricao</small>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-6 form-group">
+                                <label class="form-label">Módulo</label>
+                                <select class="form-select" @bind="ModuloSelecionadoId">
+                                    <option value="0">-- Selecione o Módulo --</option>
+                                    @foreach (var mod in ListaModulos)
+                                    {
+                                        <option value="@mod.Id">@mod.Nome</option>
+                                    }
+                                </select>
+                                <small class="text-danger">@ErroModulo</small>
+                            </div>
+                            <div class="col-md-6 form-group">
+                                <label class="form-label">Disciplina</label>
+                                <select class="form-select" @bind="DisciplinaSelecionadaId">
+                                    <option value="0">-- Selecione a Disciplina --</option>
+                                    @foreach (var disc in ListaDisciplinas)
+                                    {
+                                        <option value="@disc.Id">@disc.Nome</option>
+                                    }
+                                </select>
+                                <small class="text-danger">@ErroDisciplina</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="custom-card mb-4 elevation-2">
+                    <div class="card-header-custom">
+                        <h5><i class="fas fa-list-check me-2"></i>Vertentes e Critérios</h5>
+                    </div>
+                    <div class="card-body-custom">
+                        <div class="row">
+                            @foreach (var vert in Vertentes)
+                            {
+                                <div class="col-md-4 mb-3">
+                                    <div class="p-3 border rounded-lg bg-light">
+                                        <label class="form-label d-block text-center border-bottom pb-2">@vert.Tipo</label>
+                                        <textarea class="form-control mt-2" @bind="vert.ConteudoTexto"
+                                                  rows="2" placeholder="Notas sobre @vert.Tipo.ToLower()..."></textarea>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="custom-card elevation-2 mb-4">
+                    <div class="card-header-custom">
+                        <h5><i class="fas fa-cog me-2"></i>Configurações</h5>
+                    </div>
+                    <div class="card-body-custom">
+                        <div class="form-group">
+                            <label class="form-label">Prazo de Entrega</label>
+                            <input type="date" class="form-control" @bind="PrazoEntrega" />
+                            <small class="text-danger">@ErroPrazo</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Destinatário</label>
+                            <select class="form-select" @bind="TipoAtribuicao">
+                                <option value="turma">Toda a Turma (@TurmaSelecionada.Alunos.Count alunos)</option>
+                                <option value="aluno">Aluno Específico</option>
+                            </select>
+                        </div>
+
+                        @if (TipoAtribuicao == "aluno")
+                        {
+                            <div class="form-group animate-slide-up">
+                                <label class="form-label">Selecionar Aluno</label>
+                                <select class="form-select" @bind="AlunoSelecionadoId">
+                                    <option value="0">-- Escolha o aluno --</option>
+                                    @foreach (var aluno in TurmaSelecionada.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)))
+                                    {
+                                        <option value="@aluno.Id">@aluno.Nome</option>
+                                    }
+                                </select>
+                                <small class="text-danger">@ErroAluno</small>
+                            </div>
+                        }
+
+                        <hr />
+
+                        <button type="button" class="btn-custom btn-custom-success w-100 justify-content-center py-3 mt-2"
+                                @onclick="SalvarRoteiro" disabled="@IsSaving">
+                            @if (IsSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>A gravar...</span>
+                            }
+                            else
+                            {
+                                <i class="fas fa-save me-2"></i>
+                                <span>Criar Trabalho</span>
+                            }
+                        </button>
+
+                        @if (!string.IsNullOrEmpty(StatusMessage))
+                        {
+                            <div class="alert-custom @(StatusMessage.Contains("✅") ? "alert-success" : "alert-danger") mt-3 animate-fade-in">
+                                <span>@StatusMessage</span>
+                            </div>
+                        }
+                    </div>
+                </div>
             </div>
         </div>
-
-        <button type="button" class="btn btn-success btn-lg w-100" @onclick="SalvarRoteiro" disabled="@IsSaving">
-            @if (IsSaving)
-            {
-                <span class="spinner-border spinner-border-sm"></span>
-                <span> Gravando no Banco...</span>
-            }
-            else
-            {
-                <span>Criar Trabalho</span>
-            }
-        </button>
-
-        @if (!string.IsNullOrEmpty(StatusMessage))
-        {
-            <div class="alert @(StatusMessage.Contains("✅") ? "alert-success" : "alert-danger") mt-3">
-                @StatusMessage
-            </div>
-        }
     }
 </div>
 
 @code {
+    // Mantenha toda a sua lógica C# exatamente como estava no arquivo original
+    // (Apenas adicionei o bind das mensagens de erro e ajustes no HTML acima)
     [Parameter] public string? TurmaIdStr { get; set; }
 
     private int TurmaId = 0;
@@ -167,7 +187,7 @@
     private List<Disciplina> ListaDisciplinas = new();
 
     private string Titulo = "";
-    private string Descricao = ""; // Nova variável
+    private string Descricao = "";
     private int ModuloSelecionadoId = 0;
     private int DisciplinaSelecionadaId = 0;
     private int AlunoSelecionadoId = 0;
@@ -179,7 +199,7 @@
     private string? ProfessorUserId;
 
     private string ErroTitulo = "";
-    private string ErroDescricao = ""; // Novo erro
+    private string ErroDescricao = "";
     private string ErroModulo = "";
     private string ErroDisciplina = "";
     private string ErroAluno = "";
@@ -224,7 +244,7 @@
     private bool ValidarFormulario()
     {
         ErroTitulo = string.IsNullOrWhiteSpace(Titulo) ? "O título é obrigatório" : "";
-        ErroDescricao = string.IsNullOrWhiteSpace(Descricao) ? "A descrição é exigida pelo banco de dados" : "";
+        ErroDescricao = string.IsNullOrWhiteSpace(Descricao) ? "A descrição é exigida" : "";
         ErroModulo = (ModuloSelecionadoId <= 0) ? "Selecione um módulo" : "";
         ErroDisciplina = (DisciplinaSelecionadaId <= 0) ? "Selecione uma disciplina" : "";
         ErroPrazo = !PrazoEntrega.HasValue ? "Escolha um prazo" : "";
@@ -306,7 +326,7 @@
         var trabalho = new Trabalho
         {
             Titulo = Titulo.Trim(),
-            Descricao = Descricao.Trim(), // Enviando o campo que estava faltando
+            Descricao = Descricao.Trim(),
             ProfessorId = professorId,
             AlunoId = alunoId,
             TurmaId = TurmaSelecionada!.Id,

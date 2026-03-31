@@ -11,39 +11,82 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<h3>Mudar Senha</h3>
-
-<div class="card p-4" style="max-width:500px">
-
-    <div class="mb-3">
-        <label>Senha Atual</label>
-        <input type="password" class="form-control" @bind="SenhaAtual" />
+<div class="page-admin animate-fade-in">
+    <div class="admin-header-row">
+        <div>
+            <h1 class="page-title">Alterar Senha</h1>
+            <p class="page-subtitle">Garanta a segurança da sua conta definindo uma nova palavra-passe</p>
+        </div>
+        <button class="btn-custom btn-custom-outline" @onclick='() => Nav.NavigateTo("/Conta")'>
+            <i class="bi bi-arrow-left"></i> Voltar
+        </button>
     </div>
 
-    <div class="mb-3">
-        <label>Nova Senha</label>
-        <input type="password" class="form-control" @bind="NovaSenha" />
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="custom-card elevation-3">
+                <div class="card-header-custom">
+                    <h5><i class="bi bi-shield-lock-fill"></i> Definições de Segurança</h5>
+                </div>
+
+                <div class="card-body-custom">
+                    <div class="form-group mb-3">
+                        <label class="form-label">Senha Atual</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            <input type="password" class="form-control" @bind="SenhaAtual" placeholder="Digite a senha atual" />
+                        </div>
+                    </div>
+
+                    <hr class="my-4" style="opacity: 0.1;">
+
+                    <div class="form-group mb-3">
+                        <label class="form-label">Nova Senha</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-key"></i></span>
+                            <input type="password" class="form-control" @bind="NovaSenha" placeholder="Mínimo 6 caracteres" />
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-4">
+                        <label class="form-label">Confirmar Nova Senha</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-check-all"></i></span>
+                            <input type="password" class="form-control" @bind="ConfirmarSenha" placeholder="Repita a nova senha" />
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button class="btn-custom btn-custom-primary w-100 justify-content-center" @onclick="AlterarSenha">
+                            <i class="bi bi-save"></i> Atualizar Senha
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert-custom alert-info mt-4">
+                <i class="bi bi-info-circle-fill"></i>
+                <div>
+                    <small>A nova senha deve conter letras, números e símbolos para maior segurança.</small>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <div class="mb-3">
-        <label>Confirmar Nova Senha</label>
-        <input type="password" class="form-control" @bind="ConfirmarSenha" />
-    </div>
-
-    <button class="btn btn-primary" @onclick="AlterarSenha">
-        Alterar Senha
-    </button>
-
 </div>
 
 @code {
-
     private string SenhaAtual = "";
     private string NovaSenha = "";
     private string ConfirmarSenha = "";
 
     private async Task AlterarSenha()
     {
+        if (string.IsNullOrWhiteSpace(SenhaAtual) || string.IsNullOrWhiteSpace(NovaSenha))
+        {
+            await JS.InvokeVoidAsync("alert", "Por favor, preencha todos os campos.");
+            return;
+        }
+
         if (NovaSenha != ConfirmarSenha)
         {
             await JS.InvokeVoidAsync("alert", "As novas senhas não coincidem.");
@@ -63,13 +106,13 @@
 
         if (result.Succeeded)
         {
-            await JS.InvokeVoidAsync("alert", "Senha alterada com sucesso.");
-            Nav.NavigateTo("/");
+            await JS.InvokeVoidAsync("alert", "Senha alterada com sucesso!");
+            Nav.NavigateTo("/Conta");
         }
         else
         {
-            await JS.InvokeVoidAsync("alert", "Erro ao alterar senha.");
+            var erro = result.Errors.FirstOrDefault()?.Description ?? "Erro ao alterar senha. Verifique se a senha atual está correta.";
+            await JS.InvokeVoidAsync("alert", erro);
         }
     }
-
 }

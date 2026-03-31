@@ -1178,3 +1178,32 @@ color: #e0e0e0;
     color: var(--primary-color);
     font-weight: 600;
 }
+/* ============================================================
+   23. CORREÇÃO DA TELA DE CARREGAMENTO (LOADING SCREEN)
+   ============================================================ */
+
+/* Garante que o loading cubra toda a tela inicialmente */
+.loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #ffffff; /* Fundo branco para cobrir tudo */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999; /* Fica acima de qualquer outro elemento */
+    transition: opacity 0.3s ease;
+}
+
+/* REGRA PRINCIPAL:
+   O Blazor, ao carregar, preenche a tag <app>. 
+   O seletor :not(:empty) verifica se a tag <app> já tem conteúdo.
+   Se tiver conteúdo, a classe .loading-screen é ocultada.
+*/
+app:not(:empty) + .loading-screen,
+app:not(:empty) .loading-screen {
+    display: none !important;
+}
