@@ -11,185 +11,154 @@
 
 <AuthorizeView Roles="Administrador">
     <Authorized>
-        <!-- NAVBAR FIXA -->
-        <nav class="navbar navbar-expand-lg navbar-dark fixed-top"
-             style="background: linear-gradient(90deg, #1e3a8a 0%, #0d9488 100%);
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    padding: 0.5rem 1rem;
-                    z-index:1050;">
+        <div class="page-admin animate-fade-in">
 
-            <!-- Logótipo e Nome -->
-            <a class="navbar-brand d-flex align-items-center" href="/">
-                <img src="/images/logo_triadelearn.png"
-                     alt="Logo TriadeLearn"
-                     style="height: 40px; width: 40px; border-radius: 50%; margin-right: 12px; background: white; padding: 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" />
-                <span style="font-weight: 600; letter-spacing: 0.5px;">TriadeLearn</span>
-            </a>
-
-            <div class="ms-auto d-flex align-items-center" style="gap:1rem;">
-                <AuthorizeView>
-                    <Authorized Context="authState">
-                        <!-- Avatar -->
-                        <div class="d-flex align-items-center text-white me-2">
-                            <a href="/Conta" style="text-decoration: none; color: inherit;">
-                                <div style="width: 32px; height: 32px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 8px; border: 1px solid rgba(255,255,255,0.4); cursor:pointer;">
-                                    <i class="bi bi-person-fill"></i>
-                                </div>
-                            </a>
-
-                            <span style="font-size: 0.95rem;">
-                                Olá, <strong>@authState.User.Identity?.Name</strong>
-                            </span>
-                        </div>
-
-                        <!-- Logout -->
-                        <form method="post" action="/Identity/Account/Logout" class="d-inline">
-                            <button type="submit" class="btn btn-sm btn-outline-light rounded-pill px-3">
-                                <i class="bi bi-box-arrow-right me-1"></i> Logout
-                            </button>
-                        </form>
-                    </Authorized>
-
-                    <NotAuthorized Context="authState">
-                        <a href="/login" class="btn btn-sm btn-light rounded-pill px-3 me-2">Login</a>
-                        <a href="/register" class="btn btn-sm btn-outline-light rounded-pill px-3">Registar</a>
-                    </NotAuthorized>
-                </AuthorizeView>
-            </div>
-        </nav>
-
-        <div class="container-fluid" style="margin-top:80px;">
             @if (!string.IsNullOrEmpty(successMessage))
             {
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
                     @((MarkupString)successMessage)
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             }
 
-            <!-- CARDS FIXOS -->
-            <div style="position:sticky; top:70px; z-index:1000; background:white; padding-bottom:10px;">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div class="search-bar w-25">
-                        <input type="text" class="form-control rounded-pill shadow-sm" placeholder="Pesquisar...">
+            @* Cabeçalho e Pesquisa *@
+            <div class="admin-header-row mb-4">
+                <div class="header-title">
+                    <h3 class="fw-bold mb-0">Painel de Controlo</h3>
+                    <p class="text-muted small mb-0">Gestão administrativa do sistema</p>
+                </div>
+                <div class="search-bar-container">
+                    <i class="bi bi-search"></i>
+                    <input type="text"
+                           class="form-control shadow-sm"
+                           placeholder="Pesquisar professor ou turma..."
+                           @bind="searchTerm"
+                           @bind:event="oninput" />
+                </div>
+            </div>
+
+            @* Cards de Estatísticas *@
+            <div class="row g-4 mb-4">
+                <div class="col-md-6 col-xl-2">
+                    <div class="stat-card card-yellow shadow-sm">
+                        <div class="icon"><i class="bi bi-people-fill fs-2"></i></div>
+                        <div class="data">
+                            <span>Alunos</span>
+                            <h2 class="fw-bold">@TotalAlunos</h2>
+                        </div>
                     </div>
                 </div>
 
-                <div class="row g-3 mb-4">
-                    <div class="col-md-4 col-lg-2">
-                        <div class="card border-0 shadow-sm p-3 text-white h-100" style="background-color: #f6c23e; border-radius: 15px;">
-                            <h6>Alunos</h6>
-                            <h2>@TotalAlunos</h2>
+                <div class="col-md-6 col-xl-2">
+                    <div class="stat-card card-blue shadow-sm">
+                        <div class="icon"><i class="bi bi-person-badge-fill fs-2"></i></div>
+                        <div class="data">
+                            <span>Professores</span>
+                            <h2 class="fw-bold">@TotalProfessores</h2>
                         </div>
                     </div>
+                </div>
 
-                    <div class="col-md-4 col-lg-2">
-                        <div class="card border-0 shadow-sm p-3 text-white h-100" style="background-color: #4e73df; border-radius: 15px;">
-                            <h6>Professores</h6>
-                            <h2>@TotalProfessores</h2>
-                        </div>
-                    </div>
-
-                    <div class="col-md-4 col-lg-3">
-                        <div class="card border-0 shadow-sm p-3 bg-white border-start border-warning border-4 h-100" style="border-radius: 15px;">
-                            <h6 class="text-muted small">Gestão de Turmas</h6>
+                <div class="col-md-6 col-xl-3">
+                    <div class="stat-card card-white border-start-warning shadow-sm">
+                        <div class="data w-100">
+                            <span class="text-muted small fw-bold">Gestão de Turmas</span>
                             <p class="small text-muted mb-2">Criar turmas e alunos</p>
                             <a href="/admin/GerirTurmas" class="btn btn-outline-warning btn-sm rounded-pill w-100">Ir para Turmas</a>
                         </div>
                     </div>
+                </div>
 
-                    <div class="col-md-6 col-lg-3">
-                        <div class="card border-0 shadow-sm p-3 bg-white border-start border-indigo border-4 h-100" style="border-radius: 15px; border-left-color: #6610f2 !important;">
-                            <h6 class="text-muted small">Gestão de Disciplinas</h6>
-                            <div class="d-flex justify-content-between align-items-center mt-auto">
-                                <span class="badge bg-light text-dark shadow-sm">@TotalDisciplinas</span>
-                                <a href="/admin/GerirDisciplinas" class="btn btn-outline-dark btn-sm rounded-pill" style="border-color: #6610f2; color: #6610f2;">Ver Todas</a>
+                <div class="col-md-6 col-xl-3">
+                    <div class="stat-card card-white border-start-purple shadow-sm">
+                        <div class="data w-100">
+                            <span class="text-muted small fw-bold">Disciplinas</span>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <span class="badge bg-light text-dark border">@TotalDisciplinas</span>
+                                <a href="/admin/GerirDisciplinas" class="btn btn-outline-primary btn-sm rounded-pill">Ver Todas</a>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="col-md-6 col-lg-2">
-                        <div class="card border-0 shadow-sm p-3 bg-white border-start border-primary border-4 h-100" style="border-radius: 15px;">
-                            <h6 class="text-muted small">Atribuição</h6>
-                            <a href="/admin/AtribuirTurma" class="btn btn-outline-primary btn-sm rounded-pill mt-2">Configurar</a>
+                <div class="col-md-12 col-xl-2">
+                    <div class="stat-card card-white border-start-primary shadow-sm">
+                        <div class="data w-100">
+                            <span class="text-muted small fw-bold">Atribuição</span>
+                            <a href="/admin/AtribuirTurma" class="btn btn-primary btn-sm rounded-pill w-100 mt-2">Configurar</a>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- CONTEÚDO SCROLLÁVEL -->
-            <div style="height: calc(100vh - 260px); overflow-y: auto; padding-right:10px;">
-                <div class="row g-4">
-                    <!-- TABELA CENTRAL -->
-                    <div class="col-md-8">
-                        <div class="card border-0 shadow-sm p-4 h-100" style="border-radius: 15px;">
-                            <h5 class="fw-bold mb-3">Professores e Módulos Ativos</h5>
-                            <div class="table-responsive" style="max-height:400px; overflow-y:auto;">
-                                <table class="table table-hover align-middle">
-                                    <thead class="table-light" style="position:sticky; top:0; z-index:1;">
+            <div class="row g-4">
+                @* Tabela *@
+                <div class="col-lg-8">
+                    <div class="admin-card shadow-sm border-0">
+                        <div class="card-header-custom">
+                            <h5 class="fw-bold mb-0 text-primary">Professores e Módulos Ativos</h5>
+                        </div>
+                        <div class="table-responsive p-3">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Professor</th>
+                                        <th>Turma</th>
+                                        <th>Disciplina</th>
+                                        <th class="text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (FilteredAtribuicoes != null && FilteredAtribuicoes.Any())
+                                    {
+                                        @foreach (var item in FilteredAtribuicoes)
+                                        {
+                                            <tr>
+                                                <td class="fw-semibold">@item.ProfessorNome</td>
+                                                <td><span class="badge bg-light text-dark border">@item.TurmaNome</span></td>
+                                                <td>@item.ModuloNome</td>
+                                                <td class="text-center">
+                                                    <a href="/admin/GerirTurmas" class="btn btn-action shadow-sm">
+                                                        <i class="bi bi-pencil-square"></i> Editar
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
                                         <tr>
-                                            <th>Professor</th>
-                                            <th>Turma</th>
-                                            <th>Disciplina</th>
-                                            <th class="text-center">Ações</th>
+                                            <td colspan="4" class="text-center text-muted p-4">Nenhum resultado encontrado.</td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        @if (ListaAtribuicoes != null && ListaAtribuicoes.Any())
-                                        {
-                                            @foreach (var item in ListaAtribuicoes)
-                                            {
-                                                <tr>
-                                                    <td>@item.ProfessorNome</td>
-                                                    <td>@item.TurmaNome</td>
-                                                    <td>@item.ModuloNome</td>
-                                                    <td class="text-center">
-                                                        <a href="/admin/GerirTurmas" class="btn btn-sm btn-light border">Editar</a>
-                                                    </td>
-                                                </tr>
-                                            }
-                                        }
-                                        else
-                                        {
-                                            <tr><td colspan="4" class="text-center text-muted p-4">Nenhuma atribuição encontrada.</td></tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
+                                    }
+                                </tbody>
+                            </table>
                         </div>
                     </div>
+                </div>
 
-                    <!-- AÇÕES RÁPIDAS -->
-                    <div class="col-md-4">
-                        <div class="card border-0 shadow-sm p-4 h-100" style="border-radius: 15px;">
-                            <h5 class="fw-bold mb-4">Ações Rápidas</h5>
-                            <div class="d-grid gap-3">
-
-                                <a href="/admin/CriarDisciplina" class="btn p-3 text-start shadow-sm d-flex align-items-center text-white" style="border-radius: 12px; background-color: #6610f2;">
-                                    <i class="bi bi-journal-plus me-3 fs-4"></i>
-                                    <div class="fw-bold">Criar Disciplina</div>
-                                </a>
-
-                                <a href="/admin/GerirModulos" class="btn btn-success p-3 text-start shadow-sm d-flex align-items-center" style="border-radius: 12px;">
-                                    <i class="bi bi-journal-text me-3 fs-4"></i>
-                                    <div class="fw-bold">Gerir Módulos</div>
-                                </a>
-
-                                <a href="/admin/CriarModulo" class="btn btn-success p-3 text-start shadow-sm d-flex align-items-center" style="border-radius: 12px; opacity: 0.9;">
-                                    <i class="bi bi-plus-circle me-3 fs-4"></i>
-                                    <div class="fw-bold">Criar Módulo</div>
-                                </a>
-
-                                <a href="/admin/RegisterAdmin" class="btn btn-primary p-3 text-start shadow-sm d-flex align-items-center" style="border-radius: 12px;">
-                                    <i class="bi bi-person-plus me-3 fs-4"></i>
-                                    <div class="fw-bold">Registar Utilizador</div>
-                                </a>
-
-                                <a href="/admin/GerirUtilizadores" class="btn btn-primary p-3 text-start shadow-sm d-flex align-items-center" style="border-radius: 12px; opacity: 0.85;">
-                                    <i class="bi bi-people me-3 fs-4"></i>
-                                    <div class="fw-bold">Gerir Utilizadores</div>
-                                </a>
-                            </div>
+                @* Ações Rápidas *@
+                <div class="col-lg-4">
+                    <div class="admin-card shadow-sm border-0">
+                        <div class="card-header-custom">
+                            <h5 class="fw-bold mb-0 text-primary">Ações Rápidas</h5>
+                        </div>
+                        <div class="quick-actions p-3">
+                            <a href="/admin/RelatoriosGlobais" class="qa-item orange mb-2" style="background-color: #fff3e0; border-left: 4px solid #ff9800; color: #ff9800 !important;">
+                                <i class="bi bi-graph-up-arrow"></i> <strong>Relatórios Globais</strong>
+                            </a>
+                            <a href="/admin/GerirDisciplinas" class="qa-item purple">
+                                <i class="bi bi-collection"></i> Gerir Disciplinas
+                            </a>
+                            <a href="/admin/GerirModulos" class="qa-item green">
+                                <i class="bi bi-journal-text"></i> Gerir Módulos
+                            </a>
+                            <a href="/admin/RegisterAdmin" class="qa-item blue">
+                                <i class="bi bi-person-plus"></i> Registar Utilizador
+                            </a>
+                            <a href="/admin/GerirUtilizadores" class="qa-item dark-blue">
+                                <i class="bi bi-people"></i> Gerir Utilizadores
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -200,19 +169,33 @@
 
 @code {
     private string successMessage = "";
+    private string searchTerm = "";
     private int TotalAlunos;
     private int TotalProfessores;
     private int TotalDisciplinas;
     private List<ResumoAtribuicao> ListaAtribuicoes = new();
 
+    private IEnumerable<ResumoAtribuicao> FilteredAtribuicoes =>
+        string.IsNullOrWhiteSpace(searchTerm)
+        ? ListaAtribuicoes
+        : ListaAtribuicoes.Where(x =>
+            (x.ProfessorNome?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (x.TurmaNome?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (x.ModuloNome?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
+
     protected override async Task OnInitializedAsync()
     {
-        TotalAlunos = await AdminService.GetTotalAlunosAsync();
-        TotalProfessores = await AdminService.GetTotalProfessoresAsync();
-
-        var listaD = await DisciplinaService.GetDisciplinasAsync();
-        TotalDisciplinas = listaD?.Count ?? 0;
-
-        ListaAtribuicoes = await AdminService.GetAtribuicoesAtivasAsync();
+        try
+        {
+            TotalAlunos = await AdminService.GetTotalAlunosAsync();
+            TotalProfessores = await AdminService.GetTotalProfessoresAsync();
+            var listaD = await DisciplinaService.GetDisciplinasAsync();
+            TotalDisciplinas = listaD?.Count ?? 0;
+            ListaAtribuicoes = await AdminService.GetAtribuicoesAtivasAsync() ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro: {ex.Message}");
+        }
     }
 }

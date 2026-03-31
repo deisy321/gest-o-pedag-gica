@@ -137,42 +137,56 @@ else
 
         try
         {
-            AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
+          AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
 
-            if (AlunoSelecionado != null && !string.IsNullOrEmpty(AlunoSelecionado.UserId))
+    if (AlunoSelecionado != null)
+     {
+            if (string.IsNullOrEmpty(AlunoSelecionado.UserId))
+   {
+      Console.WriteLine($"⚠️ Aluno {AlunoSelecionado.Nome} não tem UserId vinculado!");
+           TrabalhosAluno = new List<TrabalhoAluno>();
+                }
+      else
+        {
+       var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
+      
+                  Console.WriteLine($"✅ Trabalhos carregados: {trabalhos?.Count ?? 0}");
+
+      TrabalhosAluno = trabalhos?.Select(t => new TrabalhoAluno
+    {
+        TrabalhoId = t.Id,
+      Titulo = t.Titulo,
+   AlunoNome = AlunoSelecionado.Nome,
+        AlunoEmail = AlunoSelecionado.Email,
+ModuloNome = t.Modulo?.Nome ?? "Módulo não definido",
+    DisciplinaNome = t.Disciplina?.Nome ?? "Disciplina não definida",
+          Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatus
+        {
+  Tipo = v.Tipo,
+          Conteudo = v.ConteudoTextoAluno ?? "",
+    Enviado = !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null,
+         Nota = v.Nota,
+   Feedback = v.Feedback
+            }).ToList() ?? new List<VertenteStatus>()
+     }).ToList() ?? new List<TrabalhoAluno>();
+          }
+ }
+   else
             {
-                var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
-
-                TrabalhosAluno = trabalhos?.Select(t => new TrabalhoAluno
-                {
-                    TrabalhoId = t.Id,
-                    Titulo = t.Titulo,
-                    AlunoNome = AlunoSelecionado.Nome,
-                    AlunoEmail = AlunoSelecionado.Email,
-                    ModuloNome = t.Modulo?.Nome ?? "Módulo não definido",
-                    DisciplinaNome = t.Disciplina?.Nome ?? "Disciplina não definida",
-                    Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatus
-                    {
-                        Tipo = v.Tipo,
-                        Conteudo = v.ConteudoTextoAluno ?? "",
-                        Enviado = !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null,
-                        Nota = v.Nota,
-                        Feedback = v.Feedback
-                    }).ToList() ?? new List<VertenteStatus>()
-                }).ToList() ?? new List<TrabalhoAluno>();
-            }
-        }
+        Console.WriteLine($"❌ Aluno com ID {AlunoId} não encontrado!");
+  }
+   }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erro ao carregar dados: {ex.Message}");
-        }
+            Console.WriteLine($"❌ Erro ao carregar dados: {ex.Message}\n{ex.StackTrace}");
+    }
         finally
         {
             IsLoading = false;
         }
     }
 
-    private void VoltarParaDashboard() => Nav.NavigateTo("/professor/dashboard");
+    private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
 
     public class TrabalhoAluno
     {

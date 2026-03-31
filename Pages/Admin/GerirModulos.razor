@@ -1,180 +1,233 @@
-ï»¿@page "/admin/GerirModulos"
+@page "/admin/GerirModulos"
 @namespace gestaopedagogica.Pages.Admin
 @layout MainLayout
-
 @using gestaopedagogica.Services
 @using gestaopedagogica.Models
-
 @inject ModuloService ModuloService
 @inject ProfessorService ProfessorService
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
-<div class="container mt-4">
-    <div class="card shadow-sm border-0" style="border-radius: 15px;">
-        <div class="card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center" style="border-radius: 15px 15px 0 0;">
-            <h4 class="mb-0"><i class="bi bi-journal-text me-2"></i>GestÃ£o de MÃ³dulos</h4>
-            <button class="btn btn-success rounded-pill px-4" @onclick='() => Nav.NavigateTo("/admin/CriarModulo")'>
-                <i class="bi bi-plus-circle me-2"></i>Novo MÃ³dulo
+<div class="page-admin">
+    <!-- Cabeçalho -->
+    <div class="admin-header-row">
+        <div>
+ <h1 class="page-title">Gestão de Módulos</h1>
+    <p class="page-subtitle">Administração do plano curricular e formadores</p>
+        </div>
+        <div class="d-flex gap-2" style="flex-wrap: wrap;">
+ <a href="/admin/DashboardAdmin" class="btn btn-custom btn-custom-outline">
+  <i class="bi bi-arrow-left"></i> Voltar
+        </a>
+      <button class="btn btn-custom btn-custom-success" @onclick='() => Nav.NavigateTo("/admin/CriarModulo")'>
+                <i class="bi bi-plus-lg"></i> Novo Módulo
             </button>
-        </div>
+  </div>
+    </div>
 
-        <div class="card-body p-4">
-            @if (!string.IsNullOrEmpty(Message))
-            {
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <i class="bi bi-check-circle me-2"></i>@Message
-                    <button type="button" class="btn-close" @onclick='() => Message = ""'></button>
-                </div>
-            }
+    <!-- Mensagem de Status -->
+    @if (!string.IsNullOrEmpty(Message))
+ {
+        <div class="alert-custom alert-info" style="margin-bottom: 1.5rem;">
+            <i class="bi bi-info-circle-fill"></i>
+            <div>@Message</div>
+            <button type="button" style="background: none; border: none; color: inherit; cursor: pointer; margin-left: auto; font-size: 1.2rem;" @onclick='() => Message = ""'>×</button>
+      </div>
+    }
 
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="ps-3">NÂº/UFCD</th>
-                            <th>Nome do MÃ³dulo</th>
-                            <th>Professor ResponsÃ¡vel</th>
-                            <th class="text-center">AÃ§Ãµes</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (Modulos == null || !Modulos.Any())
-                        {
-                            <tr>
-                                <td colspan="4" class="text-center py-4 text-muted">Nenhum mÃ³dulo registado.</td>
-                            </tr>
-                        }
-                        else
-                        {
-                            @foreach (var m in Modulos)
-                            {
-                                <tr>
-                                    <td class="ps-3 fw-bold">@m.Numero</td>
-                                    <td>@m.Nome</td>
-                                    <td>
-                                        <span class="badge @(m.Professor != null ? "bg-info text-dark" : "bg-light text-muted")">
-                                            <i class="bi bi-person me-1"></i>@(m.Professor?.Nome ?? "NÃ£o definido")
-                                        </span>
-                                    </td>
-                                    <td class="text-center">
-                                        <div class="btn-group">
-                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(m)">
-                                                <i class="bi bi-pencil me-1"></i>Editar
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Remover(m.Id)">
-                                                <i class="bi bi-trash me-1"></i>Eliminar
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        }
-                    </tbody>
-                </table>
+    <!-- Card Tabela -->
+    <div class="custom-card elevation-2">
+@if (Modulos == null || !Modulos.Any())
+        {
+            <div class="card-body-custom text-center py-5">
+     <i class="bi bi-search" style="font-size: 3rem; color: #ccc;"></i>
+    <p class="mt-3 text-muted">Nenhum módulo encontrado</p>
+</div>
+        }
+  else
+        {
+        <div style="overflow-x: auto;">
+              <table class="custom-table">
+         <thead>
+      <tr>
+   <th style="width: 15%;">Nº / UFCD</th>
+                <th style="width: 35%;">Nome do Módulo</th>
+              <th style="width: 35%;">Professor</th>
+    <th style="width: 15%;" class="text-center">Ações</th>
+      </tr>
+             </thead>
+         <tbody>
+            @foreach (var m in Modulos)
+               {
+         <tr>
+    <td>
+        <span class="badge badge-custom badge-primary">@m.Numero</span>
+               </td>
+ <td>
+              <strong>@m.Nome</strong>
+        </td>
+    <td>
+      @if (m.Professor != null)
+       {
+       <div class="d-flex align-items-center">
+      <div class="avatar-circle me-2" style="width: 28px; height: 28px; font-size: 0.8rem;">
+         @m.Professor.Nome.Substring(0, 1).ToUpper()
+         </div>
+      <span>@m.Professor.Nome</span>
+ </div>
+                  }
+  else
+    {
+      <span class="text-muted small">Não definido</span>
+       }
+     </td>
+     <td class="text-center">
+        <div class="d-flex justify-content-center gap-1">
+     <button class="btn btn-custom btn-custom-primary" style="padding: 6px 12px;"
+           @onclick="() => Editar(m)" title="Editar">
+        <i class="bi bi-pencil"></i>
+   </button>
+    <button class="btn btn-custom btn-custom-danger" style="padding: 6px 12px;"
+  @onclick="() => Remover(m.Id)" title="Remover">
+     <i class="bi bi-trash"></i>
+   </button>
+  </div>
+     </td>
+            </tr>
+        }
+      </tbody>
+         </table>
             </div>
-        </div>
+        }
     </div>
 </div>
 
+<!-- Modal Edição -->
 @if (MostrarModal)
 {
-    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow" style="border-radius: 15px;">
-                <div class="modal-header bg-primary text-white" style="border-radius: 15px 15px 0 0;">
-                    <h5 class="modal-title">Editar MÃ³dulo</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="Cancelar"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Nome do MÃ³dulo</label>
-                        <input class="form-control rounded-pill" @bind="EditarModulo.Nome" />
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">NÃºmero/UFCD</label>
-                        <input class="form-control rounded-pill" @bind="EditarModulo.Numero" />
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Professor</label>
-                        <select class="form-select rounded-pill" @bind="EditarModulo.ProfessorId">
-                            <option value="0">Selecione um professor...</option>
-                            @foreach (var p in Professores)
-                            {
-                                <option value="@p.Id">@p.Nome</option>
-                            }
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 p-3">
-                    <button class="btn btn-light rounded-pill px-4" @onclick="Cancelar">Cancelar</button>
-                    <button class="btn btn-primary rounded-pill px-4" @onclick="Salvar">Guardar AlteraÃ§Ãµes</button>
-                </div>
+    <div class="modal-bg animate-fade-in">
+        <div class="modal-card animate-slide-up">
+     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 class="text-gradient" style="margin: 0; font-weight: 700;">Editar Módulo</h3>
+ <button type="button" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999;" @onclick="Cancelar">×</button>
             </div>
-        </div>
+
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label"><i class="bi bi-tag"></i> Nome do Módulo</label>
+            <input class="form-control" @bind="EditarModulo.Nome" placeholder="Digite o nome" />
+</div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+         <label class="form-label"><i class="bi bi-hash"></i> Número/UFCD</label>
+          <input class="form-control" @bind="EditarModulo.Numero" placeholder="Ex: 0778" />
+     </div>
+
+ <div class="form-group" style="margin-bottom: 0;">
+       <label class="form-label"><i class="bi bi-person"></i> Professor</label>
+             <InputSelect @bind-Value="EditarModulo.ProfessorId" class="form-select">
+          <option value="0">Selecione um professor...</option>
+   @foreach (var p in Professores)
+          {
+     <option value="@p.Id">@p.Nome</option>
+        }
+         </InputSelect>
+     </div>
+          </div>
+
+      <div class="d-flex gap-2" style="margin-top: 2rem;">
+       <button class="btn btn-custom btn-custom-outline" style="flex: 1;" @onclick="Cancelar">
+                <i class="bi bi-x"></i> Cancelar
+       </button>
+            <button class="btn btn-custom btn-custom-success" style="flex: 1;" @onclick="Salvar">
+  <i class="bi bi-check2"></i> Guardar
+        </button>
+   </div>
+     </div>
     </div>
 }
 
 @code {
     private List<Modulo> Modulos = new();
-    private List<Professor> Professores = new();
+  private List<Professor> Professores = new();
     private Modulo EditarModulo = new();
     private bool MostrarModal = false;
     private string? Message;
 
     protected override async Task OnInitializedAsync()
     {
-        Professores = await ProfessorService.GetProfessoresAsync() ?? new();
-        await CarregarModulos();
+        try
+        {
+     var resProfs = await ProfessorService.GetProfessoresAsync();
+      Professores = resProfs ?? new List<Professor>();
+
+       await CarregarModulos();
+        }
+ catch (Exception ex)
+   {
+            Message = "Erro ao carregar dados: " + ex.Message;
+        }
     }
 
     private async Task CarregarModulos()
     {
-        Modulos = await ModuloService.GetModulosComProfessorAsync() ?? new();
+        try
+        {
+   var resMods = await ModuloService.GetModulosComProfessorAsync();
+            Modulos = resMods ?? new List<Modulo>();
+ }
+        catch
+        {
+    Modulos = new List<Modulo>();
+}
     }
 
     private void Editar(Modulo m)
-    {
+  {
         EditarModulo = new Modulo
         {
             Id = m.Id,
-            Nome = m.Nome,
+  Nome = m.Nome,
             Numero = m.Numero,
-            ProfessorId = m.ProfessorId
+        ProfessorId = m.ProfessorId
         };
         MostrarModal = true;
     }
 
     private async Task Salvar()
     {
-        if (string.IsNullOrWhiteSpace(EditarModulo.Nome))
-        {
-            Message = "O nome do mÃ³dulo Ã© obrigatÃ³rio!";
-            return;
-        }
-
+     if (string.IsNullOrWhiteSpace(EditarModulo.Nome)) return;
         try
-        {
-            await ModuloService.UpdateModuloAsync(EditarModulo);
-            Message = "MÃ³dulo atualizado com sucesso!";
-            MostrarModal = false;
-            await CarregarModulos();
-        }
+     {
+      await ModuloService.UpdateModuloAsync(EditarModulo);
+   Message = "? Módulo atualizado!";
+      MostrarModal = false;
+  await CarregarModulos();
+      }
         catch (Exception ex)
         {
-            Message = "Erro ao atualizar: " + ex.Message;
-        }
+       Message = "? Erro ao salvar: " + ex.Message;
+  }
     }
 
     private async Task Remover(int id)
     {
-        var modulo = Modulos.FirstOrDefault(m => m.Id == id);
-        if (modulo != null)
+      if (!await JS.InvokeAsync<bool>("confirm", "Tem a certeza que deseja remover este módulo?"))
+     return;
+
+        try
         {
-            await ModuloService.RemoveModuloAsync(modulo);
-            Message = "MÃ³dulo removido permanentemente!";
-            await CarregarModulos();
+var modulo = Modulos.FirstOrDefault(m => m.Id == id);
+       if (modulo != null)
+            {
+       await ModuloService.RemoveModuloAsync(modulo);
+            Message = "? Módulo removido com sucesso!";
+                await CarregarModulos();
+      }
+        }
+        catch (Exception ex)
+        {
+      Message = "? Erro ao remover: " + ex.Message;
         }
     }
 

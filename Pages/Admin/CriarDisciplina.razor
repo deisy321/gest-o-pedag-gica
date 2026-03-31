@@ -3,47 +3,75 @@
 @using gestaopedagogica.Models
 @inject DisciplinaService DisciplinaService
 @inject NavigationManager Nav
+@layout MainLayout
 
-<div class="container mt-4">
-    <div class="card shadow border-0" style="border-radius: 15px;">
-        <div class="card-header bg-primary text-white p-3" style="border-radius: 15px 15px 0 0;">
-            <h4 class="mb-0">Nova Disciplina</h4>
-        </div>
-        <div class="card-body p-4">
+<div class="page-admin">
+    <!-- Cabeçalho -->
+    <div class="admin-header-row">
+        <div>
+            <h1 class="page-title">Nova Disciplina</h1>
+ <p class="page-subtitle">Preencha os dados para registar uma nova disciplina</p>
+    </div>
+        <a href="/admin/GerirDisciplinas" class="btn btn-custom btn-custom-outline">
+            <i class="bi bi-arrow-left"></i> Voltar
+        </a>
+    </div>
+
+    <!-- Card Formulário -->
+    <div class="custom-card elevation-2" style="max-width: 600px; margin: 0 auto;">
+     <div class="card-body-custom">
             <EditForm Model="novaDisciplina" OnValidSubmit="SalvarDisciplina">
+   <DataAnnotationsValidator />
 
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Nome da Disciplina (Ex: Programação)</label>
-                    <InputText @bind-Value="novaDisciplina.Nome" class="form-control rounded-pill" placeholder="Digite o nome..." />
-                </div>
+           <!-- Nome da Disciplina -->
+     <div class="form-group">
+   <label class="form-label">
+       <i class="bi bi-journal-text"></i> Nome da Disciplina
+         </label>
+     <InputText @bind-Value="novaDisciplina.Nome" 
+   class="form-control" 
+  placeholder="Ex: Programação de Sistemas" />
+     <ValidationMessage For="@(() => novaDisciplina.Nome)" class="text-danger small mt-1" />
+        </div>
 
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Curso Associado</label>
-                    <select class="form-select rounded-pill" @bind="novaDisciplina.CursoId">
-                        <option value="0">Selecione um curso...</option>
-                        @if (ListaCursos != null)
-                        {
-                            @foreach (var curso in ListaCursos)
-                            {
-                                <option value="@curso.Id">@curso.Nome</option>
-                            }
-                        }
-                    </select>
-                </div>
+     <!-- Seleção de Curso -->
+       <div class="form-group">
+   <label class="form-label">
+          <i class="bi bi-book"></i> Curso Associado
+           </label>
+           <InputSelect @bind-Value="novaDisciplina.CursoId" class="form-select">
+ <option value="0">Escolha o curso...</option>
+               @if (ListaCursos != null)
+    {
+          @foreach (var curso in ListaCursos)
+  {
+   <option value="@curso.Id">@curso.Nome</option>
+   }
+     }
+    </InputSelect>
+         </div>
 
+     <!-- Mensagem de Erro -->
                 @if (!string.IsNullOrEmpty(ErrorMessage))
-                {
-                    <div class="alert alert-danger mt-3">@ErrorMessage</div>
-                }
+      {
+     <div class="alert-custom alert-danger">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+     <div>@ErrorMessage</div>
+  </div>
+     }
 
-                <div class="mt-4">
-                    <button type="submit" class="btn btn-primary rounded-pill px-5">Criar Disciplina</button>
-                    <a href="/admin/GerirDisciplinas" class="btn btn-outline-secondary rounded-pill px-4 ms-2">Cancelar</a>
-                </div>
-
+   <!-- Botões Ação -->
+         <div class="d-flex gap-2" style="margin-top: 2rem; flex-wrap: wrap;">
+        <a href="/admin/GerirDisciplinas" class="btn btn-custom btn-custom-outline" style="flex: 1;">
+         <i class="bi bi-x"></i> Cancelar
+      </a>
+        <button type="submit" class="btn btn-custom btn-custom-success" style="flex: 1;">
+        <i class="bi bi-check2"></i> Criar Disciplina
+           </button>
+               </div>
             </EditForm>
         </div>
-    </div>
+</div>
 </div>
 
 @code {
@@ -54,32 +82,39 @@
     protected override async Task OnInitializedAsync()
     {
         try
-        {
-            // ✅ Usa o DisciplinaService para carregar os cursos
-            ListaCursos = await DisciplinaService.GetCursosAsync() ?? new List<Curso>();
+    {
+      ListaCursos = await DisciplinaService.GetCursosAsync();
         }
-        catch (Exception ex)
+     catch (Exception ex)
         {
-            ErrorMessage = "⚠️ Erro ao carregar cursos: " + ex.Message;
+      ErrorMessage = "Erro ao carregar cursos: " + ex.Message;
         }
     }
 
     private async Task SalvarDisciplina()
     {
+        ErrorMessage = "";
+
         if (novaDisciplina.CursoId == 0)
+      {
+            ErrorMessage = "Por favor, selecione um curso para continuar.";
+        return;
+        }
+
+        if (string.IsNullOrWhiteSpace(novaDisciplina.Nome))
         {
-            ErrorMessage = "⚠️ Por favor, selecione um curso.";
+   ErrorMessage = "O nome da disciplina é obrigatório.";
             return;
         }
 
-        try
+  try
         {
-            await DisciplinaService.AddDisciplinaAsync(novaDisciplina);
+          await DisciplinaService.AddDisciplinaAsync(novaDisciplina);
             Nav.NavigateTo("/admin/GerirDisciplinas");
         }
-        catch (Exception ex)
+  catch (Exception ex)
         {
-            ErrorMessage = "⚠️ Erro ao salvar disciplina: " + ex.Message;
+  ErrorMessage = "Erro ao salvar: " + ex.Message;
         }
     }
 }

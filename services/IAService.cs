@@ -35,81 +35,68 @@ public class IAService
                 return "Conteúdo do aluno vazio, impossível gerar feedback.";
 
             if (string.IsNullOrWhiteSpace(descricaoVertente))
-                descricaoVertente = "O professor não forneceu instruções específicas para esta vertente.";
+                descricaoVertente = "Instrução geral do trabalho.";
 
+            // Extração de texto do PDF (se houver)
             string textoArquivo = LerPdfComSeguranca(arquivoBytes);
             string textoCompleto = (textoAluno ?? "") + "\n" + textoArquivo;
 
+            // Sistema de Cache
             var cacheKey = $"{alunoId}_{trabalhoId}_{vertenteId}";
             if (useCache && _cache.TryGetValue(cacheKey, out var cached))
                 return cached;
 
+            // --- PROMPT DE SISTEMA: FOCO NO ALUNO E ISOLAMENTO ---
+            string promptSistema = @"
+És um Professor que está a falar DIRETAMENTE com o seu aluno para o ajudar a melhorar.
+Usa SEMPRE a 2ª pessoa do singular (Tu, Teu, Fizeste). O tom deve ser encorajador mas rigoroso.
+
+REGRAS DE OURO:
+1. FOCO EXCLUSIVO: Avalia APENAS se o aluno cumpriu o que está na 'INSTRUÇÃO ESPECÍFICA'.
+2. ISOLAMENTO TOTAL: Se a instrução pede 'Orçamento', ignora se falta 'Transporte' ou 'Monumentos'. Não critiques a falta de algo que não foi pedido NESTA instrução.
+3. TRATAMENTO DIRETO: Não fales na terceira pessoa (ex: Não digas 'O aluno esqueceu'). Diz: 'Tu esqueceste-te' ou 'Fizeste um bom trabalho'.
+4. NÃO INVENTES: Se o aluno cumpriu o pedido, não peças detalhes extras que o professor não solicitou.";
+
+            string templateTarefa = $@"
+### INSTRUÇÃO ESPECÍFICA DO PROFESSOR (Avalia APENAS isto):
+""{descricaoVertente}""
+
+### RESPOSTA/TRABALHO DO ALUNO:
+""{textoCompleto}""
+
+### TAREFA:
+Analisa a resposta do aluno face à instrução. Se ele cumpriu tudo o que foi pedido NESTA INSTRUÇÃO, elogia-o. 
+Se falta algo que o professor pediu especificamente aqui, explica como ele pode corrigir.
+
+FORMATO OBRIGATÓRIO DE RESPOSTA:
+**1. Pontos positivos:** (O que fizeste bem nesta vertente)
+**2. Pontos a melhorar:** (O que falta ou pode ser melhorado especificamente aqui)
+**3. Sugestões concretas:** (Dicas para corrigires o trabalho agora)";
+
             string resultadoFinal;
 
-            // Prompt base que força a IA a seguir as instruções do professor
-            string promptSistema = @"
-És um Professor Auxiliar rigoroso. A tua missão é ajudar o aluno a melhorar o trabalho ANTES da entrega final.
-REGRAS DE OURO:
-1. Compara a 'RESPOSTA DO ALUNO' estritamente com a 'INSTRUÇÃO DO PROFESSOR'.
-2. NÃO inventes requisitos extras (ex: se o prof não pediu hotel ou orçamento, não critiques a falta deles).
-3. Se o aluno cumpriu o que foi pedido, valida e incentiva.
-4. Se o aluno fugiu ao tema ou esqueceu algo da instrução, aponta de forma construtiva.
-5. Responde em Português de Portugal.";
-
+            // Lógica para textos muito longos
             if (textoCompleto.Length > 4000)
             {
                 var partes = DividirTexto(textoCompleto);
                 var tarefas = partes.Select(parte =>
-                {
-                    var promptParte = $@"{promptSistema}
-
-### INSTRUÇÃO DO PROFESSOR PARA ESTA VERTENTE:
-{descricaoVertente}
-
-### RESPOSTA PARCIAL DO ALUNO:
-{parte}
-
-Dá feedback curto (máximo 3 frases) focado apenas no que foi pedido.";
-                    return EnviarParaOllama(promptParte);
-                }).ToList();
+                    EnviarParaOllama($"{promptSistema}\nAnalisa esta parte: {parte}\nInstrução: {descricaoVertente}\nFeedback curto na 2ª pessoa.")
+                ).ToList();
 
                 var resultados = await Task.WhenAll(tarefas);
-                var feedbackParcial = string.Join("\n\n", resultados);
+                var resumoParcial = string.Join("\n", resultados);
 
-                var promptFinal = $@"{promptSistema}
-Com base nestes feedbacks parciais, cria um resumo final organizado:
-
-### FEEDBACKS PARCIAIS:
-{feedbackParcial}
-
-### FORMATO DE RESPOSTA:
-**1. Pontos positivos:**
-**2. Pontos a melhorar:** (Apenas se não cumprir a instrução do professor)
-**3. Sugestões concretas:**";
-
-                resultadoFinal = await EnviarParaOllama(promptFinal);
+                resultadoFinal = await EnviarParaOllama($"{promptSistema}\nResumo dos pontos encontrados: {resumoParcial}\n{templateTarefa}");
             }
             else
             {
-                var prompt = $@"{promptSistema}
-
-### INSTRUÇÃO ESPECÍFICA DO PROFESSOR:
-""{descricaoVertente}""
-
-### RESPOSTA DO ALUNO:
-""{textoCompleto}""
-
-### TAREFA:
-Analisa se a resposta do aluno satisfaz a instrução acima. 
-Responde obrigatoriamente neste formato:
-**1. Pontos positivos:** **2. Pontos a melhorar:** **3. Sugestões concretas:**";
-
-                resultadoFinal = await EnviarParaOllama(prompt);
+                resultadoFinal = await EnviarParaOllama($"{promptSistema}\n{templateTarefa}");
             }
 
             if (string.IsNullOrWhiteSpace(resultadoFinal))
-                resultadoFinal = "A IA não conseguiu gerar um feedback válido para esta vertente.";
+                resultadoFinal = "Não foi possível gerar feedback automático. Verifica se o texto é suficiente.";
 
+            // Salvar no Cache
             if (useCache)
                 _cache[cacheKey] = resultadoFinal.Trim();
 
@@ -118,34 +105,44 @@ Responde obrigatoriamente neste formato:
         catch (Exception ex)
         {
             Console.WriteLine($"💥 ERRO IAService: {ex.Message}");
-            return "Erro técnico ao processar feedback com a IA.";
+            return "Ocorreu um erro ao processar o feedback com a IA.";
         }
     }
 
     private string LerPdfComSeguranca(byte[]? arquivoBytes)
     {
         if (arquivoBytes == null || arquivoBytes.Length == 0) return "";
+
         try
         {
             using var ms = new MemoryStream(arquivoBytes);
             using var pdf = PdfDocument.Open(ms);
             var sb = new StringBuilder();
+
             foreach (Page page in pdf.GetPages())
             {
                 var text = page.Text?.Trim();
-                if (!string.IsNullOrEmpty(text)) sb.AppendLine(text);
+                if (!string.IsNullOrEmpty(text))
+                    sb.AppendLine(text);
             }
             return sb.ToString();
         }
-        catch { return ""; }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Erro ao ler PDF: {ex.Message}");
+            return "";
+        }
     }
 
     private List<string> DividirTexto(string texto, int tamanhoMax = 3000)
     {
         var partes = new List<string>();
         if (string.IsNullOrEmpty(texto)) return partes;
+
         for (int i = 0; i < texto.Length; i += tamanhoMax)
+        {
             partes.Add(texto.Substring(i, Math.Min(tamanhoMax, texto.Length - i)));
+        }
         return partes;
     }
 
@@ -153,16 +150,40 @@ Responde obrigatoriamente neste formato:
     {
         try
         {
-            var requestBody = new { model = "llama3", prompt = prompt, stream = false };
-            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+            var requestBody = new
+            {
+                model = "llama3",
+                prompt = prompt,
+                stream = false
+            };
+
+            var content = new StringContent(
+                JsonSerializer.Serialize(requestBody),
+                Encoding.UTF8,
+                "application/json"
+            );
+
             var response = await _httpClient.PostAsync("api/generate", content);
 
-            if (!response.IsSuccessStatusCode) return "";
+            if (!response.IsSuccessStatusCode)
+            {
+                return "";
+            }
 
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.TryGetProperty("response", out var resp) ? resp.GetString() ?? "" : "";
+
+            if (doc.RootElement.TryGetProperty("response", out var resp))
+            {
+                return resp.GetString() ?? "";
+            }
+
+            return "";
         }
-        catch { return "Erro na comunicação com o servidor de IA."; }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 Erro comunicação Ollama: {ex.Message}");
+            return "";
+        }
     }
 }

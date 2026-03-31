@@ -3,70 +3,118 @@
 @using gestaopedagogica.Services
 @inject DisciplinaService DisciplinaService
 @inject NavigationManager Nav
+@inject IJSRuntime JS
+@layout MainLayout
 
-<div class="container mt-4">
-    <div class="card shadow border-0" style="border-radius:15px;">
-        <div class="card-header bg-indigo text-white d-flex justify-content-between align-items-center">
-            <h4 class="mb-0">Gerir Disciplinas</h4>
-
-            <button class="btn btn-light rounded-pill"
-                    @onclick='() => Nav.NavigateTo("/admin/CriarDisciplina")'>
-                + Nova Disciplina
+<div class="page-admin">
+    <!-- Cabeçalho -->
+    <div class="admin-header-row">
+        <div>
+    <h1 class="page-title">Gestão de Disciplinas</h1>
+       <p class="page-subtitle">Consulte, edite ou remova as disciplinas do sistema</p>
+        </div>
+  <div class="d-flex gap-2" style="flex-wrap: wrap;">
+     <a href="/admin/DashboardAdmin" class="btn btn-custom btn-custom-outline" style="min-width: 150px;">
+        <i class="bi bi-house"></i> Dashboard
+        </a>
+<button class="btn btn-custom btn-custom-primary" @onclick='() => Nav.NavigateTo("/admin/CriarDisciplina")' style="min-width: 150px;">
+        <i class="bi bi-plus-lg"></i> Nova Disciplina
             </button>
         </div>
-
-        <div class="card-body">
-
-            @if (!disciplinas.Any())
-            {
-                <div class="alert alert-info">
-                    Nenhuma disciplina registada.
-                </div>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Nome</th>
-                                <th class="text-end">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var disc in disciplinas)
-                            {
-                                <tr>
-                                    <td>@disc.Nome</td>
-                                    <td class="text-end">
-                                        <button class="btn btn-sm btn-danger rounded-pill"
-                                                @onclick="() => EliminarDisciplina(disc.Id)">
-                                            Eliminar
-                                        </button>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-
-        </div>
     </div>
+
+    <!-- Card Principal -->
+    <div class="custom-card elevation-2">
+        @if (disciplinas == null)
+        {
+ <div class="card-body-custom text-center">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+           <p class="mt-4 text-muted">A carregar disciplinas...</p>
+    </div>
+        }
+        else if (!disciplinas.Any())
+        {
+   <div class="card-body-custom text-center py-5">
+ <i class="bi bi-folder-x" style="font-size: 3rem; color: #ccc;"></i>
+          <p class="mt-3 text-muted">Nenhuma disciplina registada até ao momento</p>
+    </div>
+        }
+        else
+        {
+            <div style="overflow-x: auto;">
+              <table class="custom-table">
+  <thead>
+           <tr>
+           <th style="width: 60%;">Nome da Disciplina</th>
+                <th style="width: 40%;" class="text-center">Ações</th>
+    </tr>
+         </thead>
+             <tbody>
+        @foreach (var disc in disciplinas)
+     {
+      <tr>
+          <td>
+   <i class="bi bi-book" style="color: var(--primary-color); margin-right: 10px;"></i>
+             <strong>@disc.Nome</strong>
+       </td>
+      <td class="text-center">
+               <button class="btn btn-custom btn-custom-danger" style="padding: 6px 12px; font-size: 0.9rem;"
+                @onclick="() => ConfirmarEliminacao(disc.Id, disc.Nome)">
+     <i class="bi bi-trash"></i> Eliminar
+      </button>
+         </td>
+         </tr>
+               }
+              </tbody>
+         </table>
+     </div>
+        }
+</div>
 </div>
 
 @code {
-
-    private List<Disciplina> disciplinas = new();
+    private List<Disciplina> disciplinas;
 
     protected override async Task OnInitializedAsync()
     {
+        await CarregarDados();
+ }
+
+    private async Task CarregarDados()
+    {
         disciplinas = await DisciplinaService.GetDisciplinasAsync();
     }
 
-    private async Task EliminarDisciplina(int id)
+    private async Task ConfirmarEliminacao(int id, string nome)
     {
-        await DisciplinaService.DeleteDisciplinaAsync(id);
-        disciplinas = await DisciplinaService.GetDisciplinasAsync();
+        bool confirmado = await JS.InvokeAsync<bool>("confirm", $"Tem a certeza que deseja eliminar a disciplina '{nome}'?");
+
+        if (confirmado)
+        {
+    await ExecutarEliminacao(id);
+      }
     }
+
+    private async Task ExecutarEliminacao(int id)
+  {
+     try
+     {
+            await DisciplinaService.DeleteDisciplinaAsync(id);
+
+            var item = disciplinas.FirstOrDefault(d => d.Id == id);
+            if (item != null)
+  {
+       disciplinas.Remove(item);
+            }
+
+StateHasChanged();
+       await JS.InvokeVoidAsync("alert", "✅ Disciplina eliminada com sucesso!");
+        }
+        catch (Exception ex)
+        {
+            var errorMsg = ex.InnerException?.Message ?? ex.Message;
+            await JS.InvokeVoidAsync("alert", $"❌ Erro ao eliminar:\n{errorMsg}");
+      Console.WriteLine($"Erro detalhado ao eliminar: {ex}");
+        }
+ }
 }

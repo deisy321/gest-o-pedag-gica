@@ -22,6 +22,12 @@ builder.Services.AddSingleton<UserState>();
 
 // Configure DbContext with PostgreSQL
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+// ESTA LINHA É A QUE RESOLVE O SEU ERRO (Adiciona a Factory)
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+// Mantemos esta para o Identity e outros serviços scoped funcionarem
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString)
 );

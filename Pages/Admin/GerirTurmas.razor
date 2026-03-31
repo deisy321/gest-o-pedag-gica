@@ -11,224 +11,191 @@
 @inject CursoService CursoService
 @inject NavigationManager Nav
 
-<style>
-    .modal-bg {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.5);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-    }
-
-    .modal-card {
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        width: 550px;
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-
-    .scroll-list {
-        max-height: 120px;
-        overflow-y: auto;
-        border: 1px solid #dee2e6;
-        padding: 10px;
-        border-radius: 5px;
-        background: #f8f9fa;
-    }
-</style>
-
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3><i class="bi bi-person-video3 me-2"></i>Gerir Turmas</h3>
+<div class="page-admin animate-fade-in">
+    @* Cabeçalho *@
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <button class="btn btn-outline-secondary rounded-pill me-2" @onclick='() => Nav.NavigateTo("/admin/GerirCursos")'>
-                <i class="bi bi-book me-1"></i> Gerir Cursos
+            <h2 class="text-gradient fw-bold mb-0">Gerir Turmas</h2>
+            <p class="text-muted small">Administração de turmas, alunos e corpo docente</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary rounded-pill px-4" @onclick='() => Nav.NavigateTo("/admin/GerirCursos")'>
+                <i class="bi bi-book me-2"></i>Cursos
             </button>
-            <button class="btn btn-success rounded-pill" @onclick="MostrarCriarTurma">
-                <i class="bi bi-plus-circle me-1"></i> Criar Nova Turma
+            <button class="qa-item green border-0 px-4 shadow-sm" style="margin-bottom: 0;" @onclick="MostrarCriarTurma">
+                <i class="bi bi-plus-lg me-2"></i>Nova Turma
             </button>
         </div>
     </div>
 
+    @* Alertas *@
     @if (!string.IsNullOrEmpty(ErroMensagem))
     {
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-       <i class="bi bi-exclamation-triangle me-2"></i>
-   <strong>Erro:</strong> @ErroMensagem
-       <button type="button" class="btn-close" @onclick='() => ErroMensagem = ""'></button>
+        <div class="alert alert-danger border-0 shadow-sm mb-3">
+            <i class="bi bi-exclamation-octagon-fill me-2"></i> @ErroMensagem
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(SucessoMensagem))
+    {
+        <div class="alert alert-success border-0 shadow-sm mb-3">
+            <i class="bi bi-check-circle-fill me-2"></i> @SucessoMensagem
         </div>
     }
 
-  @if (!string.IsNullOrEmpty(SucessoMensagem))
-    {
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-          <i class="bi bi-check-circle me-2"></i>
-        <strong>Sucesso:</strong> @SucessoMensagem
-     <button type="button" class="btn-close" @onclick='() => SucessoMensagem = ""'></button>
-   </div>
-    }
-
-    @if (CarregandoDados)
-    {
-        <div class="card shadow-sm border-0">
-   <div class="card-body p-4 text-center">
-          <div class="spinner-border text-primary" role="status">
-         <span class="visually-hidden">Carregando...</span>
-           </div>
-<p class="mt-2">Carregando turmas...</p>
-        </div>
-        </div>
-    }
-    else
-    {
-        <div class="card shadow-sm border-0">
-        <div class="card-body p-0">
-            <table class="table table-hover mb-0">
-       <thead class="bg-light">
-             <tr>
-        <th>Nome</th>
-           <th>Curso</th>
-                    <th>Ano Letivo</th>
-  <th>Alunos</th>
-             <th class="text-center">Ações</th>
-         </tr>
-          </thead>
-     <tbody>
-@if (Turmas != null && Turmas.Any())
-     {
-        @foreach (var t in Turmas)
-         {
-  <tr>
-       <td class="fw-bold">@t.Nome</td>
-     <td><span class="badge bg-secondary">@(t.Curso?.Nome ?? "Sem Curso")</span></td>
-          <td>@t.Ano</td>
-            <td><span class="badge bg-info text-dark">@(t.Alunos?.Count ?? 0)</span></td>
- <td class="text-center">
-      <button class="btn btn-outline-danger btn-sm" @onclick="() => Remover(t)">Eliminar</button>
-       </td>
-      </tr>
-     }
-          }
-            else
-    {
-  <tr><td colspan="5" class="text-center p-5 text-muted">Nenhuma turma encontrada.</td></tr>
-  }
-     </tbody>
-     </table>
-   </div>
-        </div>
-    }
+    @* Tabela *@
+    <div class="custom-card shadow-sm border-0">
+        @if (CarregandoDados)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted">A atualizar dados...</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Identificação</th>
+                            <th>Curso</th>
+                            <th>Ano Letivo</th>
+                            <th class="text-center">Alunos</th>
+                            <th class="text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Turmas != null && Turmas.Any())
+                        {
+                            @foreach (var t in Turmas)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-dark">@t.Nome</div>
+                                        <small class="text-muted">ID: #@t.Id</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge rounded-pill bg-light text-primary border px-3">
+                                            @(t.Curso?.Nome ?? "Sem Curso")
+                                        </span>
+                                    </td>
+                                    <td><span class="text-secondary">@t.Ano</span></td>
+                                    <td class="text-center">
+                                        <span class="badge bg-info bg-opacity-10 text-info border-info border-opacity-25 px-3">
+                                            @((t.Alunos?.Count ?? 0)) Inscritos
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-danger border-0 rounded-circle" @onclick="() => Remover(t)">
+                                            <i class="bi bi-trash3 fs-5"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">Nenhuma turma encontrada.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
 </div>
 
+@* Modal *@
 @if (MostrarModalCriar)
 {
-    <div class="modal-bg">
-        <div class="modal-card shadow-lg">
-    <h4>Criar Nova Turma</h4>
-    <hr />
-
-            <div class="mb-3">
-          <label class="form-label fw-bold">1. Selecionar Curso:</label>
-
-                <select class="form-select border-primary"
-  @bind-value="NovaTurma.CursoId"
-        @bind-value:event="onchange">
-
-      <option value="">-- Selecione o Curso --</option>
-
-         @foreach (var c in TodosCursos)
- {
-      <option value="@c.Id">@c.Nome</option>
-   }
-                </select>
-
-    @if (NovaTurma.CursoId == null)
-                {
-       <small class="text-danger">Obrigatório selecionar um curso.</small>
-   }
+    <div class="modal-bg animate-fade-in">
+        <div class="modal-card shadow-lg animate-slide-up">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold mb-0 text-primary">Configurar Turma</h4>
+                <button class="btn-close" @onclick="() => MostrarModalCriar = false"></button>
             </div>
 
-            <div class="row">
-          <div class="col-md-6 mb-3">
-    <label class="form-label">Nome da Turma:</label>
-               <input class="form-control" placeholder="Ex: 10º A" @bind="NovaTurma.Nome" />
-   </div>
-                <div class="col-md-6 mb-3">
-         <label class="form-label">Ano Letivo:</label>
-       <input class="form-control" placeholder="2023/24" @bind="NovaTurma.Ano" />
-       </div>
-       </div>
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label fw-bold small text-secondary">CURSO BASE</label>
+                    <select class="form-select rounded-pill" @bind="NovaTurma.CursoId">
+                        <option value="">Selecione o Curso...</option>
+                        @foreach (var c in TodosCursos)
+                        {
+                            <option value="@c.Id">@c.Nome</option>
+                        }
+                    </select>
+                </div>
 
-        <label class="fw-bold">2. Associar Professores (Opcional):</label>
-      <div class="row">
-        <div class="col-md-6">
-      <select class="form-select mb-2" @bind="ProfessorSelecionado">
-     <option value="0">Selecione um professor</option>
-   @foreach (var p in TodosProfessores)
-          {
-     <option value="@p.Id">@p.Nome</option>
- }
-       </select>
-   </div>
-    <div class="col-md-6">
-          <select class="form-select mb-2" @bind="DisciplinaSelecionada">
-            <option value="0">Selecione a disciplina</option>
-         @foreach (var d in TodosDisciplinas)
-     {
-  <option value="@d.Id">@d.Nome</option>
-    }
-       </select>
- </div>
-   </div>
-      <button class="btn btn-outline-primary btn-sm mb-2" @onclick="AdicionarProfessor">Adicionar Professor</button>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold small text-secondary">NOME DA TURMA</label>
+                    <input class="form-control rounded-pill" @bind="NovaTurma.Nome" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold small text-secondary">ANO LETIVO</label>
+                    <input class="form-control rounded-pill" @bind="NovaTurma.Ano" />
+                </div>
 
-            <div class="mb-3 scroll-list">
-     @foreach (var tp in NovaTurma.Professores.ToList())
-   {
-   <div class="badge bg-primary m-1 p-2">
- @tp.Professor?.Nome (@tp.Disciplina?.Nome ?? "N/A")
- <span style="cursor:pointer" @onclick="() => RemoverProfessor(tp)">×</span>
-    </div>
- }
- </div>
+                @* Professores *@
+                <div class="col-12 mt-3">
+                    <label class="form-label fw-bold">Corpo Docente</label>
+                    <div class="input-group">
+                        <select class="form-select rounded-start-pill" @bind="ProfessorSelecionado">
+                            <option value="0">Professor...</option>
+                            @foreach (var p in TodosProfessores)
+                            {
+                                <option value="@p.Id">@p.Nome</option>
+                            }
+                        </select>
+                        <select class="form-select" @bind="DisciplinaSelecionada">
+                            <option value="0">Disciplina...</option>
+                            @foreach (var d in TodosDisciplinas)
+                            {
+                                <option value="@d.Id">@d.Nome</option>
+                            }
+                        </select>
+                        <button class="btn btn-primary rounded-end-pill" @onclick="AdicionarProfessor"><i class="bi bi-plus"></i></button>
+                    </div>
+                    <div class="mt-2">
+                        @foreach (var tp in NovaTurma.Professores)
+                        {
+                            <span class="badge bg-white text-dark border m-1 p-2 rounded-pill shadow-sm">
+                                @tp.Professor?.Nome (@tp.Disciplina?.Nome)
+                                <i class="bi bi-x-circle ms-2 text-danger" style="cursor:pointer" @onclick="() => NovaTurma.Professores.Remove(tp)"></i>
+                            </span>
+                        }
+                    </div>
+                </div>
 
-        <label class="fw-bold">3. Associar Alunos (Opcional):</label>
-          <select class="form-select mb-2" @onchange="AdicionarAluno">
-     <option value="0">Selecione um aluno</option>
- @foreach (var a in TodosAlunos)
-    {
-   <option value="@a.Id">@a.Nome</option>
- }
-      </select>
+                @* Alunos *@
+                <div class="col-12 mt-2">
+                    <label class="form-label fw-bold">Adicionar Alunos</label>
+                    <select class="form-select rounded-pill" @onchange="AdicionarAluno">
+                        <option value="0">Selecionar aluno...</option>
+                        @foreach (var a in TodosAlunos)
+                        {
+                            <option value="@a.Id">@a.Nome</option>
+                        }
+                    </select>
+                    <div class="scroll-list mt-2 rounded-3" style="max-height: 150px; overflow-y: auto; border: 1px solid #eee; padding: 10px;">
+                        @foreach (var a in NovaTurma.Alunos)
+                        {
+                            <div class="d-flex justify-content-between border-bottom py-1">
+                                <span class="small">@a.Nome</span>
+                                <i class="bi bi-trash text-danger" style="cursor:pointer" @onclick="() => NovaTurma.Alunos.Remove(a)"></i>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
 
-          <div class="mb-3 scroll-list">
- @foreach (var a in NovaTurma.Alunos.ToList())
-     {
- <div class="d-flex justify-content-between small border-bottom">
-      <span>@a.Nome</span>
-          <button class="btn btn-link btn-sm text-danger" @onclick="() => RemoverAluno(a)">Remover</button>
-</div>
- }
-    </div>
-
-      <div class="d-flex justify-content-end mt-4">
-     <button class="btn btn-secondary me-2" @onclick="() => MostrarModalCriar = false">Cancelar</button>
-
-    <button class="btn btn-success"
-@onclick="SalvarNovaTurma"
-      disabled="@(NovaTurma.CursoId == null)">
-Criar Turma
-           </button>
-</div>
+            <div class="mt-4 pt-3 border-top d-flex gap-2">
+                <button class="btn btn-light rounded-pill flex-grow-1" @onclick="() => MostrarModalCriar = false">Cancelar</button>
+                <button class="qa-item dark-blue border-0 flex-grow-1 justify-content-center" @onclick="SalvarNovaTurma">Gravar Turma</button>
+            </div>
         </div>
-  </div>
+    </div>
 }
 
 @code {
@@ -241,12 +208,10 @@ Criar Turma
     bool MostrarModalCriar = false;
     bool CarregandoDados = true;
     Turma NovaTurma = new();
-    
     int ProfessorSelecionado = 0;
     int DisciplinaSelecionada = 0;
-    
     string? ErroMensagem;
-  string? SucessoMensagem;
+    string? SucessoMensagem;
 
     protected override async Task OnInitializedAsync() => await CarregarDados();
 
@@ -254,199 +219,64 @@ Criar Turma
     {
         try
         {
-       CarregandoDados = true;
-  ErroMensagem = null;
-
+            CarregandoDados = true;
             TodosProfessores = await ProfessorService.GetProfessoresAsync() ?? new();
-   TodosAlunos = await AlunoService.GetAlunosAsync() ?? new();
- TodosCursos = await CursoService.GetCursosAsync() ?? new();
-     TodosDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new();
-
-   // 🔧 CORREÇÃO: Usar GetTurmasComCursoAsync() para carregar alunos também
-          Console.WriteLine("[GerirTurmas] Carregando turmas com cursos e alunos...");
+            TodosAlunos = await AlunoService.GetAlunosAsync() ?? new();
+            TodosCursos = await CursoService.GetCursosAsync() ?? new();
+            TodosDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new();
             Turmas = await TurmaService.GetTurmasComCursoAsync() ?? new();
-
-     Console.WriteLine($"✅ Turmas carregadas: {Turmas.Count}");
-   foreach (var t in Turmas)
-            {
-           Console.WriteLine($"  - {t.Nome}: {t.Alunos?.Count ?? 0} alunos");
-            }
-
-      Console.WriteLine($"✅ Professores carregados: {TodosProfessores.Count}");
-            Console.WriteLine($"✅ Alunos carregados: {TodosAlunos.Count}");
-            Console.WriteLine($"✅ Cursos carregados: {TodosCursos.Count}");
-            Console.WriteLine($"✅ Disciplinas carregadas: {TodosDisciplinas.Count}");
         }
-        catch (Exception ex)
-        {
-   ErroMensagem = $"Erro ao carregar dados: {ex.Message}";
-     Console.WriteLine($"❌ ERRO: {ex}");
-        }
-     finally
-        {
-            CarregandoDados = false;
-        }
+        catch (Exception ex) { ErroMensagem = $"Erro: {ex.Message}"; }
+        finally { CarregandoDados = false; }
     }
 
     void MostrarCriarTurma()
     {
-        NovaTurma = new Turma
-        {
-            Professores = new(),
-            Alunos = new(),
-     CursoId = null
-     };
-        ProfessorSelecionado = 0;
-        DisciplinaSelecionada = 0;
+        NovaTurma = new Turma { Professores = new(), Alunos = new() };
         MostrarModalCriar = true;
-    }
-
-    void RemoverProfessor(TurmaProfessor tp)
-    {
-     NovaTurma.Professores.Remove(tp);
-        StateHasChanged();
-    }
-
-    void RemoverAluno(Aluno aluno)
-    {
-        NovaTurma.Alunos.Remove(aluno);
-      StateHasChanged();
     }
 
     void AdicionarProfessor()
     {
-        if (ProfessorSelecionado == 0 || DisciplinaSelecionada == 0)
-        {
- ErroMensagem = "Selecione um professor e uma disciplina!";
-            return;
-        }
-
+        if (ProfessorSelecionado == 0 || DisciplinaSelecionada == 0) return;
         var p = TodosProfessores.FirstOrDefault(x => x.Id == ProfessorSelecionado);
-   var d = TodosDisciplinas.FirstOrDefault(x => x.Id == DisciplinaSelecionada);
-
-  if (p != null && d != null && !NovaTurma.Professores.Any(x => x.ProfessorId == ProfessorSelecionado && x.DisciplinaId == DisciplinaSelecionada))
-     {
-         NovaTurma.Professores.Add(new TurmaProfessor 
-          { 
-                ProfessorId = ProfessorSelecionado, 
-           Professor = p,
-   DisciplinaId = DisciplinaSelecionada,
-          Disciplina = d
-});
-         ProfessorSelecionado = 0;
-      DisciplinaSelecionada = 0;
-     StateHasChanged();
+        var d = TodosDisciplinas.FirstOrDefault(x => x.Id == DisciplinaSelecionada);
+        if (p != null && d != null)
+        {
+            NovaTurma.Professores.Add(new TurmaProfessor { ProfessorId = p.Id, Professor = p, DisciplinaId = d.Id, Disciplina = d });
+            ProfessorSelecionado = 0; DisciplinaSelecionada = 0;
         }
     }
 
     void AdicionarAluno(ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out int id) && id != 0)
-   {
-       var a = TodosAlunos.FirstOrDefault(x => x.Id == id);
-
-            if (a != null && !NovaTurma.Alunos.Any(x => x.Id == id))
         {
-         NovaTurma.Alunos.Add(a);
-       StateHasChanged();
-            }
-}
+            var a = TodosAlunos.FirstOrDefault(x => x.Id == id);
+            if (a != null && !NovaTurma.Alunos.Any(x => x.Id == id)) NovaTurma.Alunos.Add(a);
+        }
     }
 
     async Task SalvarNovaTurma()
     {
-  if (NovaTurma.CursoId == null || string.IsNullOrWhiteSpace(NovaTurma.Nome))
-{
-      ErroMensagem = "Dados inválidos. Nome e Curso são obrigatórios!";
-       return;
-   }
-
-  try
-    {
-     Console.WriteLine($"[GerirTurmas] Salvando turma: {NovaTurma.Nome}");
-  Console.WriteLine($"[GerirTurmas] - Alunos na turma: {NovaTurma.Alunos.Count}");
-        Console.WriteLine($"[GerirTurmas] - Professores na turma: {NovaTurma.Professores.Count}");
-
-   // Limpar mensagens anteriores
-ErroMensagem = null;
-     SucessoMensagem = null;
-
-   // Se não houver professores, limpa a lista
-   if (!NovaTurma.Professores.Any())
-     {
-  NovaTurma.Professores = new();
-       }
-
- // Se não houver alunos, limpa a lista
-   if (!NovaTurma.Alunos.Any())
- {
-  NovaTurma.Alunos = new();
-   }
-
-    await TurmaService.AddTurmaAsync(NovaTurma);
-  
-     SucessoMensagem = "Turma criada com sucesso!";
-  MostrarModalCriar = false;
-
-  // Auto-fechar mensagem após 5 segundos
-   _ = AutoFecharMensagem();
-
-  // Delay para garantir que o BD foi atualizado
-      await Task.Delay(1500);
-
- // Usa GetTurmasComCursoAsync para carregar com alunos
- Console.WriteLine("[GerirTurmas] Recarregando turmas após salvar...");
-      Turmas = await TurmaService.GetTurmasComCursoAsync() ?? new();
-
-Console.WriteLine($"✅ [Razor] Turmas após salvar: {Turmas.Count}");
-      foreach (var t in Turmas)
-      {
-  Console.WriteLine($"  - {t.Nome}: {t.Alunos?.Count ?? 0} alunos");
-     }
-
-  StateHasChanged();
- }
-  catch (Exception ex)
-  {
-// Se chegou aqui, houve erro APÓS salvar (ao recarregar)
-     // A turma foi criada, então não mostrar erro completo
-   ErroMensagem = $"⚠️ Turma criada! (Aviso ao recarregar)";
-      Console.WriteLine($"❌ AVISO AO RECARREGAR: {ex}");
-   Console.WriteLine($"❌ Inner Exception: {ex.InnerException?.Message}");
-   
- // Auto-fechar mensagem após 5 segundos
-   _ = AutoFecharMensagem();
- }
- }
-
- private async Task AutoFecharMensagem()
-{
-   await Task.Delay(5000);
-    ErroMensagem = null;
-    SucessoMensagem = null;
-  StateHasChanged();
-  }
+        try
+        {
+            await TurmaService.AddTurmaAsync(NovaTurma);
+            SucessoMensagem = "Turma criada!";
+            MostrarModalCriar = false;
+            await CarregarDados();
+            _ = AutoFecharMensagem();
+        }
+        catch { ErroMensagem = "Erro ao gravar."; }
+    }
 
     async Task Remover(Turma t)
     {
-     try
-    {
-      await TurmaService.RemoveTurmaAsync(t);
-            SucessoMensagem = "Turma removida com sucesso!";
-
- // Delay para garantir que o BD foi atualizado
-     await Task.Delay(1000);
-
-  // Usa GetTurmasComCursoAsync
-      Turmas = await TurmaService.GetTurmasComCursoAsync() ?? new();
-
-      Console.WriteLine($"✅ [Razor] Turmas após remover: {Turmas.Count}");
- StateHasChanged();
-   }
-   catch (Exception ex)
-      {
-       ErroMensagem = $"Erro ao remover turma: {ex.Message}";
-      Console.WriteLine($"❌ ERRO AO REMOVER: {ex}");
-   }
+        await TurmaService.RemoveTurmaAsync(t);
+        SucessoMensagem = "Turma removida!";
+        await CarregarDados();
+        _ = AutoFecharMensagem();
     }
+
+    private async Task AutoFecharMensagem() { await Task.Delay(4000); SucessoMensagem = null; ErroMensagem = null; StateHasChanged(); }
 }

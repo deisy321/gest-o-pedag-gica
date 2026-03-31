@@ -13,56 +13,117 @@ namespace gestaopedagogica.Services
             _context = context;
         }
 
-        // ✅ NOVO MÉTODO: Carrega os cursos para o dropdown da página Criar
-        public async Task<List<Curso>> GetCursosAsync()
-        {
-            try
-            {
-                return await _context.Cursos
-                    .OrderBy(c => c.Nome)
-                    .ToListAsync() ?? new List<Curso>();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"ERRO SQL CURSOS: {ex.Message}");
-                return new List<Curso>();
-            }
-        }
+        public async Task<List<Curso>> GetCursosAsync() =>
+            await _context.Cursos.OrderBy(c => c.Nome).ToListAsync();
 
-        public async Task<List<Disciplina>> GetDisciplinasAsync()
-        {
-            try
-            {
-                return await _context.Disciplinas
-                    .Include(d => d.Curso) // ✅ Carrega o Curso obrigatório
-                    .OrderBy(d => d.Nome)
-                    .ToListAsync() ?? new List<Disciplina>();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"ERRO SQL DISCIPLINAS: {ex.Message}");
-                return new List<Disciplina>();
-            }
-        }
+        public async Task<List<Disciplina>> GetDisciplinasAsync() =>
+            await _context.Disciplinas.Include(d => d.Curso).OrderBy(d => d.Nome).ToListAsync();
 
         public async Task AddDisciplinaAsync(Disciplina disciplina)
         {
-            if (disciplina == null) return;
+            if (disciplina == null || disciplina.CursoId == 0)
+                throw new Exception("Selecione um curso válido.");
 
-            // Se o CursoId for 0, o EF pode tentar criar um curso novo ou dar erro de FK
-            if (disciplina.CursoId == 0) throw new Exception("Selecione um curso válido.");
-
-            _context.Disciplinas.Add(disciplina);
-            await _context.SaveChangesAsync();
+            try
+            {
+                disciplina.Curso = null; // ✅ Resolve o erro de criação
+                _context.Disciplinas.Add(disciplina);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.InnerException?.Message ?? ex.Message);
+            }
         }
 
         public async Task DeleteDisciplinaAsync(int id)
         {
-            var disciplina = await _context.Disciplinas.FindAsync(id);
-            if (disciplina != null)
+            try
             {
+                // Carrega a disciplina com todos os relacionamentos
+                var disciplina = await _context.Disciplinas
+                    .Include(d => d.Modulos)
+                    .FirstOrDefaultAsync(d => d.Id == id);
+
+                if (disciplina == null)
+                    throw new Exception("Disciplina não encontrada.");
+
+                // PASSO 1: Remove TurmaProfessor que referenciam esta disciplina
+                var atribuicoesProfessores = await _context.TurmaProfessores
+                    .Where(tp => tp.DisciplinaId == id)
+                    .ToListAsync();
+
+                if (atribuicoesProfessores.Any())
+                {
+                    _context.TurmaProfessores.RemoveRange(atribuicoesProfessores);
+                    await _context.SaveChangesAsync();
+                }
+
+                // PASSO 2: Se houver módulos, remove todos os dependentes
+                if (disciplina.Modulos != null && disciplina.Modulos.Any())
+                {
+                    var moduloIds = disciplina.Modulos.Select(m => m.Id).ToList();
+
+                    // Remove comentários dos trabalhos destes módulos
+                    var trabalhoIds = await _context.Trabalhos
+                        .Where(t => t.ModuloId.HasValue && moduloIds.Contains(t.ModuloId.Value))
+                        .Select(t => t.Id)
+                        .ToListAsync();
+
+                    if (trabalhoIds.Any())
+                    {
+                        var comentarios = await _context.Comentarios
+                            .Where(c => trabalhoIds.Contains(c.TrabalhoId))
+                            .ToListAsync();
+
+                        if (comentarios.Any())
+                            _context.Comentarios.RemoveRange(comentarios);
+
+                        // Remove vertentes dos trabalhos
+                        var vertentes = await _context.TrabalhoVertentes
+                            .Where(tv => trabalhoIds.Contains(tv.TrabalhoId))
+                            .ToListAsync();
+
+                        if (vertentes.Any())
+                            _context.TrabalhoVertentes.RemoveRange(vertentes);
+
+                        // Remove os trabalhos
+                        var trabalhos = await _context.Trabalhos
+                            .Where(t => trabalhoIds.Contains(t.Id))
+                            .ToListAsync();
+
+                        if (trabalhos.Any())
+                            _context.Trabalhos.RemoveRange(trabalhos);
+                    }
+
+                    // Remove TurmaModulo
+                    var turmaModulos = await _context.TurmaModulos
+                        .Where(tm => moduloIds.Contains(tm.ModuloId))
+                        .ToListAsync();
+
+                    if (turmaModulos.Any())
+                        _context.TurmaModulos.RemoveRange(turmaModulos);
+
+                    // Remove Modulos
+                    _context.Modulos.RemoveRange(disciplina.Modulos);
+                }
+
+                // PASSO 3: Remove a disciplina
                 _context.Disciplinas.Remove(disciplina);
+
+                // Salva todas as mudanças
                 await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException dbEx)
+            {
+                var innerMsg = dbEx.InnerException?.InnerException?.Message
+                    ?? dbEx.InnerException?.Message
+                    ?? dbEx.Message;
+                throw new Exception($"Erro de banco de dados ao eliminar: {innerMsg}. Verifique se existem referências ativas a esta disciplina.");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Erro ao eliminar disciplina: {ex.Message}");
             }
         }
     }

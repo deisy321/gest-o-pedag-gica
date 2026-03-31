@@ -2,36 +2,22 @@
 @inherits LayoutComponentBase
 @using gestaopedagogica.Components
 
+@* Importação dos estilos *@
 <link href="bootstrap/bootstrap.min.css" rel="stylesheet" />
 <link href="css/custom.css" rel="stylesheet" />
 
-<div class="layout-wrapper">
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <Sidebar MenuItems="FilteredMenuItems" />
-    </div>
+<div class="layout-wrapper-full">
+    @* Navbar no topo *@
+    <Navbar />
 
-    <!-- Main Content -->
-    <div class="main-content">
-        <!-- Navbar -->
-        <Navbar />
-
-        <!-- Body Content -->
-        <div class="body-content">
+    @* Conteúdo que agora ocupa 100% da largura *@
+    <main class="main-content-clean">
+        <div class="container-fluid py-4">
             @Body
         </div>
-    </div>
+    </main>
 </div>
 
-
 @code {
-    private List<Sidebar.MenuItem> MenuItems = new()
-    {
-        new Sidebar.MenuItem { Name = "Dashboard (Admin)", Url = "/admin/DashboardAdmin", Roles = new List<string>{"Administrador"} },
-        new Sidebar.MenuItem { Name = "Gerir Utilizadores", Url = "/admin/ListarUtilizadores", Roles = new List<string>{"Administrador"} },
-        new Sidebar.MenuItem { Name = "Dashboard (Professor)", Url = "/professor/DashboardProfessor", Roles = new List<string>{"Professor"} },
-        new Sidebar.MenuItem { Name = "Dashboard (Aluno)", Url = "/aluno/DashboardAluno", Roles = new List<string>{"Aluno"} },
-    };
-
-    private List<Sidebar.MenuItem> FilteredMenuItems => MenuItems;
+    // A lógica de MenuItems pode ser removida se você não for usá-la na Navbar
 }

@@ -8,164 +8,146 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@layout MainLayout
 
-@inject NavigationManager Nav
-
-<nav class="navbar navbar-expand-lg navbar-dark fixed-top"
-     style="background: linear-gradient(90deg, #1e3a8a 0%, #0d9488 100%);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 0.5rem 1rem;
-            z-index:1050;">
-
-    <!-- Logótipo e Nome -->
-    <a class="navbar-brand d-flex align-items-center" href="/">
-        <img src="/images/logo_triadelearn.png"
-             alt="Logo TriadeLearn"
-             style="height: 40px; width: 40px; border-radius: 50%; margin-right: 12px; background: white; padding: 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" />
-        <span style="font-weight: 600; letter-spacing: 0.5px;">TriadeLearn</span>
-    </a>
-
-    <div class="ms-auto d-flex align-items-center" style="gap:1rem;">
-        <AuthorizeView>
-            <Authorized>
-
-                <!-- Avatar -->
-                <div class="d-flex align-items-center text-white me-2">
-                    <a href="/Conta" style="text-decoration: none; color: inherit;">
-                        <div style="width: 32px; height: 32px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 8px; border: 1px solid rgba(255,255,255,0.4); cursor:pointer;">
-                            <i class="bi bi-person-fill"></i>
-                        </div>
-                    </a>
-
-                    <span style="font-size: 0.95rem;">
-                        Olá, <strong>@context.User.Identity?.Name</strong>
-                    </span>
-                </div>
-
-                <!-- Logout -->
-                <form method="post" action="/Identity/Account/Logout" class="d-inline">
-                    <button type="submit" class="btn btn-sm btn-outline-light rounded-pill px-3">
-                        <i class="bi bi-box-arrow-right me-1"></i> Logout
-                    </button>
-                </form>
-
-            </Authorized>
-
-            <NotAuthorized>
-                <a href="/login" class="btn btn-sm btn-light rounded-pill px-3 me-2">Login</a>
-                <a href="/register" class="btn btn-sm btn-outline-light rounded-pill px-3">Registar</a>
-            </NotAuthorized>
-        </AuthorizeView>
-    </div>
-</nav>
-
-@code {
-    [CascadingParameter]
-    private Task<AuthenticationState>? AuthState { get; set; }
-}
-
-<div class="container-fluid mt-4" style="margin-top:80px;">
+<div class="page-teacher">
     @if (IsLoading)
     {
         <div class="text-center mt-5">
-            <div class="spinner-border text-primary"></div>
-            <p>Carregando dados...</p>
-        </div>
+   <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+            <p class="mt-3 text-muted">Carregando dados...</p>
+    </div>
     }
     else
     {
-        <!-- BLOCO FIXO (BOTÕES + CARDS) -->
-        <div class="sticky-top bg-white pb-3" style="top:70px; z-index:1000;">
+        <!-- Cabeçalho -->
+        <div class="admin-header-row">
+       <div>
+      <h1 class="page-title">Dashboard de Professor</h1>
+    <p class="page-subtitle">Acompanhe seus alunos, turmas e trabalhos</p>
+   </div>
+  <div class="d-flex gap-2" style="flex-wrap: wrap;">
+     <button class="btn btn-custom btn-custom-secondary" @onclick="IrParaRelatorios">
+       <i class="bi bi-file-text"></i> Relatórios
+</button>
+         <button class="btn btn-custom btn-custom-primary" @onclick="CriarTrabalho">
+   <i class="bi bi-plus-lg"></i> Criar Trabalho
+  </button>
+        </div>
+ </div>
 
-            <!-- BOTÕES -->
-            <div class="mb-4 d-flex gap-2">
-                <button class="btn btn-outline-primary" @onclick="IrParaRelatorios">Relatórios</button>
-                <button class="btn btn-outline-secondary" @onclick="CriarTrabalho">Criar Trabalho</button>
+        <!-- Cards de Estatísticas -->
+        <div class="row g-3" style="margin-bottom: 2rem;">
+      <div class="col-md-6 col-lg-3">
+         <div class="stat-card card-blue">
+            <i class="bi bi-people stat-card-icon"></i>
+     <div class="stat-card-content">
+          <h3>Total de Alunos</h3>
+    <p>@Alunos.Count</p>
+          </div>
+</div>
             </div>
 
-            <!-- CARDS -->
-            <div class="row mb-4 g-3">
-                <div class="col-md-3">
-                    <div class="card text-white text-center" style="background:#4e73df; border-radius:15px;">
-                        <div class="card-body">
-                            <small>Total de Alunos</small>
-                            <h3>@Alunos.Count</h3>
-                        </div>
-                    </div>
-                </div>
+        <div class="col-md-6 col-lg-3">
+  <div class="stat-card card-green">
+        <i class="bi bi-people-fill stat-card-icon"></i>
+              <div class="stat-card-content">
+    <h3>Total de Turmas</h3>
+              <p>@Turmas.Count</p>
+             </div>
+       </div>
+       </div>
 
-                <div class="col-md-3">
-                    <div class="card text-white text-center" style="background:#1cc88a; border-radius:15px;">
-                        <div class="card-body">
-                            <small>Total de Turmas</small>
-                            <h3>@Turmas.Count</h3>
-                        </div>
-                    </div>
-                </div>
+<div class="col-md-6 col-lg-3">
+    <div class="stat-card card-yellow">
+     <i class="bi bi-file-earmark stat-card-icon"></i>
+         <div class="stat-card-content">
+       <h3>Trabalhos Pendentes</h3>
+             <p>@TodosTrabalhosPendentes.Count</p>
+     </div>
+      </div>
+      </div>
 
-                <div class="col-md-3">
-                    <div class="card text-white text-center" style="background:#f6c23e; border-radius:15px;">
-                        <div class="card-body">
-                            <small>Trabalhos Pendentes</small>
-                            <h3>@TodosTrabalhosPendentes.Count</h3>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="card text-white text-center" style="background:#e74a3b; border-radius:15px;">
-                        <div class="card-body">
-                            <small>Alunos com Média Baixa</small>
-                            <h3>@AlunosMediaBaixa.Count</h3>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+   <div class="col-md-6 col-lg-3">
+      <div class="stat-card card-red">
+         <i class="bi bi-exclamation-triangle stat-card-icon"></i>
+         <div class="stat-card-content">
+          <h3>Média Baixa</h3>
+             <p>@AlunosMediaBaixa.Count</p>
+  </div>
+  </div>
+    </div>
         </div>
 
-        <!-- TABELA -->
-        <div class="row g-4">
-            <div class="col-md-12">
-                <div class="card border-0 shadow-sm p-4" style="border-radius:15px;">
-                    <h5 class="fw-bold mb-3">Alunos</h5>
+        <!-- Filtro e Tabela -->
+    <div class="custom-card elevation-2">
+            <div class="card-header-custom">
+      <h5>Alunos das Suas Turmas</h5>
+     </div>
+            <div class="card-body-custom">
+       <!-- Filtro -->
+          <div class="row g-2 mb-4">
+            <div class="col-md-4">
+          <label class="form-label"><i class="bi bi-funnel"></i> Filtrar por Turma</label>
+   <select class="form-select" @onchange="FiltrarTurma">
+    <option value="">Todas as Turmas</option>
+@foreach (var turma in Turmas)
+          {
+     <option value="@turma.Id">@turma.Nome</option>
+           }
+          </select>
+     </div>
+           </div>
 
-                    <div class="mb-3 d-flex align-items-center gap-3">
-                        <select class="form-select shadow-sm" style="border-radius:12px; width:200px;" @onchange="FiltrarTurma">
-                            <option value="">Todas as Turmas</option>
-                            @foreach (var turma in Turmas)
-                            {
-                                <option value="@turma.Id">@turma.Nome</option>
-                            }
-                        </select>
-                    </div>
-
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Email</th>
-                                <th>Turma</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var aluno in AlunosFiltrados)
-                            {
-                                <tr>
-                                    <td>@aluno.Email</td>
-                                    <td>@aluno.Turma?.Nome</td>
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm"
-                                                @onclick='() => Nav.NavigateTo("/professor/FichaAluno/" + aluno.Id)'>
-                                            Ver Ficha
-                                        </button>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-
-                </div>
+        <!-- Tabela -->
+        @if (!AlunosFiltrados.Any())
+     {
+                <div class="text-center py-5">
+    <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+       <p class="mt-3 text-muted">Nenhum aluno encontrado</p>
+             </div>
+    }
+  else
+                {
+     <div style="overflow-x: auto;">
+            <table class="custom-table">
+                <thead>
+     <tr>
+   <th style="width: 40%;">Nome / Email</th>
+ <th style="width: 30%;">Turma</th>
+       <th style="width: 30%;" class="text-center">Ações</th>
+         </tr>
+            </thead>
+        <tbody>
+     @foreach (var aluno in AlunosFiltrados)
+    {
+            <tr>
+ <td>
+   <div class="d-flex align-items-center">
+       <div class="avatar-circle me-2" style="width: 32px; height: 32px; font-size: 0.9rem;">
+    @aluno.Nome?.Substring(0, 1).ToUpper()
+        </div>
+           <div>
+      <strong>@aluno.Nome</strong><br/>
+  <small class="text-muted">@aluno.Email</small>
+     </div>
+ </div>
+                     </td>
+      <td>
+         <span class="badge badge-custom badge-primary">@aluno.Turma?.Nome</span>
+       </td>
+     <td class="text-center">
+            <button class="btn btn-custom btn-custom-primary" style="padding: 6px 12px;"
+   @onclick='() => Nav.NavigateTo("/professor/FichaAluno/" + aluno.Id)'>
+         <i class="bi bi-eye"></i> Ver Ficha
+               </button>
+       </td>
+   </tr>
+        }
+         </tbody>
+         </table>
+            </div>
+      }
             </div>
         </div>
     }
@@ -174,60 +156,59 @@
 @code {
     private List<Aluno> Alunos = new();
     private List<Aluno> AlunosFiltrados = new();
-    private List<Turma> Turmas = new();
+ private List<Turma> Turmas = new();
     private bool IsLoading = true;
-    private int TurmaSelecionadaId = 0;
-
-    private List<Trabalho> TodosTrabalhosPendentes = new();
+ private int TurmaSelecionadaId = 0;
+ private List<Trabalho> TodosTrabalhosPendentes = new();
     private List<Aluno> AlunosMediaBaixa = new();
 
     protected override async Task OnInitializedAsync()
     {
         IsLoading = true;
 
-        try
+   try
         {
-            var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-            var userId = auth.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+      var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+   var userId = auth.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(userId)) return;
 
-            var professor = await ProfessorService.GetProfessorByUserIdAsync(userId);
-            if (professor == null) return;
+   var professor = await ProfessorService.GetProfessorByUserIdAsync(userId);
+      if (professor == null) return;
 
             Turmas = await ProfessorService.GetTurmasDoProfessorAsync(professor.Id);
-            var turmaIds = Turmas.Select(t => t.Id).ToList();
+   var turmaIds = Turmas.Select(t => t.Id).ToList();
 
-            var todosAlunos = await AlunoService.GetAlunosAsync();
-            Alunos = todosAlunos.Where(a => a.TurmaId != null && turmaIds.Contains(a.TurmaId.Value)).ToList();
-            AlunosFiltrados = new List<Aluno>(Alunos);
+   var todosAlunos = await AlunoService.GetAlunosAsync();
+      Alunos = todosAlunos.Where(a => a.TurmaId != null && turmaIds.Contains(a.TurmaId.Value)).ToList();
+    AlunosFiltrados = new List<Aluno>(Alunos);
 
-            var trabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(professor.UserId);
+       var trabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(professor.UserId);
 
-            TodosTrabalhosPendentes = trabalhos
-                .Where(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => !v.Nota.HasValue))
-                .ToList();
+      TodosTrabalhosPendentes = trabalhos
+   .Where(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => !v.Nota.HasValue))
+ .ToList();
 
-            foreach (var aluno in Alunos)
-            {
-                var trabalhosAluno = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(aluno.UserId);
-                var notas = trabalhosAluno
-                    .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                    .Where(v => v.Nota.HasValue)
-                    .Select(v => (double)v.Nota!.Value)
-                    .ToList();
+         foreach (var aluno in Alunos)
+  {
+          var trabalhosAluno = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(aluno.UserId);
+         var notas = trabalhosAluno
+                .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+   .Where(v => v.Nota.HasValue)
+              .Select(v => (double)v.Nota!.Value)
+ .ToList();
 
-                if (notas.Any() && notas.Average() < 6)
-                    AlunosMediaBaixa.Add(aluno);
-            }
+     if (notas.Any() && notas.Average() < 6)
+            AlunosMediaBaixa.Add(aluno);
+       }
         }
         catch (Exception ex)
-        {
+    {
             Console.WriteLine("Erro: " + ex.Message);
         }
         finally
-        {
-            IsLoading = false;
+     {
+  IsLoading = false;
         }
     }
 
@@ -235,28 +216,28 @@
     {
         var val = e.Value?.ToString();
 
-        if (string.IsNullOrEmpty(val))
+     if (string.IsNullOrEmpty(val))
         {
             AlunosFiltrados = new List<Aluno>(Alunos);
-            TurmaSelecionadaId = 0;
+         TurmaSelecionadaId = 0;
         }
         else if (int.TryParse(val, out int id))
-        {
+      {
             TurmaSelecionadaId = id;
-            AlunosFiltrados = Alunos.Where(a => a.TurmaId == id).ToList();
-        }
+         AlunosFiltrados = Alunos.Where(a => a.TurmaId == id).ToList();
+  }
     }
 
     private async Task CriarTrabalho()
     {
-        if (TurmaSelecionadaId > 0)
+   if (TurmaSelecionadaId > 0)
             Nav.NavigateTo("/professor/CriarRoteiro/" + TurmaSelecionadaId);
         else
-            await JS.InvokeVoidAsync("alert", "Selecione uma turma primeiro");
+         await JS.InvokeVoidAsync("alert", "Selecione uma turma primeiro");
     }
 
     private void IrParaRelatorios()
     {
-        Nav.NavigateTo("/professor/RelatoriosProfessor");
+   Nav.NavigateTo("/professor/RelatoriosProfessor");
     }
 }

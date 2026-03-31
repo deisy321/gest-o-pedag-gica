@@ -64,8 +64,41 @@ namespace gestaopedagogica.Services
 
         public async Task RemoveModuloAsync(Modulo modulo)
         {
-            _context.Modulos.Remove(modulo);
-            await _context.SaveChangesAsync();
+            try
+            {
+                // 1. Carrega o módulo com todos os relacionamentos
+                var moduloCompleto = await _context.Modulos
+                                                  .Include(m => m.Turmas)
+                                                  .FirstOrDefaultAsync(m => m.Id == modulo.Id);
+
+                if (moduloCompleto == null)
+                    throw new Exception("Módulo não encontrado.");
+
+                // 2. Remove trabalhos associados a este módulo
+                var trabalhos = await _context.Trabalhos
+                                              .Where(t => t.ModuloId == modulo.Id)
+                                              .ToListAsync();
+
+                if (trabalhos.Any())
+                    _context.Trabalhos.RemoveRange(trabalhos);
+
+                // 3. Remove associações TurmaModulo
+                if (moduloCompleto.Turmas != null && moduloCompleto.Turmas.Any())
+                    _context.TurmaModulos.RemoveRange(moduloCompleto.Turmas);
+
+                // 4. Remove o módulo
+                _context.Modulos.Remove(moduloCompleto);
+
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException dbEx)
+            {
+                throw new Exception("Erro ao remover módulo: Verifique se existem trabalhos ou turmas vinculadas. Detalhes: " + dbEx.InnerException?.Message);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Erro ao remover módulo: " + ex.Message);
+            }
         }
     }
 }

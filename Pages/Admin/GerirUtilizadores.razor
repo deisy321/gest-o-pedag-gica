@@ -10,76 +10,100 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject UserService UserService
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 @namespace gestaopedagogica.Pages.Admin
 @layout MainLayout
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h3>Gerir Utilizadores</h3>
-    <button class="btn btn-primary" @onclick="MostrarCriar">Novo Utilizador</button>
-</div>
+<div class="main-content">
+    <div class="page-admin">
+        @* Cabeçalho com Gradiente *@
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold text-gradient mb-0">Gestão de Utilizadores</h2>
+                <p class="text-muted">Administre as contas de acesso e permissões do sistema.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="user-profile-btn border" @onclick='() => Nav.NavigateTo("/admin/DashboardAdmin")'>
+                    <i class="bi bi-arrow-left me-2"></i> Voltar
+                </button>
+                @* Botão alterado para navegar para a página de registo completa *@
+                <button class="qa-item green border-0 shadow-sm px-4"
+                        style="margin-bottom:0; height: 45px; display: flex; align-items: center;"
+                        @onclick='() => Nav.NavigateTo("/admin/RegisterAdmin")'>
+                    <i class="bi bi-person-plus me-2"></i> Novo Utilizador
+                </button>
+            </div>
+        </div>
 
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Nome</th>
-            <th>Email</th>
-            <th>Perfil</th>
-            <th>Ações</th>
-        </tr>
-    </thead>
-    <tbody>
-        @if (Usuarios == null || !Usuarios.Any())
-        {
-            <tr><td colspan="4" class="text-center">Nenhum utilizador encontrado.</td></tr>
-        }
-        else
-        {
-            @foreach (var user in Usuarios)
-            {
-                <tr>
-                    <td>@user.UserName</td>
-                    <td>@user.Email</td>
-                    <td>@(UserRoles.ContainsKey(user.Id) ? string.Join(", ", UserRoles[user.Id]) : "Sem Perfil")</td>
-                    <td>
-                        <button class="btn btn-warning btn-sm me-1" @onclick="() => ResetarSenha(user)">Resetar Senha</button>
-                        <button class="btn btn-danger btn-sm" @onclick="() => Remover(user)">Remover</button>
-                    </td>
-                </tr>
-            }
-        }
-    </tbody>
-</table>
-
-@if (MostrarModalCriar)
-{
-    <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000;">
-        <div style="background:white;padding:20px;border-radius:8px;width:400px;">
-            <h4>Novo Utilizador</h4>
-            <input class="form-control mb-2" placeholder="Username" @bind="NovoUser.UserName" />
-            <input class="form-control mb-2" placeholder="Email" @bind="NovoUser.Email" />
-            <select class="form-control mb-2" @bind="NovoRole">
-                @foreach (var r in Roles)
-                {
-                    <option value="@r">@r</option>
-                }
-            </select>
-            <div class="mt-3">
-                <button class="btn btn-success me-2" @onclick="SalvarNovo">Guardar</button>
-                <button class="btn btn-secondary" @onclick="() => MostrarModalCriar = false">Cancelar</button>
+        @* Tabela Customizada *@
+        <div class="custom-card p-0 overflow-hidden">
+            <div class="table-responsive">
+                <table class="custom-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>UTILIZADOR</th>
+                            <th>EMAIL</th>
+                            <th>PERFIL / ROLE</th>
+                            <th class="text-center">AÇÕES</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Usuarios == null || !Usuarios.Any())
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    <i class="bi bi-people fs-2 d-block mb-2"></i>
+                                    Nenhum utilizador encontrado.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var user in Usuarios)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-circle me-2" style="width:30px; height:30px;">
+                                                @(user.UserName?.Substring(0, 1).ToUpper() ?? "U")
+                                            </div>
+                                            <span class="fw-bold">@user.UserName</span>
+                                        </div>
+                                    </td>
+                                    <td>@user.Email</td>
+                                    <td>
+                                        @{
+                                            var roles = UserRoles.ContainsKey(user.Id) ? UserRoles[user.Id] : new List<string> { "Sem Perfil" };
+                                            foreach (var role in roles)
+                                            {
+                                                <span class="badge rounded-pill bg-light text-dark border me-1">@role</span>
+                                            }
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="d-flex justify-content-center gap-1">
+                                            <button class="btn btn-sm btn-outline-warning rounded-pill" title="Resetar Senha" @onclick="() => ResetarSenha(user)">
+                                                <i class="bi bi-key"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger rounded-pill" title="Remover" @onclick="() => Remover(user)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-}
+</div>
 
 @code {
-
     private List<ApplicationUser> Usuarios = new();
     private Dictionary<string, List<string>> UserRoles = new();
-    private List<string> Roles = new();
-    private ApplicationUser NovoUser = new();
-    private string NovoRole = "Professor";
-    private bool MostrarModalCriar = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -88,92 +112,53 @@
 
     private async Task CarregarUsuarios()
     {
-        Usuarios = await UserManager.Users.AsNoTracking().ToListAsync();
-        Roles = await RoleManager.Roles.Select(r => r.Name!).ToListAsync();
-
-        UserRoles.Clear();
-
-        foreach (var u in Usuarios)
+        try
         {
-            var rolesForUser = await UserManager.GetRolesAsync(u);
-            UserRoles[u.Id] = rolesForUser.ToList();
+            // Carregamos a lista de utilizadores
+            Usuarios = await UserManager.Users.AsNoTracking().ToListAsync();
+            UserRoles.Clear();
+
+            foreach (var u in Usuarios)
+            {
+                var rolesForUser = await UserManager.GetRolesAsync(u);
+                UserRoles[u.Id] = rolesForUser.ToList();
+            }
         }
-    }
-
-    private void MostrarCriar()
-    {
-        NovoUser = new ApplicationUser();
-        NovoRole = Roles.FirstOrDefault() ?? "Professor";
-        MostrarModalCriar = true;
-    }
-
-    private async Task SalvarNovo()
-    {
-        if (string.IsNullOrWhiteSpace(NovoUser.UserName) || string.IsNullOrWhiteSpace(NovoUser.Email))
+        catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", "Preencha todos os campos.");
-            return;
-        }
-
-        var result = await UserManager.CreateAsync(new ApplicationUser
-        {
-            UserName = NovoUser.UserName,
-            Email = NovoUser.Email
-        }, "Temp123!");
-
-        if (result.Succeeded)
-        {
-            var created = await UserManager.FindByNameAsync(NovoUser.UserName);
-
-            if (created != null)
-                await UserManager.AddToRoleAsync(created, NovoRole);
-
-            await JS.InvokeVoidAsync("alert", "Criado com sucesso! Senha: Temp123!");
-            MostrarModalCriar = false;
-
-            await CarregarUsuarios();
-        }
-        else
-        {
-            await JS.InvokeVoidAsync("alert",
-                "Erro ao criar: " + string.Join(", ", result.Errors.Select(e => e.Description)));
+            Console.WriteLine("Erro ao carregar utilizadores: " + ex.Message);
         }
     }
 
     private async Task ResetarSenha(ApplicationUser user)
     {
+        var confirmado = await JS.InvokeAsync<bool>("confirm", $"Deseja resetar a senha de {user.UserName} para 'Temp123!'?");
+        if (!confirmado) return;
+
         var dbUser = await UserManager.FindByIdAsync(user.Id);
-
-        if (dbUser == null)
+        if (dbUser != null)
         {
-            await JS.InvokeVoidAsync("alert", "Utilizador não encontrado.");
-            return;
+            var token = await UserManager.GeneratePasswordResetTokenAsync(dbUser);
+            var result = await UserManager.ResetPasswordAsync(dbUser, token, "Temp123!");
+            await JS.InvokeVoidAsync("alert", result.Succeeded ? "Senha alterada com sucesso!" : "Falha ao resetar senha.");
         }
-
-        var token = await UserManager.GeneratePasswordResetTokenAsync(dbUser);
-        var result = await UserManager.ResetPasswordAsync(dbUser, token, "Temp123!");
-
-        string msg = result.Succeeded ? "Senha resetada para Temp123!" : "Erro ao resetar.";
-
-        await JS.InvokeVoidAsync("alert", msg);
     }
 
     private async Task Remover(ApplicationUser user)
     {
-        var confirmado = await JS.InvokeAsync<bool>("confirm", $"Deseja mesmo remover {user.UserName}?");
-
+        var confirmado = await JS.InvokeAsync<bool>("confirm", $"ATENÇÃO: Deseja remover permanentemente o utilizador {user.UserName}?");
         if (!confirmado) return;
 
         try
         {
+            // Utiliza o serviço para garantir que a limpeza nas tabelas Aluno/Professor também ocorra
             await UserService.ExcluirUsuarioAsync(user.Id);
             await CarregarUsuarios();
             await JS.InvokeVoidAsync("alert", "Utilizador removido.");
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", "Erro: " + ex.Message);
+            await JS.InvokeVoidAsync("alert", "Erro ao remover: " + ex.Message);
         }
     }
-
 }
