@@ -173,8 +173,7 @@
 
         if (Trabalho != null)
         {
-            var vertentesDb =
-                await TrabalhoService.GetVertentesDoTrabalhoAsync(Trabalho.Id);
+            var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(Trabalho.Id);
 
             Vertentes = vertentesDb.Select(v => new AlunoVertenteModel
             {
@@ -209,7 +208,8 @@
                     Trabalho!.AlunoId!,
                     texto,
                     vert.ArquivoBytes,
-                    Trabalho!.Id
+                    Trabalho!.Id,
+                   vert.Id.ToString()
                 );
 
                 FeedbacksGerados.Add(new FeedbackModel
@@ -276,10 +276,7 @@
         }
     }
 
-    private void FecharModalFeedback()
-    {
-        MostrarModalFeedback = false;
-    }
+    private void FecharModalFeedback() => MostrarModalFeedback = false;
 
     private async Task AceitarFeedback()
     {

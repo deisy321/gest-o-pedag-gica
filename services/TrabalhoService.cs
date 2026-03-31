@@ -190,7 +190,7 @@ namespace gestaopedagogica.Services
         // =============================
         // FEEDBACK IA
         // =============================
-        public async Task<string> GerarFeedbackIAAsync(string alunoUserId, string conteudoAluno, byte[]? arquivoBytes, int trabalhoId)
+        public async Task<string> GerarFeedbackIAAsync(string alunoUserId, string conteudoAluno, byte[]? arquivoBytes, int trabalhoId, string vertenteId)
         {
             if (string.IsNullOrWhiteSpace(conteudoAluno) && arquivoBytes == null)
                 return "Conteúdo vazio, impossível gerar feedback.";
@@ -205,11 +205,12 @@ namespace gestaopedagogica.Services
             var descricaoTrabalho = trabalho.Descricao ?? trabalho.Titulo ?? "Descrição indisponível";
 
             return await _iaService.ObterSugestoes(
-                alunoUserId,
-                trabalhoId.ToString(),
-                conteudoAluno,
-                descricaoTrabalho,
-                arquivoBytes
+                conteudoAluno,           // textoAluno
+                descricaoTrabalho,       // descricaoVertente
+                vertenteId,              // vertenteId
+                alunoUserId,             // alunoId
+                trabalhoId.ToString(),   // trabalhoId
+                arquivoBytes             // arquivoBytes
             );
         }
 
@@ -242,11 +243,12 @@ namespace gestaopedagogica.Services
                 var descricao = trabalho.Descricao ?? trabalho.Titulo ?? "Descrição indisponível";
 
                 var feedback = await _iaService.ObterSugestoes(
-                    alunoUserId,
-                    trabalhoId.ToString(),
-                    vertente.ConteudoTextoAluno ?? "",
-                    descricao,
-                    vertente.FicheiroBytes
+                    vertente.ConteudoTextoAluno ?? "",   // textoAluno
+                    descricao,                            // descricaoVertente
+                    vertente.Id.ToString(),               // vertenteId
+                    alunoUserId,                          // alunoId
+                    trabalhoId.ToString(),                // trabalhoId
+                    vertente.FicheiroBytes                // arquivoBytes
                 );
 
                 feedbacks[vertente.Id] = feedback;

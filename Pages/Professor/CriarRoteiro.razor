@@ -22,10 +22,6 @@
             <p>Carregando dados...</p>
         </div>
     }
-    else if (!string.IsNullOrEmpty(StatusMessage))
-    {
-        <div class="alert alert-info">@StatusMessage</div>
-    }
     else if (TurmaSelecionada == null)
     {
         <div class="alert alert-danger">Turma não encontrada!</div>
@@ -35,43 +31,79 @@
         <h3>Criar Trabalho para @TurmaSelecionada.Nome</h3>
 
         <div class="mb-3">
-            <label>Título</label>
-            <input class="form-control" @bind="Titulo" />
+            <label><strong>Título</strong></label>
+            <input class="form-control" @bind="Titulo" placeholder="Ex: Relatório de Estágio" />
+            @if (!string.IsNullOrEmpty(ErroTitulo))
+            {
+                <small class="text-danger">@ErroTitulo</small>
+            }
         </div>
 
+        @* NOVO CAMPO: Descrição (Obrigatório pelo seu Banco de Dados) *@
         <div class="mb-3">
-            <label>Módulo</label>
-            <select class="form-control" @bind="ModuloSelecionadoId">
-                <option value="0">-- Selecione um módulo --</option>
-                @foreach (var mod in ListaModulos)
+            <label><strong>Descrição do Trabalho</strong></label>
+            <textarea class="form-control" @bind="Descricao" rows="3" placeholder="Descreva brevemente o que deve ser feito"></textarea>
+            @if (!string.IsNullOrEmpty(ErroDescricao))
+            {
+                <small class="text-danger">@ErroDescricao</small>
+            }
+        </div>
+
+        <div class="row">
+            @if (ListaModulos.Count > 0)
+            {
+                <div class="col-md-6 mb-3">
+                    <label>Módulo</label>
+                    <select class="form-control" @bind="ModuloSelecionadoId">
+                        <option value="0">-- Selecione um módulo --</option>
+                        @foreach (var mod in ListaModulos)
+                        {
+                            <option value="@mod.Id">@mod.Nome</option>
+                        }
+                    </select>
+                    @if (!string.IsNullOrEmpty(ErroModulo))
+                    {
+                        <small class="text-danger">@ErroModulo</small>
+                    }
+                </div>
+            }
+
+            @if (ListaDisciplinas.Count > 0)
+            {
+                <div class="col-md-6 mb-3">
+                    <label>Disciplina</label>
+                    <select class="form-control" @bind="DisciplinaSelecionadaId">
+                        <option value="0">-- Selecione uma disciplina --</option>
+                        @foreach (var disc in ListaDisciplinas)
+                        {
+                            <option value="@disc.Id">@disc.Nome</option>
+                        }
+                    </select>
+                    @if (!string.IsNullOrEmpty(ErroDisciplina))
+                    {
+                        <small class="text-danger">@ErroDisciplina</small>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label>Prazo de Entrega</label>
+                <input type="date" class="form-control" @bind="PrazoEntrega" />
+                @if (!string.IsNullOrEmpty(ErroPrazo))
                 {
-                    <option value="@mod.Id">@mod.Nome</option>
+                    <small class="text-danger">@ErroPrazo</small>
                 }
-            </select>
-        </div>
+            </div>
 
-        <div class="mb-3">
-            <label>Disciplina</label>
-            <select class="form-control" @bind="DisciplinaSelecionadaId">
-                <option value="0">-- Selecione uma disciplina --</option>
-                @foreach (var disc in ListaDisciplinas)
-                {
-                    <option value="@disc.Id">@disc.Nome</option>
-                }
-            </select>
-        </div>
-
-        <div class="mb-3">
-            <label>Prazo de Entrega</label>
-            <input type="date" class="form-control" @bind="PrazoEntrega" />
-        </div>
-
-        <div class="mb-3">
-            <label>Tipo de Atribuição</label>
-            <select class="form-control" @bind="TipoAtribuicao">
-                <option value="turma">Para toda a turma</option>
-                <option value="aluno">Para aluno específico</option>
-            </select>
+            <div class="col-md-6 mb-3">
+                <label>Tipo de Atribuição</label>
+                <select class="form-control" @bind="TipoAtribuicao">
+                    <option value="turma">Para toda a turma</option>
+                    <option value="aluno">Para aluno específico</option>
+                </select>
+            </div>
         </div>
 
         @if (TipoAtribuicao == "aluno")
@@ -85,31 +117,44 @@
                         <option value="@aluno.Id">@aluno.Nome</option>
                     }
                 </select>
+                @if (!string.IsNullOrEmpty(ErroAluno))
+                {
+                    <small class="text-danger">@ErroAluno</small>
+                }
             </div>
         }
 
-        <div class="mb-3">
-            <h5>Vertentes</h5>
-            @foreach (var vert in Vertentes)
-            {
-                <div class="mb-2">
-                    <label>@vert.Tipo</label>
-                    <input class="form-control" @bind="vert.ConteudoTexto" placeholder="Conteúdo inicial (opcional)" />
-                </div>
-            }
+        <div class="card mb-3 shadow-sm">
+            <div class="card-body">
+                <h5>Vertentes</h5>
+                @foreach (var vert in Vertentes)
+                {
+                    <div class="mb-2">
+                        <label>@vert.Tipo</label>
+                        <input class="form-control" @bind="vert.ConteudoTexto" placeholder="Conteúdo inicial (opcional)" />
+                    </div>
+                }
+            </div>
         </div>
 
-        <button class="btn btn-success" @onclick="SalvarRoteiro" disabled="@IsSaving">
+        <button type="button" class="btn btn-success btn-lg w-100" @onclick="SalvarRoteiro" disabled="@IsSaving">
             @if (IsSaving)
             {
                 <span class="spinner-border spinner-border-sm"></span>
-                <span>Salvando...</span>
+                <span> Gravando no Banco...</span>
             }
             else
             {
                 <span>Criar Trabalho</span>
             }
         </button>
+
+        @if (!string.IsNullOrEmpty(StatusMessage))
+        {
+            <div class="alert @(StatusMessage.Contains("✅") ? "alert-success" : "alert-danger") mt-3">
+                @StatusMessage
+            </div>
+        }
     }
 </div>
 
@@ -122,15 +167,23 @@
     private List<Disciplina> ListaDisciplinas = new();
 
     private string Titulo = "";
+    private string Descricao = ""; // Nova variável
     private int ModuloSelecionadoId = 0;
     private int DisciplinaSelecionadaId = 0;
     private int AlunoSelecionadoId = 0;
     private string TipoAtribuicao = "turma";
-    private DateTime? PrazoEntrega;
+    private DateTime? PrazoEntrega = DateTime.Today.AddDays(7);
     private string StatusMessage = "";
     private bool IsSaving = false;
     private bool IsLoading = true;
     private string? ProfessorUserId;
+
+    private string ErroTitulo = "";
+    private string ErroDescricao = ""; // Novo erro
+    private string ErroModulo = "";
+    private string ErroDisciplina = "";
+    private string ErroAluno = "";
+    private string ErroPrazo = "";
 
     private List<VertenteEditModel> Vertentes = new()
     {
@@ -158,10 +211,7 @@
         {
             StatusMessage = $"❌ Erro ao carregar: {ex.Message}";
         }
-        finally
-        {
-            IsLoading = false;
-        }
+        finally { IsLoading = false; }
     }
 
     private async Task CarregarDados()
@@ -171,23 +221,35 @@
         ListaDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new();
     }
 
-    private bool IsFormValid()
-        => !string.IsNullOrWhiteSpace(Titulo) &&
-           ModuloSelecionadoId > 0 &&
-           DisciplinaSelecionadaId > 0 &&
-           PrazoEntrega.HasValue &&
-           (TipoAtribuicao == "turma" || (TipoAtribuicao == "aluno" && AlunoSelecionadoId > 0));
+    private bool ValidarFormulario()
+    {
+        ErroTitulo = string.IsNullOrWhiteSpace(Titulo) ? "O título é obrigatório" : "";
+        ErroDescricao = string.IsNullOrWhiteSpace(Descricao) ? "A descrição é exigida pelo banco de dados" : "";
+        ErroModulo = (ModuloSelecionadoId <= 0) ? "Selecione um módulo" : "";
+        ErroDisciplina = (DisciplinaSelecionadaId <= 0) ? "Selecione uma disciplina" : "";
+        ErroPrazo = !PrazoEntrega.HasValue ? "Escolha um prazo" : "";
+        ErroAluno = (TipoAtribuicao == "aluno" && AlunoSelecionadoId <= 0) ? "Selecione um aluno" : "";
+
+        return string.IsNullOrEmpty(ErroTitulo) &&
+               string.IsNullOrEmpty(ErroDescricao) &&
+               string.IsNullOrEmpty(ErroModulo) &&
+               string.IsNullOrEmpty(ErroDisciplina) &&
+               string.IsNullOrEmpty(ErroPrazo) &&
+               string.IsNullOrEmpty(ErroAluno);
+    }
 
     private async Task SalvarRoteiro()
     {
+        if (IsSaving) return;
         IsSaving = true;
-        StatusMessage = "";
+        StatusMessage = "Processando...";
+        StateHasChanged();
 
         try
         {
-            if (!IsFormValid())
+            if (!ValidarFormulario())
             {
-                StatusMessage = "❌ Preencha todos os campos obrigatórios.";
+                StatusMessage = "❌ Corrija os erros antes de salvar.";
                 IsSaving = false;
                 return;
             }
@@ -195,42 +257,48 @@
             var professor = await ProfessorService.GetProfessorByUserIdAsync(ProfessorUserId!);
             if (professor == null)
             {
-                StatusMessage = "❌ Professor não identificado.";
+                StatusMessage = "❌ Professor não localizado.";
                 IsSaving = false;
                 return;
             }
 
-            var alunos = TipoAtribuicao == "aluno"
+            var alunosParaAtribuir = TipoAtribuicao == "aluno"
                 ? TurmaSelecionada!.Alunos.Where(a => a.Id == AlunoSelecionadoId && !string.IsNullOrEmpty(a.UserId)).ToList()
                 : TurmaSelecionada!.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)).ToList();
 
-            if (alunos.Count == 0)
-            {
-                StatusMessage = "❌ Nenhum aluno válido encontrado.";
-                IsSaving = false;
-                return;
-            }
-
             int sucessos = 0;
-            foreach (var aluno in alunos)
+            string detalheErro = "";
+
+            foreach (var aluno in alunosParaAtribuir)
             {
-                await CriarTrabalhoAluno(professor.UserId, aluno.UserId!);
-                sucessos++;
+                try
+                {
+                    await CriarTrabalhoAluno(professor.UserId, aluno.UserId!);
+                    sucessos++;
+                }
+                catch (Exception ex)
+                {
+                    detalheErro = ex.InnerException?.Message ?? ex.Message;
+                }
             }
 
-            StatusMessage = $"✅ {sucessos} trabalho(s) criado(s) com sucesso!";
-            await Task.Delay(1500);
-            Nav.NavigateTo("/professor/DashboardProfessor");
+            if (sucessos > 0)
+            {
+                StatusMessage = $"✅ {sucessos} trabalho(s) criado(s) com sucesso!";
+                StateHasChanged();
+                await Task.Delay(1500);
+                Nav.NavigateTo("/professor/DashboardProfessor");
+            }
+            else
+            {
+                StatusMessage = $"❌ Falha ao gravar no Banco: {detalheErro}";
+            }
         }
         catch (Exception ex)
         {
-            StatusMessage = $"❌ Erro ao criar trabalho: {ex.Message}";
-            Console.WriteLine(ex);
+            StatusMessage = $"❌ Erro Crítico: {ex.Message}";
         }
-        finally
-        {
-            IsSaving = false;
-        }
+        finally { IsSaving = false; }
     }
 
     private async Task CriarTrabalhoAluno(string professorId, string alunoId)
@@ -238,21 +306,22 @@
         var trabalho = new Trabalho
         {
             Titulo = Titulo.Trim(),
+            Descricao = Descricao.Trim(), // Enviando o campo que estava faltando
             ProfessorId = professorId,
             AlunoId = alunoId,
-            TurmaId = TurmaSelecionada?.Id ?? 0, // Passa TurmaId se existir
+            TurmaId = TurmaSelecionada!.Id,
             ModuloId = ModuloSelecionadoId,
             DisciplinaId = DisciplinaSelecionadaId,
             DataCriacao = DateTime.UtcNow,
-            PrazoEntrega = PrazoEntrega ?? DateTime.UtcNow,
-            TrabalhoVertentes = new List<TrabalhoVertente>()
+            PrazoEntrega = PrazoEntrega ?? DateTime.UtcNow.AddDays(7)
         };
 
         int trabalhoId = await TrabalhoService.AddTrabalhoAsync(trabalho);
 
+        if (trabalhoId <= 0) throw new Exception("ID retornado pelo banco foi zero.");
+
         foreach (var vertente in Vertentes)
         {
-            // Cria vertente apenas se tiver conteúdo
             var vertDb = new TrabalhoVertente
             {
                 TrabalhoId = trabalhoId,

@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Linq;
 
 public class IAService
 {
@@ -16,86 +17,62 @@ public class IAService
 
     public IAService(HttpClient httpClient)
     {
-        _httpClient = httpClient;
-    }
-
-    public async Task<string> ObterSugestoes(string textoAluno, string descricaoTrabalho)
-    {
-        return await ObterSugestoes("defaultAlunoId", "defaultTrabalhoId", textoAluno, descricaoTrabalho, null, false);
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     }
 
     public async Task<string> ObterSugestoes(
+        string textoAluno,
+        string descricaoVertente,
+        string vertenteId,
         string alunoId,
         string trabalhoId,
-        string textoAluno,
-        string descricaoTrabalho,
-        byte[]? arquivoBytes,
+        byte[]? arquivoBytes = null,
         bool useCache = true)
     {
-        if (string.IsNullOrWhiteSpace(textoAluno) && arquivoBytes == null)
-            return "Conteúdo do aluno vazio, impossível gerar feedback.";
-
-        if (string.IsNullOrWhiteSpace(descricaoTrabalho))
-            descricaoTrabalho = "Descrição do trabalho indisponível.";
-
-        // ----------- PDF -----------
-        string textoArquivo = "";
-        if (arquivoBytes != null)
+        try
         {
-            try
+            if (string.IsNullOrWhiteSpace(textoAluno) && arquivoBytes == null)
+                return "Conteúdo do aluno vazio, impossível gerar feedback.";
+
+            if (string.IsNullOrWhiteSpace(descricaoVertente))
+                descricaoVertente = "Descrição da vertente indisponível.";
+
+            string textoArquivo = LerPdfComSeguranca(arquivoBytes);
+            string textoCompleto = (textoAluno ?? "") + "\n" + textoArquivo;
+
+            var cacheKey = $"{alunoId}_{trabalhoId}_{vertenteId}";
+            if (useCache && _cache.TryGetValue(cacheKey, out var cached))
+                return cached;
+
+            string resultadoFinal;
+
+            if (textoCompleto.Length > 4000)
             {
-                using var ms = new MemoryStream(arquivoBytes);
-                using var pdf = PdfDocument.Open(ms);
-
-                var sb = new StringBuilder();
-                foreach (Page page in pdf.GetPages())
-                    sb.AppendLine(page.Text);
-
-                textoArquivo = sb.ToString();
-            }
-            catch
-            {
-                textoArquivo = "";
-            }
-        }
-
-        // ----------- TEXTO FINAL -----------
-        string textoCompleto = (textoAluno ?? "") + "\n" + textoArquivo;
-
-        var cacheKey = $"{alunoId}_{trabalhoId}";
-        if (useCache && _cache.TryGetValue(cacheKey, out var cached))
-            return cached;
-
-        string resultadoFinal;
-
-        // 🔥 DIVISÃO DE TEXTO GRANDE
-        if (textoCompleto.Length > 4000)
-        {
-            var partes = DividirTexto(textoCompleto);
-            var resultados = new List<string>();
-
-            foreach (var parte in partes)
-            {
-                var promptParte = $@"
+                var partes = DividirTexto(textoCompleto);
+                var tarefas = partes.Select(parte =>
+                {
+                    var promptParte = $@"
 És um professor do ensino secundário.
 
-Analisa esta parte de um trabalho:
+Analisa esta parte da vertente:
 
+{descricaoVertente}
+
+Conteúdo do aluno:
 {parte}
 
 Dá feedback curto:
 - Pontos fortes
-- Problemas
+- Pontos a melhorar
 ";
+                    return EnviarParaOllama(promptParte);
+                }).ToList();
 
-                var resposta = await EnviarParaOllama(promptParte);
-                resultados.Add(resposta);
-            }
+                var resultados = await Task.WhenAll(tarefas);
+                var feedbackParcial = string.Join("\n\n", resultados);
 
-            var feedbackParcial = string.Join("\n\n", resultados);
-
-            var promptFinal = $@"
-Com base nestes feedbacks:
+                var promptFinal = $@"
+Com base nestes feedbacks parciais da vertente:
 
 {feedbackParcial}
 
@@ -106,15 +83,15 @@ Cria um feedback final organizado:
 3. Sugestões concretas
 ";
 
-            resultadoFinal = await EnviarParaOllama(promptFinal);
-        }
-        else
-        {
-            var prompt = $@"
+                resultadoFinal = await EnviarParaOllama(promptFinal);
+            }
+            else
+            {
+                var prompt = $@"
 És um professor do ensino secundário em Portugal.
 
-Descrição do trabalho:
-{descricaoTrabalho}
+Descrição da vertente:
+{descricaoVertente}
 
 Resposta do aluno:
 {textoCompleto}
@@ -125,42 +102,64 @@ Dá feedback estruturado:
 3. Sugestões concretas
 ";
 
-            resultadoFinal = await EnviarParaOllama(prompt);
+                resultadoFinal = await EnviarParaOllama(prompt);
+            }
+
+            if (string.IsNullOrWhiteSpace(resultadoFinal))
+                resultadoFinal = "Nenhum feedback gerado.";
+
+            if (useCache)
+                _cache[cacheKey] = resultadoFinal.Trim();
+
+            return resultadoFinal.Trim();
         }
-
-        if (string.IsNullOrWhiteSpace(resultadoFinal))
-            resultadoFinal = "Nenhum feedback gerado.";
-
-        if (useCache)
-            _cache[cacheKey] = resultadoFinal.Trim();
-
-        return resultadoFinal.Trim();
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 ERRO IAService: {ex.Message}");
+            return "Erro interno ao gerar feedback.";
+        }
     }
 
-    // =============================
-    // DIVIDIR TEXTO
-    // =============================
+    private string LerPdfComSeguranca(byte[]? arquivoBytes)
+    {
+        if (arquivoBytes == null || arquivoBytes.Length == 0)
+            return "";
+
+        try
+        {
+            using var ms = new MemoryStream(arquivoBytes);
+            using var pdf = PdfDocument.Open(ms);
+
+            var sb = new StringBuilder();
+            foreach (Page page in pdf.GetPages())
+            {
+                var text = page.Text?.Trim();
+                if (!string.IsNullOrEmpty(text))
+                    sb.AppendLine(text);
+            }
+            return sb.ToString();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Erro ao ler PDF: {ex.Message}");
+            return "";
+        }
+    }
+
     private List<string> DividirTexto(string texto, int tamanhoMax = 3000)
     {
         var partes = new List<string>();
-
         for (int i = 0; i < texto.Length; i += tamanhoMax)
         {
             partes.Add(texto.Substring(i, Math.Min(tamanhoMax, texto.Length - i)));
         }
-
         return partes;
     }
 
-    // =============================
-    // CHAMADA OLLAMA (CORRIGIDA)
-    // =============================
     private async Task<string> EnviarParaOllama(string prompt)
     {
         try
         {
-            Console.WriteLine("➡️ A chamar Ollama...");
-
             var requestBody = new
             {
                 model = "llama3",
@@ -176,17 +175,14 @@ Dá feedback estruturado:
 
             var response = await _httpClient.PostAsync("api/generate", content);
 
-            Console.WriteLine("⬅️ Resposta recebida");
-
             if (!response.IsSuccessStatusCode)
             {
                 var erro = await response.Content.ReadAsStringAsync();
-                Console.WriteLine("ERRO HTTP: " + erro);
+                Console.WriteLine("ERRO HTTP Ollama: " + erro);
                 return "Erro ao comunicar com IA.";
             }
 
             var json = await response.Content.ReadAsStringAsync();
-
             using var doc = JsonDocument.Parse(json);
 
             if (!doc.RootElement.TryGetProperty("response", out var resp))
@@ -196,12 +192,12 @@ Dá feedback estruturado:
         }
         catch (TaskCanceledException)
         {
-            Console.WriteLine("⏱️ Timeout");
+            Console.WriteLine("⏱️ Timeout na IA");
             return "A IA demorou demasiado tempo.";
         }
         catch (Exception ex)
         {
-            Console.WriteLine("💥 ERRO: " + ex.ToString());
+            Console.WriteLine("💥 ERRO ao chamar IA: " + ex.Message);
             return "Erro interno ao chamar IA.";
         }
     }
