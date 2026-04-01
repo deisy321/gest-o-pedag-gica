@@ -1,4 +1,4 @@
-@page "/admin/RegisterAdmin"
+@page "/admin/registeradmin"
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Identity
 @using gestaopedagogica.Data
@@ -7,7 +7,7 @@
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components.Forms
 @using System.Text.RegularExpressions
-@attribute [Authorize(Roles = "Administrador")]
+@attribute [Authorize(Roles = "Admin")]
 @inject UserManager<ApplicationUser> UserManager
 @inject RoleManager<IdentityRole> RoleManager
 @inject ProfessorService ProfessorService
@@ -19,112 +19,110 @@
 
 <div class="main-content">
     <div class="page-admin">
-        <AuthorizeView Roles="Administrador">
+        <AuthorizeView Roles="Admin">
             <Authorized Context="authContext">
-
-      @* Cabeçalho *@
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-   <h2 class="fw-bold text-gradient mb-0">Registar Utilizador</h2>
-                   <p class="text-muted">Crie novos acessos para Alunos, Professores ou Administradores.</p>
-                </div>
-       <button class="user-profile-btn border" @onclick='() => Navigation.NavigateTo("/admin/DashboardAdmin")'>
-              <i class="bi bi-arrow-left me-2"></i> Dashboard
-     </button>
-        </div>
-
-           <div class="row justify-content-center">
-   <div class="col-lg-8">
-  <div class="custom-card shadow-sm p-4 p-md-5">
-
-           @if (!string.IsNullOrEmpty(ErrorMessage))
-         {
-      <div class="alert alert-danger border-0 shadow-sm mb-4" style="border-radius: 12px;">
-  <i class="bi bi-exclamation-octagon me-2"></i> @ErrorMessage
-           </div>
-        }
-
-          @if (ShowSuccessMessage)
-           {
-       <div class="alert alert-success border-0 shadow-sm mb-4" style="border-radius: 12px;">
-      <i class="bi bi-check-circle me-2"></i> Utilizador registado com sucesso no sistema!
-     </div>
-     }
-
-    <EditForm EditContext="new EditContext(Input)" OnValidSubmit="HandleRegisterAsync">
-            <DataAnnotationsValidator />
-
-<div class="row g-3">
-  <div class="col-md-12">
-         <label class="form-label small fw-bold text-muted text-uppercase">Nome Completo</label>
-       <InputText @bind-Value="Input.Nome" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="Ex: João Silva" />
-     <ValidationMessage For="@(() => Input.Nome)" class="text-danger small" />
-      </div>
-
-   <div class="col-md-12">
-        <label class="form-label small fw-bold text-muted text-uppercase">Email de Acesso</label>
-     <InputText @bind-Value="Input.Email" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="exemplo@escola.pt" />
-        <ValidationMessage For="@(() => Input.Email)" class="text-danger small" />
-        </div>
-
-                <div class="col-md-12 my-3">
-          <label class="form-label small fw-bold text-muted text-uppercase d-block mb-3">Tipo de Perfil</label>
-    <div class="d-flex flex-wrap gap-3">
-  <InputRadioGroup @bind-Value="SelectedRole">
-         @foreach (var role in UserRoles.AllRoles)
-   {
-     <div class="form-check form-check-inline m-0">
-            <InputRadio Value="@role.Key" class="form-check-input" id="@role.Key" />
-         <label class="form-check-label ms-1" for="@role.Key">
-             <span class="badge rounded-pill border py-2 px-3 @(SelectedRole == role.Key ? "bg-primary text-white border-primary" : "bg-white text-dark")" style="cursor:pointer; transition: 0.3s;">
-         @role.Value.DisplayName
-          </span>
-     </label>
-          </div>
-          }
-                  </InputRadioGroup>
-      </div>
+                @* Cabeçalho *@
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="fw-bold text-gradient mb-0">Registar Utilizador</h2>
+                        <p class="text-muted">Crie novos acessos para Alunos, Professores ou Administradores.</p>
+                    </div>
+                    <button class="user-profile-btn border" @onclick='() => Navigation.NavigateTo("/admin/dashboard")'>
+                        <i class="bi bi-arrow-left me-2"></i> Dashboard
+                    </button>
                 </div>
 
-        <div class="col-md-6">
-   <label class="form-label small fw-bold text-muted text-uppercase">Senha</label>
-   <InputText type="password" @bind-Value="Input.Password" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="Mínimo 6 caracteres" />
-            <ValidationMessage For="@(() => Input.Password)" class="text-danger small" />
-           </div>
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="custom-card shadow-sm p-4 p-md-5">
 
-       <div class="col-md-6">
-   <label class="form-label small fw-bold text-muted text-uppercase">Confirmar Senha</label>
-         <InputText type="password" @bind-Value="Input.ConfirmPassword" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="Repita a senha" />
- <ValidationMessage For="@(() => Input.ConfirmPassword)" class="text-danger small" />
+                            @if (!string.IsNullOrEmpty(ErrorMessage))
+                            {
+                                <div class="alert alert-danger border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                                    <i class="bi bi-exclamation-octagon me-2"></i> @ErrorMessage
+                                </div>
+                            }
+
+                            @if (ShowSuccessMessage)
+                            {
+                                <div class="alert alert-success border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                                    <i class="bi bi-check-circle me-2"></i> Utilizador registado com sucesso no sistema!
+                                </div>
+                            }
+
+                            <EditForm Model="Input" OnValidSubmit="HandleRegisterAsync">
+                                <DataAnnotationsValidator />
+
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label small fw-bold text-muted text-uppercase">Nome Completo</label>
+                                        <InputText @bind-Value="Input.Nome" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="Ex: João Silva" />
+                                        <ValidationMessage For="@(() => Input.Nome)" class="text-danger small" />
+                                    </div>
+
+                                    <div class="col-md-12">
+                                        <label class="form-label small fw-bold text-muted text-uppercase">Email de Acesso</label>
+                                        <InputText @bind-Value="Input.Email" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="exemplo@escola.pt" />
+                                        <ValidationMessage For="@(() => Input.Email)" class="text-danger small" />
+                                    </div>
+
+                                    <div class="col-md-12 my-3">
+                                        <label class="form-label small fw-bold text-muted text-uppercase d-block mb-3">Tipo de Perfil</label>
+                                        <div class="d-flex flex-wrap gap-3">
+                                            <InputRadioGroup @bind-Value="SelectedRole">
+                                                @foreach (var role in UserRoles.AllRoles)
+                                                {
+                                                    <div class="form-check form-check-inline m-0">
+                                                        <InputRadio Value="@role.Key" class="form-check-input" id="@role.Key" />
+                                                        <label class="form-check-label ms-1" for="@role.Key">
+                                                            <span class="badge rounded-pill border py-2 px-3 @(SelectedRole == role.Key ? "bg-primary text-white border-primary" : "bg-white text-dark")" style="cursor:pointer; transition: 0.3s;">
+                                                                @role.Value.DisplayName
+                                                            </span>
+                                                        </label>
+                                                    </div>
+                                                }
+                                            </InputRadioGroup>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-muted text-uppercase">Senha</label>
+                                        <InputText type="password" @bind-Value="Input.Password" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="Mínimo 6 caracteres" />
+                                        <ValidationMessage For="@(() => Input.Password)" class="text-danger small" />
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-muted text-uppercase">Confirmar Senha</label>
+                                        <InputText type="password" @bind-Value="Input.ConfirmPassword" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="Repita a senha" />
+                                        <ValidationMessage For="@(() => Input.ConfirmPassword)" class="text-danger small" />
+                                    </div>
+                                </div>
+
+                                <div class="mt-5">
+                                    <button type="submit" class="btn btn-primary w-100 py-3 shadow-sm"
+                                            style="border-radius:12px;"
+                                            disabled="@IsSubmitting">
+                                        @if (IsSubmitting)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                            @("A processar...")
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-person-check me-2"></i>
+                                            @("Finalizar Registo")
+                                        }
+                                    </button>
+                                </div>
+                            </EditForm>
+                        </div>
+                    </div>
                 </div>
-         </div>
-
-       <div class="mt-5">
-     <button type="submit" class="qa-item blue border-0 w-100 py-3 shadow-sm"
-          style="margin-bottom:0; border-radius:12px; color: white !important;"
-disabled="@IsSubmitting">
- @if (IsSubmitting)
-     {
-       <span class="spinner-border spinner-border-sm me-2"></span>
-    @("A processar...")
-               }
-        else
-             {
-        <i class="bi bi-person-check me-2"></i>
-   @("Finalizar Registo")
-         }
-     </button>
-</div>
-                </EditForm>
-      </div>
-      </div>
-     </div>
-
-  </Authorized>
+            </Authorized>
             <NotAuthorized>
-             <div class="alert alert-warning">Não tem permissão para aceder a esta página.</div>
-    </NotAuthorized>
-   </AuthorizeView>
+                <div class="alert alert-warning m-5">Não tem permissão para aceder a esta página (Role "Admin" necessária).</div>
+            </NotAuthorized>
+        </AuthorizeView>
     </div>
 </div>
 
@@ -145,7 +143,7 @@ disabled="@IsSubmitting">
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "A senha é obrigatória.")]
-  [MinLength(6, ErrorMessage = "A senha deve ter pelo menos 6 caracteres.")]
+        [MinLength(6, ErrorMessage = "A senha deve ter pelo menos 6 caracteres.")]
         public string Password { get; set; } = string.Empty;
 
         [Compare("Password", ErrorMessage = "As senhas não correspondem.")]
@@ -155,117 +153,85 @@ disabled="@IsSubmitting">
     public static class UserRoles
     {
         public record RoleInfo(string DisplayName, string CssClass);
-     public static readonly Dictionary<string, RoleInfo> AllRoles = new() {
-   { "Aluno", new RoleInfo("Aluno", "bg-success") },
-       { "Professor", new RoleInfo("Professor", "bg-primary") },
-{ "Administrador", new RoleInfo("Administrador", "bg-danger") }
+        // AJUSTADO: As chaves devem bater exatamente com o Seed do Program.cs
+        public static readonly Dictionary<string, RoleInfo> AllRoles = new() {
+            { "Aluno", new RoleInfo("Aluno", "bg-success") },
+            { "Professor", new RoleInfo("Professor", "bg-primary") },
+            { "Admin", new RoleInfo("Admin", "bg-danger") }
         };
     }
 
     private async Task HandleRegisterAsync()
     {
- IsSubmitting = true;
+        IsSubmitting = true;
         ErrorMessage = string.Empty;
-  ShowSuccessMessage = false;
+        ShowSuccessMessage = false;
 
-      try
+        try
         {
-            // Validação: Verifique se o email já existe
             var usuarioExistente = await UserManager.FindByEmailAsync(Input.Email);
-       if (usuarioExistente != null)
-    {
-         ErrorMessage = "Este email já está registado no sistema.";
-            IsSubmitting = false;
-        return;
-          }
+            if (usuarioExistente != null)
+            {
+                ErrorMessage = "Este email já está registado no sistema.";
+                IsSubmitting = false;
+                return;
+            }
 
-      string cleanUserName = Regex.Replace(Input.Nome.Normalize(System.Text.NormalizationForm.FormD), @"[^a-zA-z0-9]", "");
+            string cleanUserName = Regex.Replace(Input.Nome.Normalize(System.Text.NormalizationForm.FormD), @"[^a-zA-Z0-9]", "");
+            if (string.IsNullOrEmpty(cleanUserName)) cleanUserName = "user" + Guid.NewGuid().ToString().Substring(0, 4);
 
-            // Garanta que o username seja único
-    int counter = 0;
+            int counter = 0;
             string originalUserName = cleanUserName;
             while (await UserManager.FindByNameAsync(cleanUserName) != null)
-       {
-    cleanUserName = $"{originalUserName}{++counter}";
-     }
+            {
+                cleanUserName = $"{originalUserName}{++counter}";
+            }
 
-  var user = new ApplicationUser
-       {
-      UserName = cleanUserName,
-          Email = Input.Email,
-      EmailConfirmed = true
+            var user = new ApplicationUser
+            {
+                UserName = cleanUserName,
+                Email = Input.Email,
+                EmailConfirmed = true
             };
 
             var result = await UserManager.CreateAsync(user, Input.Password);
 
-          if (result.Succeeded)
+            if (result.Succeeded)
             {
-          // Adiciona o utilizador à role
-         var roleResult = await UserManager.AddToRoleAsync(user, SelectedRole);
+                var roleResult = await UserManager.AddToRoleAsync(user, SelectedRole);
 
-     if (!roleResult.Succeeded)
-     {
-        ErrorMessage = "Erro ao atribuir perfil: " + string.Join(", ", roleResult.Errors.Select(e => e.Description));
-         IsSubmitting = false;
-        return;
-         }
+                if (!roleResult.Succeeded)
+                {
+                    ErrorMessage = "Erro ao atribuir perfil: " + string.Join(", ", roleResult.Errors.Select(e => e.Description));
+                    IsSubmitting = false;
+                    return;
+                }
 
-              // Cria o registo correspondente (Professor ou Aluno)
-             try
-   {
-      if (SelectedRole == "Professor")
+                if (SelectedRole == "Professor")
+                {
+                    await ProfessorService.AddProfessorAsync(new Professor { Nome = Input.Nome, Email = Input.Email, UserId = user.Id });
+                }
+                else if (SelectedRole == "Aluno")
+                {
+                    await AlunoService.AddAlunoAsync(new Aluno { Nome = Input.Nome, Email = Input.Email, UserId = user.Id });
+                }
+
+                ShowSuccessMessage = true;
+                Input = new RegisterAdminInputModel();
+                SelectedRole = "Aluno";
+            }
+            else
             {
-      var novoProf = new Professor
-  {
-        Nome = Input.Nome,
-     Email = Input.Email,
-          UserId = user.Id
-     };
-               await ProfessorService.AddProfessorAsync(novoProf);
-     }
- else if (SelectedRole == "Aluno")
-          {
-      var novoAluno = new Aluno
-   {
-             Nome = Input.Nome,
- Email = Input.Email,
-             UserId = user.Id,
-            TurmaId = null
-      };
-        await AlunoService.AddAlunoAsync(novoAluno);
-                    }
-         // Se for Administrador, não precisa de registo adicional
-
-       ShowSuccessMessage = true;
-Input = new RegisterAdminInputModel();
-          SelectedRole = "Aluno";
-
-    // Limpa a mensagem de sucesso após 4 segundos
-     _ = Task.Delay(4000).ContinueWith(_ =>
-              {
-    ShowSuccessMessage = false;
-          StateHasChanged();
-          });
-     }
-            catch (Exception serviceEx)
-    {
-       ErrorMessage = $"Utilizador criado, mas erro ao registar dados adicionais: {serviceEx.Message}";
-        Logger.LogError($"Erro ao registar {SelectedRole}: {serviceEx.Message}");
-    }
-          }
-         else
-    {
-    ErrorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
-      Logger.LogWarning($"Falha ao criar utilizador: {ErrorMessage}");
-  }
+                ErrorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
+            }
         }
-     catch (Exception ex)
+        catch (Exception ex)
         {
-ErrorMessage = "Erro inesperado: " + ex.Message;
- Logger.LogError($"Erro geral no registo: {ex.Message}");
-     }
-     finally
-  {
+            ErrorMessage = "Erro inesperado: " + ex.Message;
+            Logger.LogError($"Erro no registo: {ex.Message}");
+        }
+        finally
+        {
             IsSubmitting = false;
         }
     }
