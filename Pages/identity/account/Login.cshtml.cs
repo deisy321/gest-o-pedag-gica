@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
-using System.Threading.Tasks;
 
 namespace gestaopedagogica.Pages.identity.account
 {
@@ -33,91 +32,62 @@ namespace gestaopedagogica.Pages.identity.account
 
         public class InputModel
         {
-            [Required(ErrorMessage = "O campo Email/Utilizador é obrigatório.")]
-            public string Username { get; set; } = "";
-
-            [Required(ErrorMessage = "O campo Senha é obrigatório.")]
-            [DataType(DataType.Password)]
-            public string Password { get; set; } = "";
-
+            [Required] public string Username { get; set; } = "";
+            [Required][DataType(DataType.Password)] public string Password { get; set; } = "";
             public bool RememberMe { get; set; }
         }
 
-        public void OnGet() { }
-
         public async Task<IActionResult> OnPostAsync()
         {
-            if (!ModelState.IsValid)
-                return Page();
+            if (!ModelState.IsValid) return Page();
 
             var usernameOrEmail = Input.Username.Trim().ToLower();
 
-            // 1. Procurar o utilizador
+            // 1. Localizar o user
             var user = await _userManager.Users
                 .FirstOrDefaultAsync(u => u.Email.ToLower() == usernameOrEmail
                                        || u.UserName.ToLower() == usernameOrEmail);
 
             if (user == null)
             {
-                ModelState.AddModelError(string.Empty, "Utilizador ou senha inválidos.");
+                ModelState.AddModelError(string.Empty, "Utilizador não encontrado.");
                 return Page();
             }
 
-            // 2. Tentar o Login (Uso de PasswordSignInAsync para garantir a criação do Cookie)
+            // 2. Login Real (PasswordSignInAsync é necessário para criar o cookie corretamente)
             var result = await _signInManager.PasswordSignInAsync(user.UserName, Input.Password, Input.RememberMe, lockoutOnFailure: false);
 
             if (result.Succeeded)
             {
-                // 3. Determinar para onde o utilizador deve ir
                 var destination = await DeterminarRetorno(user.Id);
 
-                // Limpeza extra para o Linux (Render)
+                // Força a URL final para minúsculas e remove espaços
                 destination = destination.ToLower().Trim();
 
-                Console.WriteLine($"[LOGIN] Sucesso para {user.Email}. Redirecionando para: {destination}");
+                Console.WriteLine($"[LOGIN OK] Redirecionando para: {destination}");
 
                 return Redirect(destination);
             }
 
-            ModelState.AddModelError(string.Empty, "Tentativa de login inválida.");
+            ModelState.AddModelError(string.Empty, "Senha incorreta.");
             return Page();
         }
 
         private async Task<string> DeterminarRetorno(string userId)
         {
-            try
-            {
-                var user = await _userManager.FindByIdAsync(userId);
-                if (user == null) return "/";
+            var user = await _userManager.FindByIdAsync(userId);
+            var roles = await _userManager.GetRolesAsync(user);
 
-                var roles = await _userManager.GetRolesAsync(user);
+            if (roles.Contains("Admin")) return "/admin/dashboard";
 
-                // IMPORTANTE: Rotas sempre em minúsculas
-                if (roles.Contains("Admin"))
-                {
-                    return "/admin/dashboard";
-                }
+            var professor = await _professorService.GetProfessorByUserIdAsync(userId);
+            if (professor != null) return "/professor/dashboardprofessor";
 
-                var professor = await _professorService.GetProfessorByUserIdAsync(userId);
-                if (professor != null)
-                {
-                    return "/professor/dashboardprofessor";
-                }
+            var alunos = await _alunoService.GetAlunosAsync();
+            var aluno = alunos?.FirstOrDefault(a => a.UserId == userId);
+            if (aluno != null) return "/aluno/dashboardaluno";
 
-                var alunos = await _alunoService.GetAlunosAsync();
-                var aluno = alunos?.FirstOrDefault(a => a.UserId == userId);
-                if (aluno != null)
-                {
-                    return "/aluno/dashboardaluno";
-                }
-
-                return "/";
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERRO REDIRECT] {ex.Message}");
-                return "/";
-            }
+            return "/";
         }
     }
 }

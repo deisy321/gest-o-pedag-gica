@@ -9,8 +9,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- 1. CONFIGURAÇÃO DE ROTAS (ESSENCIAL PARA LINUX/RENDER) ---
-// Força todas as URLs geradas pelo sistema a serem minúsculas para evitar erro 404
+// --- 1. CONFIGURAÇÃO DE ROTAS ---
 builder.Services.AddRouting(options =>
 {
     options.LowercaseUrls = true;
@@ -27,8 +26,7 @@ builder.Services.AddAntiforgery(options => {
     options.HeaderName = "X-CSRF-TOKEN";
 });
 
-// --- 4. CONFIGURAÇÃO DA BASE DE DADOS (CORRIGIDO) ---
-// Removido o DbContextFactory duplicado para evitar erro 500 por excesso de conexões no Render
+// --- 4. CONFIGURAÇÃO DA BASE DE DADOS ---
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
                       ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -46,16 +44,25 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// --- 6. CONFIGURAÇÃO DE COOKIES ---
-// Alinhado com as rotas em minúsculas
+// --- 6. CONFIGURAÇÃO DE COOKIES (CORREÇÃO PARA REDIRECIONAMENTO 404) ---
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/identity/account/login";
     options.LogoutPath = "/identity/account/logout";
     options.AccessDeniedPath = "/identity/account/accessdenied";
+
+    options.Cookie.Name = "GestaopedagogicaAuth";
     options.Cookie.HttpOnly = true;
-    options.Cookie.SameSite = SameSiteMode.Lax;
+
+    // CRUCIAL: Sem 'IsEssential', o login é perdido no redirecionamento do Render
+    options.Cookie.IsEssential = true;
+
+    // CRUCIAL: 'Always' porque o Render é HTTPS. 'Lax' permite o redirecionamento.
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+
+    options.ExpireTimeSpan = TimeSpan.FromHours(2);
+    options.SlidingExpiration = true;
 });
 
 // --- 7. AUTORIZAÇÃO E POLÍTICAS ---
@@ -69,7 +76,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<ApplicationUser>>();
 builder.Services.AddSingleton<UserState>();
 
-// --- 8. SERVIÇOS DA APLICAÇÃO (DEPENDENCY INJECTION) ---
+// --- 8. SERVIÇOS DA APLICAÇÃO (TODOS OS SERVIÇOS) ---
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ModuloService>();
 builder.Services.AddScoped<TurmaService>();
@@ -89,8 +96,7 @@ builder.Services.AddHttpClient<IAService>(client =>
 
 var app = builder.Build();
 
-// --- 9. CONFIGURAÇÃO PARA PROXY (RENDER) ---
-// Necessário para que o HTTPS seja identificado corretamente atrás do proxy do Render
+// --- 9. CONFIGURAÇÃO PARA PROXY RENDER (DEVE SER A PRIMEIRA COISA) ---
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
@@ -103,7 +109,6 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        // Executa migrações pendentes no banco de dados do Render
         context.Database.Migrate();
 
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
@@ -118,7 +123,6 @@ using (var scope = app.Services.CreateScope())
             }
         }
 
-        // Criação do usuário Admin inicial se não existir
         await CriarUser(userManager, "admin@local", "Admin123!", "Admin");
     }
     catch (Exception ex)
@@ -127,26 +131,27 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// --- 11. PIPELINE DE EXECUÇÃO (ORDEM IMPORTA) ---
+// --- 11. PIPELINE DE EXECUÇÃO ---
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/error");
     app.UseHsts();
 }
 
+// Em produção (Render), o proxy já trata o HTTPS, mas mantemos para segurança local
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
 
-// Authentication deve vir ANTES de Authorization
+// ORDEM OBRIGATÓRIA: Authentication antes de Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
 // --- 12. MAPEAMENTO DE ENDPOINTS ---
 app.MapControllers();
-app.MapRazorPages(); // Prioridade para o Login Identity
 app.MapBlazorHub();
+app.MapRazorPages(); // Importante estar aqui para as rotas do Identity
 app.MapFallbackToPage("/_host");
 
 app.Run();
