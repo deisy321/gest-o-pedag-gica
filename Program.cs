@@ -9,12 +9,19 @@ using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// --- CORREÇÃO DE ROTAS PARA LINUX (RENDER) ---
+builder.Services.AddRouting(options =>
+{
+    options.LowercaseUrls = true;
+    options.LowercaseQueryStrings = true;
+});
+
 // 1. Serviços de UI e Acesso
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddRazorPages(); // Essencial para a página de Login
+builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
-// 2. Configuração de Antiforgery (Ajustado)
+// 2. Configuração de Antiforgery
 builder.Services.AddAntiforgery(options => {
     options.HeaderName = "X-CSRF-TOKEN";
 });
@@ -40,17 +47,18 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// 5. Configuração de Cookies (CRÍTICO para o Login abrir no Render)
+// 5. Configuração de Cookies (Ajustado para Render)
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.LoginPath = "/Identity/Account/Login";
-    options.LogoutPath = "/Identity/Account/Logout";
-    options.AccessDeniedPath = "/Identity/Account/AccessDenied";
+    options.LoginPath = "/identity/account/login";
+    options.LogoutPath = "/identity/account/logout";
+    options.AccessDeniedPath = "/identity/account/accessdenied";
     options.Cookie.HttpOnly = true;
-    options.Cookie.SameSite = SameSiteMode.Lax; // Necessário para iframes/proxies do Render
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Força HTTPS para o cookie
 });
 
-// 6. Autorização e Serviços
+// 6. Autorização e Políticas
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("RequireAdministratorRole", policy => policy.RequireRole("Admin"));
@@ -81,7 +89,7 @@ builder.Services.AddHttpClient<IAService>(client =>
 
 var app = builder.Build();
 
-// 7. Configuração para Proxy (Render/Linux) - Deve vir ANTES de tudo
+// 7. Configuração para Proxy (Render/Linux) - CRÍTICO estar aqui no topo
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
@@ -123,10 +131,10 @@ async Task CriarUser(UserManager<ApplicationUser> um, string email, string senha
     }
 }
 
-// 9. Pipeline de Execução (Ordem Importante!)
+// 9. Pipeline de Execução
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error");
+    app.UseExceptionHandler("/error");
     app.UseHsts();
 }
 
@@ -137,9 +145,9 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 10. Mapeamento de Rotas
+// 10. Mapeamento
 app.MapControllers();
-app.MapRazorPages(); // Isto garante que a pasta /Pages/Identity/Account funcione
+app.MapRazorPages();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
