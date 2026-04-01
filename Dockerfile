@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Estágio de Build
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
@@ -16,7 +16,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app .
 ENTRYPOINT ["dotnet", "gestaopedagogica.dll"]
-=======
+
 # Est�gio de Build
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
@@ -34,4 +34,4 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app .
 ENTRYPOINT ["dotnet", "gestaopedagogica.dll"]
->>>>>>> ebf3a56 (Correção definitiva de rotas Case-Sensitive para Linux)
+
