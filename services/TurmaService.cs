@@ -54,7 +54,7 @@ namespace gestaopedagogica.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ [TurmaService] Erro ao carregar turmas do professor: {ex.Message}");
+                Console.WriteLine($"❌ [TurmaService] Erro ao carregar turmas : {ex.Message}");
                 return new List<Turma>();
             }
         }

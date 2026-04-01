@@ -56,10 +56,8 @@ namespace gestaopedagogica.Pages.Identity.Account
             if (!ModelState.IsValid)
                 return Page();
 
-            // Normaliza para minúsculas para evitar problemas de case-sensitive
             var usernameOrEmail = Input.Username.Trim().ToLower();
 
-            // Busca usuário pelo Email ou UserName (insensível a maiúsculas)
             var user = await _userManager.Users
                 .FirstOrDefaultAsync(u => u.Email.ToLower() == usernameOrEmail
                                        || u.UserName.ToLower() == usernameOrEmail);
@@ -70,7 +68,6 @@ namespace gestaopedagogica.Pages.Identity.Account
                 return Page();
             }
 
-            // Verifica se a senha está correta
             var passwordValid = await _userManager.CheckPasswordAsync(user, Input.Password);
             if (!passwordValid)
             {
@@ -81,51 +78,47 @@ namespace gestaopedagogica.Pages.Identity.Account
             // Efetua login
             await _signInManager.SignInAsync(user, Input.RememberMe);
 
-            // ?? IMPORTANTE: Determinar o tipo de usuário e redirecionar apropriadamente
+            // Determinar o tipo de usuário e redirecionar
             var returnUrl = await DeterminarRetorno(user.Id);
 
-            return Redirect(returnUrl);
+            // IMPORTANTE: LocalRedirect garante que o redirecionamento funcione no Render/Linux
+            return LocalRedirect(returnUrl);
         }
 
         private async Task<string> DeterminarRetorno(string userId)
         {
             try
             {
-                // Verificar se é Admin (verificar roles)
                 var user = await _userManager.FindByIdAsync(userId);
                 var roles = await _userManager.GetRolesAsync(user);
 
+                // Verificação de Admin - Rota com 'A' maiúsculo
                 if (roles.Contains("Admin"))
                 {
-                    Console.WriteLine($"? [Login] Admin detectado: {user.Email}");
-                    return "/admin/Dashboard";
+                    return "/Admin/Dashboard";
                 }
 
-                // Verificar se é Professor
+                // Verificação de Professor - Rota com 'P' maiúsculo
                 var professor = await _professorService.GetProfessorByUserIdAsync(userId);
                 if (professor != null)
                 {
-                    Console.WriteLine($"? [Login] Professor detectado: {professor.Nome} (Turmas: {professor.Turmas?.Count ?? 0})");
-                    return "/professor/DashboardProfessor";
+                    return "/Professor/DashboardProfessor";
                 }
 
-                // Verificar se é Aluno
+                // Verificação de Aluno - Rota com 'A' maiúsculo (Confirmado que funciona no Render)
                 var alunos = await _alunoService.GetAlunosAsync();
                 var aluno = alunos?.FirstOrDefault(a => a.UserId == userId);
                 if (aluno != null)
                 {
-                    Console.WriteLine($"? [Login] Aluno detectado: {aluno.Nome}");
-                    Console.WriteLine($"   ?? Turma: {aluno.Turma?.Nome ?? "Sem turma"}");
-                    return "/aluno/DashboardAluno";
+                    return "/Aluno/DashboardAluno";
                 }
 
                 // Padrão: voltar para home
-                Console.WriteLine($"??  [Login] Tipo de utilizador não identificado para: {user.Email}");
                 return "/";
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"? [Login] Erro ao determinar retorno: {ex.Message}");
+                Console.WriteLine($"Erro ao determinar retorno: {ex.Message}");
                 return "/";
             }
         }
