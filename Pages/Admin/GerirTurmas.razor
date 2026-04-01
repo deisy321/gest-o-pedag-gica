@@ -3,6 +3,7 @@
 @layout MainLayout
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
+@using Microsoft.AspNetCore.Authorization @* ADICIONE ESTA LINHA PARA CORRIGIR O ERRO DE BUILD *@
 @attribute [Authorize(Roles = "Admin")]
 
 @inject TurmaService TurmaService
@@ -23,7 +24,6 @@
             <button class="btn btn-outline-secondary rounded-pill px-4" @onclick='() => Nav.NavigateTo("/admin/GerirCursos")'>
                 <i class="bi bi-book me-2"></i>Cursos
             </button>
-            @* Botão Corrigido para Verde *@
             <button class="btn btn-success rounded-pill px-4 shadow-sm" @onclick="MostrarCriarTurma">
                 <i class="bi bi-plus-lg me-2"></i>Nova Turma
             </button>
@@ -194,7 +194,6 @@
 
             <div class="mt-4 pt-3 border-top d-flex gap-2">
                 <button class="btn btn-light rounded-pill flex-grow-1" @onclick="() => MostrarModalCriar = false">Cancelar</button>
-                @* Botão Corrigido para Azul *@
                 <button class="btn btn-primary rounded-pill flex-grow-1 shadow-sm" style="font-weight: bold;" @onclick="SalvarNovaTurma">
                     Gravar Turma
                 </button>
@@ -212,7 +211,7 @@
 
     bool MostrarModalCriar = false;
     bool CarregandoDados = true;
-    Turma NovaTurma = new();
+    Turma NovaTurma = new() { Professores = new(), Alunos = new() };
     int ProfessorSelecionado = 0;
     int DisciplinaSelecionada = 0;
     string? ErroMensagem;
@@ -249,7 +248,6 @@
         var d = TodosDisciplinas.FirstOrDefault(x => x.Id == DisciplinaSelecionada);
         if (p != null && d != null)
         {
-            // Evitar duplicados na mesma turma
             if (!NovaTurma.Professores.Any(x => x.ProfessorId == p.Id && x.DisciplinaId == d.Id))
             {
                 NovaTurma.Professores.Add(new TurmaProfessor { ProfessorId = p.Id, Professor = p, DisciplinaId = d.Id, Disciplina = d });
@@ -273,30 +271,29 @@
         {
             ErroMensagem = null;
 
-            // Validação de segurança
             if (string.IsNullOrWhiteSpace(NovaTurma.Nome) || NovaTurma.CursoId == 0)
             {
                 ErroMensagem = "Por favor, preencha o nome e selecione um curso.";
                 return;
             }
 
-            // LIMPEZA PARA O BANCO DE DADOS (RENDER)
-            // Removemos as instâncias dos objetos para o EF focar apenas nos IDs
-            // e não tentar criar novos professores/disciplinas/cursos
-            foreach (var tp in NovaTurma.Professores)
+            // --- LÓGICA PARA EVITAR ERRO DE TRACKING DO EF CORE ---
+            var turmaParaSalvar = new Turma
             {
-                tp.Professor = null;
-                tp.Disciplina = null;
-            }
+                Nome = NovaTurma.Nome,
+                Ano = NovaTurma.Ano,
+                CursoId = NovaTurma.CursoId,
+                // Associamos os alunos existentes sem criar novos registros
+                Alunos = NovaTurma.Alunos.Select(a => TodosAlunos.First(all => all.Id == a.Id)).ToList(),
+                // Associamos os professores apenas pelos IDs
+                Professores = NovaTurma.Professores.Select(tp => new TurmaProfessor
+                {
+                    ProfessorId = tp.ProfessorId,
+                    DisciplinaId = tp.DisciplinaId
+                }).ToList()
+            };
 
-            // Limpamos a lista de alunos para enviar apenas as referências por ID
-            var alunosIds = NovaTurma.Alunos.Select(a => a.Id).ToList();
-            NovaTurma.Alunos = TodosAlunos.Where(a => alunosIds.Contains(a.Id)).ToList();
-
-            // O Curso também deve ser limpo para não duplicar
-            NovaTurma.Curso = null;
-
-            await TurmaService.AddTurmaAsync(NovaTurma);
+            await TurmaService.AddTurmaAsync(turmaParaSalvar);
 
             SucessoMensagem = "Turma registada com sucesso!";
             MostrarModalCriar = false;
@@ -305,7 +302,6 @@
         }
         catch (Exception ex)
         {
-            // Captura o erro detalhado do banco de dados
             ErroMensagem = $"Erro ao gravar: {ex.InnerException?.Message ?? ex.Message}";
         }
     }
