@@ -32,8 +32,13 @@ namespace gestaopedagogica.Pages.identity.account
 
         public class InputModel
         {
-            [Required] public string Username { get; set; } = "";
-            [Required][DataType(DataType.Password)] public string Password { get; set; } = "";
+            [Required(ErrorMessage = "O utilizador/email é obrigatório.")]
+            public string Username { get; set; } = "";
+
+            [Required(ErrorMessage = "A senha é obrigatória.")]
+            [DataType(DataType.Password)]
+            public string Password { get; set; } = "";
+
             public bool RememberMe { get; set; }
         }
 
@@ -41,12 +46,12 @@ namespace gestaopedagogica.Pages.identity.account
         {
             if (!ModelState.IsValid) return Page();
 
-            var usernameOrEmail = Input.Username.Trim().ToLower();
+            var usernameOrEmail = Input.Username.Trim();
 
-            // 1. Localizar o user
+            // 1. Localizar o user (Email ou Username)
             var user = await _userManager.Users
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == usernameOrEmail
-                                       || u.UserName.ToLower() == usernameOrEmail);
+                .FirstOrDefaultAsync(u => u.Email.ToUpper() == usernameOrEmail.ToUpper()
+                                       || u.UserName.ToUpper() == usernameOrEmail.ToUpper());
 
             if (user == null)
             {
@@ -54,38 +59,51 @@ namespace gestaopedagogica.Pages.identity.account
                 return Page();
             }
 
-            // 2. Login Real (PasswordSignInAsync é necessário para criar o cookie corretamente)
+            // 2. Tentar o Login
+            // Usamos user.UserName pois o PasswordSignInAsync espera o UserName oficial da DB
             var result = await _signInManager.PasswordSignInAsync(user.UserName, Input.Password, Input.RememberMe, lockoutOnFailure: false);
 
             if (result.Succeeded)
             {
                 var destination = await DeterminarRetorno(user.Id);
 
-                // Força a URL final para minúsculas e remove espaços
+                // CRUCIAL: Forçamos minúsculas porque o Linux do Render é Case-Sensitive
                 destination = destination.ToLower().Trim();
 
-                Console.WriteLine($"[LOGIN OK] Redirecionando para: {destination}");
+                Console.WriteLine($"[LOGIN SUCESSO] Redirecionando para: {destination}");
 
-                return Redirect(destination);
+                // LocalRedirect é mais seguro para rotas internas
+                return LocalRedirect(destination);
             }
 
-            ModelState.AddModelError(string.Empty, "Senha incorreta.");
+            if (result.IsLockedOut)
+            {
+                ModelState.AddModelError(string.Empty, "Conta bloqueada temporariamente.");
+            }
+            else
+            {
+                ModelState.AddModelError(string.Empty, "Senha incorreta.");
+            }
+
             return Page();
         }
 
         private async Task<string> DeterminarRetorno(string userId)
         {
             var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) return "/";
+
             var roles = await _userManager.GetRolesAsync(user);
 
-            if (roles.Contains("Admin")) return "/admin/DashboardAdmin";
+            // IMPORTANTE: Retornar as strings já em MINÚSCULAS para evitar 404 no Render
+            if (roles.Contains("Admin")) return "/admin/dashboardadmin";
 
             var professor = await _professorService.GetProfessorByUserIdAsync(userId);
-            if (professor != null) return "/professor/DashboardProfessor";
+            if (professor != null) return "/professor/dashboardprofessor";
 
             var alunos = await _alunoService.GetAlunosAsync();
             var aluno = alunos?.FirstOrDefault(a => a.UserId == userId);
-            if (aluno != null) return "/aluno/DashboardAluno";
+            if (aluno != null) return "/aluno/dashboardaluno";
 
             return "/";
         }

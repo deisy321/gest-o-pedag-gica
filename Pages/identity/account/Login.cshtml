@@ -65,6 +65,13 @@
             border-color: #0d9488;
             box-shadow: 0 0 0 0.25rem rgba(13, 148, 136, 0.25);
         }
+
+        /* Ajuste visual para a lista de erros */
+        .validation-summary-errors ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
     </style>
 </head>
 <body>
@@ -77,18 +84,7 @@
                     <h5 class="text-center text-muted mt-3" style="font-weight: 400; letter-spacing: 0.5px;">Gestão Pedagógica</h5>
                 </div>
 
-                @if (!ViewData.ModelState.IsValid)
-                {
-                    <div class="alert alert-danger">
-                        @foreach (var modelState in ViewData.ModelState.Values)
-                        {
-                            @foreach (var error in modelState.Errors)
-                            {
-                                <div>@error.ErrorMessage</div>
-                            }
-                        }
-                    </div>
-                }
+                <div asp-validation-summary="All" class="alert alert-danger py-2 mb-3"></div>
 
                 <form method="post">
                     @Html.AntiForgeryToken()
@@ -126,5 +122,8 @@
             <p class="small">Aluno: aluno@local / Aluno123!</p>
         </div>
     </div>
+
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
 </body>
 </html>
