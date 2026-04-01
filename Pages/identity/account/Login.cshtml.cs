@@ -78,14 +78,14 @@ namespace gestaopedagogica.Pages.identity.account
             var user = await _userManager.FindByIdAsync(userId);
             var roles = await _userManager.GetRolesAsync(user);
 
-            if (roles.Contains("Admin")) return "/admin/dashboard";
+            if (roles.Contains("Admin")) return "/admin/DashboardAdmin";
 
             var professor = await _professorService.GetProfessorByUserIdAsync(userId);
-            if (professor != null) return "/professor/dashboardprofessor";
+            if (professor != null) return "/professor/DashboardProfessor";
 
             var alunos = await _alunoService.GetAlunosAsync();
             var aluno = alunos?.FirstOrDefault(a => a.UserId == userId);
-            if (aluno != null) return "/aluno/dashboardaluno";
+            if (aluno != null) return "/aluno/DashboardAluno";
 
             return "/";
         }
