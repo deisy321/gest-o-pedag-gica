@@ -1,0 +1,276 @@
+@page "/admin/EditarAtribuicao/{TurmaIdStr}/{ProfessorIdStr}"
+@namespace gestaopedagogica.Pages.Admin
+@layout MainLayout
+@using gestaopedagogica.Services
+@using gestaopedagogica.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@inject TurmaService TurmaService
+@inject ProfessorService ProfessorService
+@inject ModuloService ModuloService
+@inject DisciplinaService DisciplinaService
+@inject AdminService AdminService
+@inject NavigationManager Nav
+
+<AuthorizeView Roles="Administrador" Context="authContext">
+    <Authorized>
+        <div class="page-admin animate-fade-in">
+       @if (IsLoading)
+          {
+         <div class="text-center mt-5">
+         <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+      <p class="mt-3 text-muted">Carregando dados...</p>
+</div>
+  }
+            else if (TurmaSelecionada == null || ProfessorSelecionado == null)
+     {
+         <div class="alert alert-danger alert-dismissible fade show">
+       <i class="bi bi-exclamation-triangle-fill"></i>
+ <strong>Erro:</strong> Turma ou Professor não encontrados!
+   <button type="button" class="btn-close" @onclick='() => Nav.NavigateTo("/admin/DashboardAdmin")'></button>
+   </div>
+          }
+            else
+         {
+       <div class="admin-header-row mb-4">
+    <div>
+        <h3 class="page-title">Editar Atribuição</h3>
+     <p class="text-muted">Modifique a atribuição: Professor, Turma, Módulo e Disciplina</p>
+  </div>
+             <a href="/admin/DashboardAdmin" class="btn btn-custom btn-custom-outline">
+          <i class="bi bi-arrow-left"></i> Voltar
+               </a>
+</div>
+
+      <div class="row">
+    <div class="col-lg-8 mx-auto">
+      <div class="admin-card shadow-sm border-0">
+           <div class="card-header-custom">
+    <h5 class="fw-bold text-primary mb-0">Dados da Atribuição</h5>
+      </div>
+         <div class="p-4">
+   <EditForm Model="@FormModel" OnValidSubmit="SalvarAlteracoes">
+ <DataAnnotationsValidator />
+
+       <!-- Professor (Somente leitura) -->
+  <div class="mb-4">
+     <label class="form-label fw-bold">
+            <i class="bi bi-person-badge"></i> Professor
+   </label>
+            <div class="input-group">
+       <span class="input-group-text">
+    <i class="bi bi-person-fill"></i>
+       </span>
+               <input type="text" class="form-control" value="@(ProfessorSelecionado?.Nome ?? "")" disabled />
+            </div>
+               <small class="text-muted">Email: @(ProfessorSelecionado?.Email ?? "")</small>
+     </div>
+
+    <!-- Turma (Editável) -->
+           <div class="mb-4">
+        <label class="form-label fw-bold">
+          <i class="bi bi-people-fill"></i> Turma
+       </label>
+              <select class="form-select" @bind="FormModel.TurmaId" required>
+  <option value="0">Selecione uma turma...</option>
+   @foreach (var turma in ListaTurmas)
+   {
+       <option value="@turma.Id">@turma.Nome</option>
+   }
+             </select>
+<ValidationMessage For="() => FormModel.TurmaId" class="text-danger small" />
+      <small class="text-muted mt-2 d-block">
+        Alunos: @(ListaTurmas.FirstOrDefault(t => t.Id == FormModel.TurmaId)?.Alunos?.Count ?? 0)
+         </small>
+ </div>
+
+  <!-- Módulo (Editável) -->
+        <div class="mb-4">
+            <label class="form-label fw-bold">
+    <i class="bi bi-layers"></i> Módulo
+   </label>
+     <input type="text" class="form-control" @bind="FormModel.Modulo" placeholder="Ex: Módulo 1, Trimestre 1, Bloco A" />
+<small class="text-muted">Descrição do módulo/período</small>
+            </div>
+
+         <!-- Disciplina (Editável) -->
+          <div class="mb-4">
+          <label class="form-label fw-bold">
+   <i class="bi bi-book"></i> Disciplina
+            </label>
+<select class="form-select" @bind="FormModel.DisciplinaId" required>
+     <option value="0">Selecione uma disciplina...</option>
+   @foreach (var disciplina in ListaDisciplinas)
+{
+       <option value="@disciplina.Id">@disciplina.Nome</option>
+}
+  </select>
+         <ValidationMessage For="() => FormModel.DisciplinaId" class="text-danger small" />
+         </div>
+
+  <!-- Mensagem de Status -->
+ @if (!string.IsNullOrEmpty(StatusMessage))
+     {
+       <div class="alert @(StatusMessage.StartsWith("?") ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @StatusMessage
+      <button type="button" class="btn-close" @onclick='() => StatusMessage = ""'></button>
+     </div>
+         }
+
+   <!-- Botões -->
+        <div class="d-flex gap-2 mt-5">
+       <a href="/admin/DashboardAdmin" class="btn btn-custom btn-custom-outline flex-fill">
+         <i class="bi bi-x"></i> Cancelar
+             </a>
+  <button type="submit" class="btn btn-custom btn-custom-primary flex-fill" disabled="@IsSaving">
+             @if (IsSaving)
+    {
+         <span class="spinner-border spinner-border-sm me-2"></span>
+      <span>Guardando...</span>
+           }
+   else
+        {
+       <i class="bi bi-check-circle"></i>
+ <span>Guardar Alterações</span>
+}
+               </button>
+     </div>
+       </EditForm>
+         </div>
+   </div>
+        </div>
+    </div>
+       }
+     </div>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [Parameter] public string? TurmaIdStr { get; set; }
+    [Parameter] public string? ProfessorIdStr { get; set; }
+
+    private bool IsLoading = true;
+    private bool IsSaving = false;
+    private string StatusMessage = "";
+
+    private Turma? TurmaSelecionada;
+    private Professor? ProfessorSelecionado;
+    private List<Turma> ListaTurmas = new();
+    private List<Modulo> ListaModulos = new();
+    private List<Disciplina> ListaDisciplinas = new();
+
+    private EditModel FormModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+          if (!int.TryParse(TurmaIdStr, out int turmaId) || !int.TryParse(ProfessorIdStr, out int professorId))
+      {
+          StatusMessage = "IDs inválidos";
+                return;
+  }
+
+         // Carregar dados
+       TurmaSelecionada = await TurmaService.GetTurmaByIdAsync(turmaId);
+       var professores = await ProfessorService.GetProfessoresAsync();
+        ProfessorSelecionado = professores?.FirstOrDefault(p => p.Id == professorId);
+
+   ListaTurmas = await TurmaService.GetTurmasAsync() ?? new();
+    ListaModulos = await ModuloService.GetModulosAsync() ?? new();
+ ListaDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new();
+
+      // Preencher formulário com dados existentes
+         if (TurmaSelecionada != null)
+            {
+   FormModel.TurmaId = TurmaSelecionada.Id;
+   
+ var atribuicao = TurmaSelecionada.Professores?.FirstOrDefault(tp => tp.ProfessorId == professorId);
+         if (atribuicao != null)
+    {
+  FormModel.DisciplinaId = atribuicao.DisciplinaId;
+  }
+            }
+        }
+        catch (Exception ex)
+     {
+         StatusMessage = $"Erro ao carregar: {ex.Message}";
+}
+        finally
+        {
+IsLoading = false;
+        }
+    }
+
+    private async Task SalvarAlteracoes()
+    {
+        if (IsSaving) return;
+        IsSaving = true;
+        StatusMessage = "";
+
+        try
+        {
+            if (FormModel.TurmaId <= 0 || string.IsNullOrEmpty(FormModel.Modulo) || FormModel.DisciplinaId <= 0)
+         {
+        StatusMessage = "Selecione uma turma, preencha o módulo e disciplina";
+         return;
+     }
+
+  // Obter a nova turma selecionada
+     var novaTurma = ListaTurmas.FirstOrDefault(t => t.Id == FormModel.TurmaId);
+   if (novaTurma == null)
+       {
+  StatusMessage = "Turma não encontrada";
+             return;
+   }
+
+        // Se mudou de turma, remover do antiga e adicionar na nova
+         if (TurmaSelecionada?.Id != FormModel.TurmaId)
+      {
+  // Remover da turma antiga
+       if (TurmaSelecionada != null && int.TryParse(ProfessorIdStr, out int professorId))
+     {
+var atribuicaoAntiga = TurmaSelecionada.Professores?.FirstOrDefault(tp => tp.ProfessorId == professorId);
+         if (atribuicaoAntiga != null)
+          {
+         await TurmaService.RemoveTurmaProfessorAsync(TurmaSelecionada.Id, professorId, atribuicaoAntiga.DisciplinaId);
+      }
+    }
+
+       // Adicionar na turma nova
+      if (int.TryParse(ProfessorIdStr, out int profId))
+         {
+         await TurmaService.AddTurmaProfessorAsync(FormModel.TurmaId, profId, FormModel.DisciplinaId);
+ }
+       }
+      else
+            {
+     // Mesma turma - apenas atualizar disciplina
+    var atribuicao = novaTurma.Professores?.FirstOrDefault(tp => tp.ProfessorId == int.Parse(ProfessorIdStr ?? "0"));
+ if (atribuicao != null)
+     {
+        atribuicao.DisciplinaId = FormModel.DisciplinaId;
+      await TurmaService.AddTurmaAsync(novaTurma);
+     }
+       }
+
+            StatusMessage = "? Alterações guardadas com sucesso!";
+   await Task.Delay(1500);
+ Nav.NavigateTo("/admin/DashboardAdmin");
+ }
+      catch (Exception ex)
+        {
+      StatusMessage = $"Erro: {ex.Message}";
+   }
+        finally
+  {
+          IsSaving = false;
+        }
+    }
+
+    private class EditModel
+    {
+  public int TurmaId { get; set; }
+   public string Modulo { get; set; } = string.Empty;
+      public int DisciplinaId { get; set; }
+    }
+}

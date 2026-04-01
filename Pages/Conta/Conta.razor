@@ -84,10 +84,11 @@
                                     <i class="bi bi-key-fill"></i> Alterar Palavra-Passe
                                 </button>
 
-                                <button class="btn-custom btn-custom-outline w-100 text-danger border-danger justify-content-center"
-                                        style="background: rgba(217, 83, 79, 0.05);">
-                                    <i class="bi bi-box-arrow-right"></i> Terminar sessões noutros dispositivos
-                                </button>
+                                <form method="post" action="/Identity/Account/Logout">
+                                    <button type="submit" class="btn-custom btn-custom-danger w-100 justify-content-center">
+                                        <i class="bi bi-box-arrow-right"></i> Terminar Sessão
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>

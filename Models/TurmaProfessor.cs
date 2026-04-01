@@ -12,7 +12,7 @@
         public int DisciplinaId { get; set; }
         public Disciplina Disciplina { get; set; } = null!;
 
-        // Modulo é opcional
+        // Modulo é opcional (string)
         public string Modulo { get; set; } = string.Empty;
     }
 }

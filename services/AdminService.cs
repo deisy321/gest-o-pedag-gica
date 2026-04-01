@@ -41,6 +41,8 @@ namespace gestaopedagogica.Services
                     .Include(tp => tp.Disciplina) // Inclui a nova relação de Disciplina
                     .Select(tp => new ResumoAtribuicao
                     {
+                        TurmaId = tp.TurmaId,
+                        ProfessorId = tp.ProfessorId,
                         ProfessorNome = tp.Professor.Nome ?? "Sem Nome",
                         TurmaNome = tp.Turma.Nome ?? "Sem Turma",
                         // Lógica: Se houver Disciplina, mostra o Nome dela, senão mostra o campo Modulo (string)
@@ -64,11 +66,26 @@ namespace gestaopedagogica.Services
         {
             return await _userManager.Users.ToListAsync();
         }
+
+        public async Task AtualizarTurmaAsync(Turma turma)
+        {
+            try
+            {
+                _context.Turmas.Update(turma);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Erro ao atualizar turma: {ex.Message}");
+            }
+        }
     }
 
     // Classe de suporte
     public class ResumoAtribuicao
     {
+        public int TurmaId { get; set; }
+        public int ProfessorId { get; set; }
         public string ProfessorNome { get; set; } = string.Empty;
         public string TurmaNome { get; set; } = string.Empty;
         public string ModuloNome { get; set; } = string.Empty;
