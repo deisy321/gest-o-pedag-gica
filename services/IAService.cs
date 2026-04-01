@@ -163,7 +163,8 @@ FORMATO OBRIGATÓRIO DE RESPOSTA:
                 "application/json"
             );
 
-            var response = await _httpClient.PostAsync("api/generate", content);
+            // AJUSTE: Adicionada a barra inicial para garantir a rota correta no Render
+            var response = await _httpClient.PostAsync("/api/generate", content);
 
             if (!response.IsSuccessStatusCode)
             {

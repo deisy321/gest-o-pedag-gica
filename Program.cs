@@ -20,14 +20,15 @@ builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuth
 // Register application state for user role
 builder.Services.AddSingleton<UserState>();
 
-// Configure DbContext with PostgreSQL
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// --- AJUSTE NA CONEXÃO COM O BANCO DE DADOS ---
+// Primeiro tenta ler a variável de ambiente do Render, se não existir, usa o appsettings local.
+var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+                      ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
-// ESTA LINHA É A QUE RESOLVE O SEU ERRO (Adiciona a Factory)
+// Registro do DbContextFactory e DbContext usando a string dinâmica
 builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// Mantemos esta para o Identity e outros serviços scoped funcionarem
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString)
 );
@@ -38,18 +39,24 @@ builder.Services.AddScoped<ModuloService>();
 builder.Services.AddScoped<TurmaService>();
 builder.Services.AddScoped<TrabalhoService>();
 builder.Services.AddScoped<AdminService>();
-builder.Services.AddScoped<ProfessorService>(); // <--- ADICIONE ESTA (NOVA)
+builder.Services.AddScoped<ProfessorService>();
 builder.Services.AddScoped<AlunoService>();
 builder.Services.AddScoped<DisciplinaService>();
 builder.Services.AddScoped<CursoService>();
+
+// --- AJUSTE NA URL DO OLLAMA (IA) ---
 builder.Services.AddHttpClient<IAService>(client =>
 {
-    client.BaseAddress = new Uri("http://127.0.0.1:11434/");
+    // Tenta ler o link que colaste no Render, se for nulo (PC local), usa o IP padrão
+    var ollamaUrl = Environment.GetEnvironmentVariable("OllamaConfig__BaseUrl")
+                    ?? "http://127.0.0.1:11434/";
+
+    client.BaseAddress = new Uri(ollamaUrl);
     client.Timeout = TimeSpan.FromMinutes(5);
 });
+
 // Configure Identity using AddIdentity (supports roles)
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
-
 {
     options.SignIn.RequireConfirmedAccount = false;
     options.Password.RequireNonAlphanumeric = false;
@@ -73,7 +80,7 @@ builder.Services.Configure<Microsoft.AspNetCore.Components.Server.CircuitOptions
 
 var app = builder.Build();
 
-// Apply migrations and seed in development
+// Apply migrations and seed
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -82,26 +89,24 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<ApplicationDbContext>();
         context.Database.Migrate();
 
-        if (app.Environment.IsDevelopment())
+        // AJUSTE: Removido o IF Development para que os usuários sejam criados no Render também
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+
+        // Criar roles se não existirem
+        string[] roles = new[] { "Administrador", "Professor", "Aluno" };
+        foreach (var r in roles)
         {
-            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-            var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-
-            // Criar roles se não existirem
-            string[] roles = new[] { "Administrador", "Professor", "Aluno" };
-            foreach (var r in roles)
-            {
-                if (!roleManager.RoleExistsAsync(r).Result)
-                    roleManager.CreateAsync(new IdentityRole(r)).Wait();
-            }
-
-            // Criar usuários principais
-            await CriarUtilizadorSeNaoExistir(userManager, "admin@local", "Admin123!", "Administrador");
-            await CriarUtilizadorSeNaoExistir(userManager, "prof@local", "Prof123!", "Professor");
-            await CriarUtilizadorSeNaoExistir(userManager, "aluno@local", "Aluno123!", "Aluno");
-
-            Console.WriteLine("✅ Usuários básicos criados com sucesso!");
+            if (!roleManager.RoleExistsAsync(r).Result)
+                roleManager.CreateAsync(new IdentityRole(r)).Wait();
         }
+
+        // Criar usuários principais
+        await CriarUtilizadorSeNaoExistir(userManager, "admin@local", "Admin123!", "Administrador");
+        await CriarUtilizadorSeNaoExistir(userManager, "prof@local", "Prof123!", "Professor");
+        await CriarUtilizadorSeNaoExistir(userManager, "aluno@local", "Aluno123!", "Aluno");
+
+        Console.WriteLine("✅ Banco de dados pronto e usuários criados!");
     }
     catch (Exception ex)
     {
@@ -129,14 +134,6 @@ async Task CriarUtilizadorSeNaoExistir(UserManager<ApplicationUser> userManager,
             await userManager.AddToRoleAsync(user, role);
             Console.WriteLine($"✅ Criado: {email} ({role})");
         }
-        else
-        {
-            Console.WriteLine($"❌ Erro ao criar {email}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
-        }
-    }
-    else
-    {
-        Console.WriteLine($"ℹ️ Utilizador já existe: {email}");
     }
 }
 
