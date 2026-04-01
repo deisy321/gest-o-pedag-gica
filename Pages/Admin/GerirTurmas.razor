@@ -3,6 +3,7 @@
 @layout MainLayout
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
+@attribute [Authorize(Roles = "Admin")]
 
 @inject TurmaService TurmaService
 @inject ProfessorService ProfessorService
@@ -22,7 +23,8 @@
             <button class="btn btn-outline-secondary rounded-pill px-4" @onclick='() => Nav.NavigateTo("/admin/GerirCursos")'>
                 <i class="bi bi-book me-2"></i>Cursos
             </button>
-            <button class="qa-item green border-0 px-4 shadow-sm" style="margin-bottom: 0;" @onclick="MostrarCriarTurma">
+            @* Botão Corrigido para Verde *@
+            <button class="btn btn-success rounded-pill px-4 shadow-sm" @onclick="MostrarCriarTurma">
                 <i class="bi bi-plus-lg me-2"></i>Nova Turma
             </button>
         </div>
@@ -54,7 +56,7 @@
         else
         {
             <div class="table-responsive">
-                <table class="custom-table">
+                <table class="table custom-table">
                     <thead>
                         <tr>
                             <th>Identificação</th>
@@ -109,8 +111,8 @@
 @* Modal *@
 @if (MostrarModalCriar)
 {
-    <div class="modal-bg animate-fade-in">
-        <div class="modal-card shadow-lg animate-slide-up">
+    <div class="modal-bg animate-fade-in" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1050; display: flex; align-items: center; justify-content: center;">
+        <div class="modal-card bg-white p-4 shadow-lg animate-slide-up" style="border-radius: 20px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto;">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h4 class="fw-bold mb-0 text-primary">Configurar Turma</h4>
                 <button class="btn-close" @onclick="() => MostrarModalCriar = false"></button>
@@ -120,7 +122,7 @@
                 <div class="col-12">
                     <label class="form-label fw-bold small text-secondary">CURSO BASE</label>
                     <select class="form-select rounded-pill" @bind="NovaTurma.CursoId">
-                        <option value="">Selecione o Curso...</option>
+                        <option value="0">Selecione o Curso...</option>
                         @foreach (var c in TodosCursos)
                         {
                             <option value="@c.Id">@c.Nome</option>
@@ -130,11 +132,11 @@
 
                 <div class="col-md-6">
                     <label class="form-label fw-bold small text-secondary">NOME DA TURMA</label>
-                    <input class="form-control rounded-pill" @bind="NovaTurma.Nome" />
+                    <input class="form-control rounded-pill" @bind="NovaTurma.Nome" placeholder="Ex: 10º A" />
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-bold small text-secondary">ANO LETIVO</label>
-                    <input class="form-control rounded-pill" @bind="NovaTurma.Ano" />
+                    <input class="form-control rounded-pill" @bind="NovaTurma.Ano" placeholder="Ex: 2023/24" />
                 </div>
 
                 @* Professores *@
@@ -192,7 +194,10 @@
 
             <div class="mt-4 pt-3 border-top d-flex gap-2">
                 <button class="btn btn-light rounded-pill flex-grow-1" @onclick="() => MostrarModalCriar = false">Cancelar</button>
-                <button class="qa-item dark-blue border-0 flex-grow-1 justify-content-center" @onclick="SalvarNovaTurma">Gravar Turma</button>
+                @* Botão Corrigido para Azul *@
+                <button class="btn btn-primary rounded-pill flex-grow-1 shadow-sm" style="font-weight: bold;" @onclick="SalvarNovaTurma">
+                    Gravar Turma
+                </button>
             </div>
         </div>
     </div>
@@ -226,7 +231,7 @@
             TodosDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new();
             Turmas = await TurmaService.GetTurmasComCursoAsync() ?? new();
         }
-        catch (Exception ex) { ErroMensagem = $"Erro: {ex.Message}"; }
+        catch (Exception ex) { ErroMensagem = $"Erro ao carregar: {ex.Message}"; }
         finally { CarregandoDados = false; }
     }
 
@@ -234,6 +239,7 @@
     {
         NovaTurma = new Turma { Professores = new(), Alunos = new() };
         MostrarModalCriar = true;
+        ErroMensagem = null;
     }
 
     void AdicionarProfessor()
@@ -243,7 +249,11 @@
         var d = TodosDisciplinas.FirstOrDefault(x => x.Id == DisciplinaSelecionada);
         if (p != null && d != null)
         {
-            NovaTurma.Professores.Add(new TurmaProfessor { ProfessorId = p.Id, Professor = p, DisciplinaId = d.Id, Disciplina = d });
+            // Evitar duplicados na mesma turma
+            if (!NovaTurma.Professores.Any(x => x.ProfessorId == p.Id && x.DisciplinaId == d.Id))
+            {
+                NovaTurma.Professores.Add(new TurmaProfessor { ProfessorId = p.Id, Professor = p, DisciplinaId = d.Id, Disciplina = d });
+            }
             ProfessorSelecionado = 0; DisciplinaSelecionada = 0;
         }
     }
@@ -261,22 +271,62 @@
     {
         try
         {
+            ErroMensagem = null;
+
+            // Validação de segurança
+            if (string.IsNullOrWhiteSpace(NovaTurma.Nome) || NovaTurma.CursoId == 0)
+            {
+                ErroMensagem = "Por favor, preencha o nome e selecione um curso.";
+                return;
+            }
+
+            // LIMPEZA PARA O BANCO DE DADOS (RENDER)
+            // Removemos as instâncias dos objetos para o EF focar apenas nos IDs
+            // e não tentar criar novos professores/disciplinas/cursos
+            foreach (var tp in NovaTurma.Professores)
+            {
+                tp.Professor = null;
+                tp.Disciplina = null;
+            }
+
+            // Limpamos a lista de alunos para enviar apenas as referências por ID
+            var alunosIds = NovaTurma.Alunos.Select(a => a.Id).ToList();
+            NovaTurma.Alunos = TodosAlunos.Where(a => alunosIds.Contains(a.Id)).ToList();
+
+            // O Curso também deve ser limpo para não duplicar
+            NovaTurma.Curso = null;
+
             await TurmaService.AddTurmaAsync(NovaTurma);
-            SucessoMensagem = "Turma criada!";
+
+            SucessoMensagem = "Turma registada com sucesso!";
             MostrarModalCriar = false;
             await CarregarDados();
             _ = AutoFecharMensagem();
         }
-        catch { ErroMensagem = "Erro ao gravar."; }
+        catch (Exception ex)
+        {
+            // Captura o erro detalhado do banco de dados
+            ErroMensagem = $"Erro ao gravar: {ex.InnerException?.Message ?? ex.Message}";
+        }
     }
 
     async Task Remover(Turma t)
     {
-        await TurmaService.RemoveTurmaAsync(t);
-        SucessoMensagem = "Turma removida!";
-        await CarregarDados();
-        _ = AutoFecharMensagem();
+        try
+        {
+            await TurmaService.RemoveTurmaAsync(t);
+            SucessoMensagem = "Turma removida!";
+            await CarregarDados();
+            _ = AutoFecharMensagem();
+        }
+        catch (Exception ex) { ErroMensagem = "Erro ao remover: " + ex.Message; }
     }
 
-    private async Task AutoFecharMensagem() { await Task.Delay(4000); SucessoMensagem = null; ErroMensagem = null; StateHasChanged(); }
+    private async Task AutoFecharMensagem()
+    {
+        await Task.Delay(4000);
+        SucessoMensagem = null;
+        ErroMensagem = null;
+        StateHasChanged();
+    }
 }
