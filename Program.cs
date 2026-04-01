@@ -47,7 +47,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// 5. Configuração de Cookies (Ajustado para Render)
+// 5. Configuração de Cookies (Ajustado para minúsculas)
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/identity/account/login";
@@ -55,7 +55,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.AccessDeniedPath = "/identity/account/accessdenied";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Força HTTPS para o cookie
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
 
 // 6. Autorização e Políticas
@@ -89,7 +89,7 @@ builder.Services.AddHttpClient<IAService>(client =>
 
 var app = builder.Build();
 
-// 7. Configuração para Proxy (Render/Linux) - CRÍTICO estar aqui no topo
+// 7. Configuração para Proxy (Render)
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
@@ -145,10 +145,10 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 10. Mapeamento
+// 10. Mapeamento (Prioridade para Razor Pages do Login)
 app.MapControllers();
 app.MapRazorPages();
 app.MapBlazorHub();
-app.MapFallbackToPage("/_Host");
+app.MapFallbackToPage("/_host");
 
 app.Run();

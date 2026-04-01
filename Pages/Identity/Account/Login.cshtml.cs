@@ -48,7 +48,6 @@ namespace gestaopedagogica.Pages.Identity.Account
 
         public void OnGet()
         {
-            // Apenas exibe a página de login
         }
 
         public async Task<IActionResult> OnPostAsync()
@@ -75,13 +74,11 @@ namespace gestaopedagogica.Pages.Identity.Account
                 return Page();
             }
 
-            // Efetua login
             await _signInManager.SignInAsync(user, Input.RememberMe);
 
-            // Determinar o tipo de usuário e redirecionar
+            // Determinar o retorno com caminhos em minúsculas
             var returnUrl = await DeterminarRetorno(user.Id);
 
-            // IMPORTANTE: LocalRedirect garante que o redirecionamento funcione no Render/Linux
             return LocalRedirect(returnUrl);
         }
 
@@ -92,28 +89,25 @@ namespace gestaopedagogica.Pages.Identity.Account
                 var user = await _userManager.FindByIdAsync(userId);
                 var roles = await _userManager.GetRolesAsync(user);
 
-                // Verificação de Admin - Rota com 'A' maiúsculo
+                // REDIRECIONAMENTOS EM MINÚSCULAS PARA O RENDER
                 if (roles.Contains("Admin"))
                 {
-                    return "/Admin/Dashboard";
+                    return "/admin/dashboard";
                 }
 
-                // Verificação de Professor - Rota com 'P' maiúsculo
                 var professor = await _professorService.GetProfessorByUserIdAsync(userId);
                 if (professor != null)
                 {
-                    return "/Professor/DashboardProfessor";
+                    return "/professor/dashboardprofessor";
                 }
 
-                // Verificação de Aluno - Rota com 'A' maiúsculo (Confirmado que funciona no Render)
                 var alunos = await _alunoService.GetAlunosAsync();
                 var aluno = alunos?.FirstOrDefault(a => a.UserId == userId);
                 if (aluno != null)
                 {
-                    return "/Aluno/DashboardAluno";
+                    return "/aluno/dashboardaluno";
                 }
 
-                // Padrão: voltar para home
                 return "/";
             }
             catch (Exception ex)
