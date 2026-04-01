@@ -1,4 +1,4 @@
-@page
+@page "/identity/account/login"
 @model gestaopedagogica.Pages.identity.account.LoginModel
 
 @{
@@ -72,13 +72,12 @@
         <div class="card shadow-lg">
             <div class="card-body">
 
-                <!-- Logótipo e Título Atualizados -->
                 <div class="logo-wrapper">
                     <img src="~/images/logo_triadelearn.png" alt="TriadeLearn Logo" class="logo-img" />
                     <h5 class="text-center text-muted mt-3" style="font-weight: 400; letter-spacing: 0.5px;">Gestão Pedagógica</h5>
                 </div>
 
-                @if (!ModelState.IsValid)
+                @if (!ViewData.ModelState.IsValid)
                 {
                     <div class="alert alert-danger">
                         @foreach (var modelState in ViewData.ModelState.Values)
@@ -96,12 +95,12 @@
 
                     <div class="mb-3">
                         <label class="form-label" for="Input_Username">Email ou Utilizador</label>
-                        <input type="text" id="Input_Username" name="Input.Username" class="form-control form-control-lg" placeholder="admin@local" value="@Model.Input.Username" required autofocus />
+                        <input type="text" id="Input_Username" name="Input.Username" class="form-control form-control-lg" placeholder="Ex: admin@local" value="@Model.Input.Username" required autofocus />
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label" for="Input_Password">Senha</label>
-                        <input type="password" id="Input_Password" name="Input.Password" class="form-control form-control-lg" placeholder="Sua senha" value="@Model.Input.Password" required />
+                        <input type="password" id="Input_Password" name="Input.Password" class="form-control form-control-lg" placeholder="Sua senha" required />
                     </div>
 
                     <div class="mb-3 form-check">
@@ -125,7 +124,6 @@
             <p class="small">Admin: admin@local / Admin123!</p>
             <p class="small">Professor: prof@local / Prof123!</p>
             <p class="small">Aluno: aluno@local / Aluno123!</p>
-
         </div>
     </div>
 </body>
