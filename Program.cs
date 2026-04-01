@@ -5,27 +5,21 @@ using gestaopedagogica.Shared;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
+// 1. Serviços de UI e Acesso
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddRazorPages();
+builder.Services.AddRazorPages(); // Essencial para a página de Login
 builder.Services.AddServerSideBlazor();
 
-// Configuração de Antiforgery para evitar erros de validação no Login
+// 2. Configuração de Antiforgery (Ajustado)
 builder.Services.AddAntiforgery(options => {
     options.HeaderName = "X-CSRF-TOKEN";
 });
 
-builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<ApplicationUser>>();
-
-// Register application state for user role
-builder.Services.AddSingleton<UserState>();
-
-// --- CONEXÃO COM O BANCO DE DADOS ---
+// 3. Base de Dados
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
                       ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -33,10 +27,41 @@ builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString)
-);
+    options.UseNpgsql(connectionString));
 
-// Registrar serviços da aplicação
+// 4. Identity e Roles
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+{
+    options.SignIn.RequireConfirmedAccount = false;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequiredLength = 6;
+})
+.AddEntityFrameworkStores<ApplicationDbContext>()
+.AddDefaultTokenProviders();
+
+// 5. Configuração de Cookies (CRÍTICO para o Login abrir no Render)
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Identity/Account/Login";
+    options.LogoutPath = "/Identity/Account/Logout";
+    options.AccessDeniedPath = "/Identity/Account/AccessDenied";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax; // Necessário para iframes/proxies do Render
+});
+
+// 6. Autorização e Serviços
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("RequireAdministratorRole", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("RequireProfessorRole", policy => policy.RequireRole("Professor"));
+    options.AddPolicy("RequireAlunoRole", policy => policy.RequireRole("Aluno"));
+});
+
+builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<ApplicationUser>>();
+builder.Services.AddSingleton<UserState>();
+
+// Serviços da App
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ModuloService>();
 builder.Services.AddScoped<TurmaService>();
@@ -47,51 +72,22 @@ builder.Services.AddScoped<AlunoService>();
 builder.Services.AddScoped<DisciplinaService>();
 builder.Services.AddScoped<CursoService>();
 
-// --- CONFIGURAÇÃO DO OLLAMA (IA) ---
 builder.Services.AddHttpClient<IAService>(client =>
 {
-    var ollamaUrl = Environment.GetEnvironmentVariable("OllamaConfig__BaseUrl")
-                    ?? "http://127.0.0.1:11434/";
-
+    var ollamaUrl = Environment.GetEnvironmentVariable("OllamaConfig__BaseUrl") ?? "http://127.0.0.1:11434/";
     client.BaseAddress = new Uri(ollamaUrl);
     client.Timeout = TimeSpan.FromMinutes(5);
 });
 
-// Configuração do Identity (Roles: Admin, Professor, Aluno)
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
-{
-    options.SignIn.RequireConfirmedAccount = false;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequireUppercase = false;
-    options.Password.RequireDigit = false;
-    options.Password.RequiredLength = 6;
-})
-.AddEntityFrameworkStores<ApplicationDbContext>()
-.AddDefaultTokenProviders();
-
-// Ajuste das Políticas para usar "Admin" em vez de "Administrador"
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("RequireAdministratorRole", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("RequireProfessorRole", policy => policy.RequireRole("Professor"));
-    options.AddPolicy("RequireAlunoRole", policy => policy.RequireRole("Aluno"));
-});
-
-// Ativar erros detalhados do Blazor para ajudar no relatório da PAP
-builder.Services.Configure<Microsoft.AspNetCore.Components.Server.CircuitOptions>(options =>
-{
-    options.DetailedErrors = true;
-});
-
 var app = builder.Build();
 
-// --- CONFIGURAÇÃO PARA O RENDER (LINUX PROXY) ---
+// 7. Configuração para Proxy (Render/Linux) - Deve vir ANTES de tudo
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
-// Apply migrations and seed
+// 8. Migrações e Seed
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -99,54 +95,35 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
         context.Database.Migrate();
-
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
 
-        // Criar roles (Admin, Professor, Aluno)
-        string[] roles = new[] { "Admin", "Professor", "Aluno" };
+        string[] roles = { "Admin", "Professor", "Aluno" };
         foreach (var r in roles)
         {
             if (!roleManager.RoleExistsAsync(r).Result)
                 roleManager.CreateAsync(new IdentityRole(r)).Wait();
         }
 
-        // Criar usuários de teste
-        await CriarUtilizadorSeNaoExistir(userManager, "admin@local", "Admin123!", "Admin");
-        await CriarUtilizadorSeNaoExistir(userManager, "prof@local", "Prof123!", "Professor");
-        await CriarUtilizadorSeNaoExistir(userManager, "aluno@local", "Aluno123!", "Aluno");
-
-        Console.WriteLine("✅ Banco de dados pronto!");
+        await CriarUser(userManager, "admin@local", "Admin123!", "Admin");
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Erro no Seed do banco de dados.");
+        Console.WriteLine($"Erro no Seed: {ex.Message}");
     }
 }
 
-async Task CriarUtilizadorSeNaoExistir(UserManager<ApplicationUser> userManager, string email, string senha, string role)
+async Task CriarUser(UserManager<ApplicationUser> um, string email, string senha, string role)
 {
-    var user = await userManager.FindByEmailAsync(email);
-    if (user == null)
+    if (await um.FindByEmailAsync(email) == null)
     {
-        user = new ApplicationUser
-        {
-            UserName = email,
-            Email = email,
-            EmailConfirmed = true
-        };
-
-        var result = await userManager.CreateAsync(user, senha);
-        if (result.Succeeded)
-        {
-            await userManager.AddToRoleAsync(user, role);
-            Console.WriteLine($"✅ Criado: {email} ({role})");
-        }
+        var user = new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true };
+        var result = await um.CreateAsync(user, senha);
+        if (result.Succeeded) await um.AddToRoleAsync(user, role);
     }
 }
 
-// Pipeline de requisições
+// 9. Pipeline de Execução (Ordem Importante!)
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -155,15 +132,14 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-
 app.UseRouting();
 
-// Importante: A ordem correta para o Identity funcionar
 app.UseAuthentication();
 app.UseAuthorization();
 
+// 10. Mapeamento de Rotas
 app.MapControllers();
-app.MapRazorPages();
+app.MapRazorPages(); // Isto garante que a pasta /Pages/Identity/Account funcione
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
