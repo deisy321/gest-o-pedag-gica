@@ -139,7 +139,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 // Em produção (Render), o proxy já trata o HTTPS, mas mantemos para segurança local
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
