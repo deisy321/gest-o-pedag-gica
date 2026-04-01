@@ -27,8 +27,14 @@ builder.Services.AddAntiforgery(options => {
 });
 
 // --- 4. CONFIGURAÇÃO DA BASE DE DADOS ---
-var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-                      ?? builder.Configuration.GetConnectionString("DefaultConnection");
+// Prioriza a variável de ambiente do Render, depois o appsettings.json
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    // Fallback manual caso a configuração automática do .NET falhe no Render
+    connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
@@ -123,7 +129,9 @@ using (var scope = app.Services.CreateScope())
             }
         }
 
-        await CriarUser(userManager, "admin@local", "Admin123!", "Admin");
+        // Chamada assíncrona do Seed
+        CriarUser(userManager, "admin@local", "Admin123!", "Admin").GetAwaiter().GetResult();
+        Console.WriteLine("Seed executado com sucesso.");
     }
     catch (Exception ex)
     {
@@ -138,8 +146,9 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-// Em produção (Render), o proxy já trata o HTTPS, mas mantemos para segurança local
-//app.UseHttpsRedirection();
+// Em produção (Render), o proxy já trata o HTTPS
+// app.UseHttpsRedirection(); 
+
 app.UseStaticFiles();
 
 app.UseRouting();
@@ -159,9 +168,10 @@ app.Run();
 // --- MÉTODO AUXILIAR PARA SEED ---
 async Task CriarUser(UserManager<ApplicationUser> um, string email, string senha, string role)
 {
-    if (await um.FindByEmailAsync(email) == null)
+    var user = await um.FindByEmailAsync(email);
+    if (user == null)
     {
-        var user = new ApplicationUser
+        user = new ApplicationUser
         {
             UserName = email,
             Email = email,
@@ -171,6 +181,11 @@ async Task CriarUser(UserManager<ApplicationUser> um, string email, string senha
         if (result.Succeeded)
         {
             await um.AddToRoleAsync(user, role);
+            Console.WriteLine($"Utilizador {email} criado com sucesso.");
+        }
+        else
+        {
+            Console.WriteLine($"Falha ao criar utilizador {email}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
         }
     }
 }
