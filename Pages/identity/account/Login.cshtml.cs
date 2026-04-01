@@ -14,19 +14,16 @@ namespace gestaopedagogica.Pages.identity.account
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly ApplicationDbContext _context;
         private readonly ProfessorService _professorService;
         private readonly AlunoService _alunoService;
 
         public LoginModel(SignInManager<ApplicationUser> signInManager,
                           UserManager<ApplicationUser> userManager,
-                          ApplicationDbContext context,
                           ProfessorService professorService,
                           AlunoService alunoService)
         {
             _signInManager = signInManager;
             _userManager = userManager;
-            _context = context;
             _professorService = professorService;
             _alunoService = alunoService;
         }
@@ -46,9 +43,7 @@ namespace gestaopedagogica.Pages.identity.account
             public bool RememberMe { get; set; }
         }
 
-        public void OnGet()
-        {
-        }
+        public void OnGet() { }
 
         public async Task<IActionResult> OnPostAsync()
         {
@@ -57,29 +52,35 @@ namespace gestaopedagogica.Pages.identity.account
 
             var usernameOrEmail = Input.Username.Trim().ToLower();
 
+            // 1. Procurar o utilizador
             var user = await _userManager.Users
                 .FirstOrDefaultAsync(u => u.Email.ToLower() == usernameOrEmail
                                        || u.UserName.ToLower() == usernameOrEmail);
 
             if (user == null)
             {
-                ModelState.AddModelError(string.Empty, "Utilizador não encontrado.");
+                ModelState.AddModelError(string.Empty, "Utilizador ou senha inválidos.");
                 return Page();
             }
 
-            var passwordValid = await _userManager.CheckPasswordAsync(user, Input.Password);
-            if (!passwordValid)
+            // 2. Tentar o Login (Uso de PasswordSignInAsync para garantir a criação do Cookie)
+            var result = await _signInManager.PasswordSignInAsync(user.UserName, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+
+            if (result.Succeeded)
             {
-                ModelState.AddModelError(string.Empty, "Senha incorreta.");
-                return Page();
+                // 3. Determinar para onde o utilizador deve ir
+                var destination = await DeterminarRetorno(user.Id);
+
+                // Limpeza extra para o Linux (Render)
+                destination = destination.ToLower().Trim();
+
+                Console.WriteLine($"[LOGIN] Sucesso para {user.Email}. Redirecionando para: {destination}");
+
+                return Redirect(destination);
             }
 
-            await _signInManager.SignInAsync(user, Input.RememberMe);
-
-            // Determinar o retorno com caminhos em minúsculas
-            var returnUrl = await DeterminarRetorno(user.Id);
-
-            return LocalRedirect(returnUrl);
+            ModelState.AddModelError(string.Empty, "Tentativa de login inválida.");
+            return Page();
         }
 
         private async Task<string> DeterminarRetorno(string userId)
@@ -87,9 +88,11 @@ namespace gestaopedagogica.Pages.identity.account
             try
             {
                 var user = await _userManager.FindByIdAsync(userId);
+                if (user == null) return "/";
+
                 var roles = await _userManager.GetRolesAsync(user);
 
-                // REDIRECIONAMENTOS EM MINÚSCULAS PARA O RENDER
+                // IMPORTANTE: Rotas sempre em minúsculas
                 if (roles.Contains("Admin"))
                 {
                     return "/admin/dashboard";
@@ -112,7 +115,7 @@ namespace gestaopedagogica.Pages.identity.account
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Erro ao determinar retorno: {ex.Message}");
+                Console.WriteLine($"[ERRO REDIRECT] {ex.Message}");
                 return "/";
             }
         }
