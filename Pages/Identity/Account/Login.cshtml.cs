@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 
-namespace gestaopedagogica.Pages.Identity.Account
+namespace gestaopedagogica.Pages.identity.account
 {
     public class LoginModel : PageModel
     {

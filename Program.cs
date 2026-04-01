@@ -9,34 +9,33 @@ using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- CORREÇÃO DE ROTAS PARA LINUX (RENDER) ---
+// --- 1. CONFIGURAÇÃO DE ROTAS (ESSENCIAL PARA LINUX/RENDER) ---
+// Força todas as URLs geradas pelo sistema a serem minúsculas para evitar erro 404
 builder.Services.AddRouting(options =>
 {
     options.LowercaseUrls = true;
     options.LowercaseQueryStrings = true;
 });
 
-// 1. Serviços de UI e Acesso
+// --- 2. SERVIÇOS DE UI E ACESSO ---
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
-// 2. Configuração de Antiforgery
+// --- 3. CONFIGURAÇÃO DE ANTIFORGERY ---
 builder.Services.AddAntiforgery(options => {
     options.HeaderName = "X-CSRF-TOKEN";
 });
 
-// 3. Base de Dados
+// --- 4. CONFIGURAÇÃO DA BASE DE DADOS (CORRIGIDO) ---
+// Removido o DbContextFactory duplicado para evitar erro 500 por excesso de conexões no Render
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
                       ?? builder.Configuration.GetConnectionString("DefaultConnection");
-
-builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString));
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// 4. Identity e Roles
+// --- 5. IDENTITY E ROLES ---
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
@@ -47,7 +46,8 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// 5. Configuração de Cookies (Ajustado para minúsculas)
+// --- 6. CONFIGURAÇÃO DE COOKIES ---
+// Alinhado com as rotas em minúsculas
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/identity/account/login";
@@ -58,7 +58,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
 
-// 6. Autorização e Políticas
+// --- 7. AUTORIZAÇÃO E POLÍTICAS ---
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("RequireAdministratorRole", policy => policy.RequireRole("Admin"));
@@ -69,7 +69,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<ApplicationUser>>();
 builder.Services.AddSingleton<UserState>();
 
-// Serviços da App
+// --- 8. SERVIÇOS DA APLICAÇÃO (DEPENDENCY INJECTION) ---
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ModuloService>();
 builder.Services.AddScoped<TurmaService>();
@@ -89,20 +89,23 @@ builder.Services.AddHttpClient<IAService>(client =>
 
 var app = builder.Build();
 
-// 7. Configuração para Proxy (Render)
+// --- 9. CONFIGURAÇÃO PARA PROXY (RENDER) ---
+// Necessário para que o HTTPS seja identificado corretamente atrás do proxy do Render
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
-// 8. Migrações e Seed
+// --- 10. MIGRAÇÕES E SEED DATA AUTOMÁTICO ---
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
+        // Executa migrações pendentes no banco de dados do Render
         context.Database.Migrate();
+
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
 
@@ -110,28 +113,21 @@ using (var scope = app.Services.CreateScope())
         foreach (var r in roles)
         {
             if (!roleManager.RoleExistsAsync(r).Result)
+            {
                 roleManager.CreateAsync(new IdentityRole(r)).Wait();
+            }
         }
 
+        // Criação do usuário Admin inicial se não existir
         await CriarUser(userManager, "admin@local", "Admin123!", "Admin");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Erro no Seed: {ex.Message}");
+        Console.WriteLine($"Erro no Seed/Migração: {ex.Message}");
     }
 }
 
-async Task CriarUser(UserManager<ApplicationUser> um, string email, string senha, string role)
-{
-    if (await um.FindByEmailAsync(email) == null)
-    {
-        var user = new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true };
-        var result = await um.CreateAsync(user, senha);
-        if (result.Succeeded) await um.AddToRoleAsync(user, role);
-    }
-}
-
-// 9. Pipeline de Execução
+// --- 11. PIPELINE DE EXECUÇÃO (ORDEM IMPORTA) ---
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/error");
@@ -140,15 +136,36 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
 app.UseRouting();
 
+// Authentication deve vir ANTES de Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 10. Mapeamento (Prioridade para Razor Pages do Login)
+// --- 12. MAPEAMENTO DE ENDPOINTS ---
 app.MapControllers();
-app.MapRazorPages();
+app.MapRazorPages(); // Prioridade para o Login Identity
 app.MapBlazorHub();
 app.MapFallbackToPage("/_host");
 
 app.Run();
+
+// --- MÉTODO AUXILIAR PARA SEED ---
+async Task CriarUser(UserManager<ApplicationUser> um, string email, string senha, string role)
+{
+    if (await um.FindByEmailAsync(email) == null)
+    {
+        var user = new ApplicationUser
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true
+        };
+        var result = await um.CreateAsync(user, senha);
+        if (result.Succeeded)
+        {
+            await um.AddToRoleAsync(user, role);
+        }
+    }
+}
