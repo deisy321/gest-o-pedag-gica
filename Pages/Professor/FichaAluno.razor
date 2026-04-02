@@ -9,139 +9,150 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<h2 class="fw-bold mb-4">Ficha do Aluno</h2>
+<div class="container-fluid mt-4">
+    <h2 class="fw-bold mb-4">Ficha do Aluno</h2>
 
-@if (IsLoading)
-{
-    <div class="text-center p-5">
-        <div class="spinner-border text-primary"></div>
+    @if (IsLoading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2">A analisar dados do aluno...</p>
+        </div>
+    }
+    else if (AlunoSelecionado == null)
+    {
+        <div class="alert alert-warning">Aluno não encontrado.</div>
+    }
+    else
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 p-3 d-flex align-items-center justify-content-center"
+                     style="border-radius: 15px; cursor:pointer; text-align:center;"
+                     @onclick="ToggleDetalhes">
+
+                    <div class="bg-primary text-white d-flex align-items-center justify-content-center mb-2"
+                         style="width:50px; height:50px; border-radius:50%; font-size:20px;">
+                        @AlunoSelecionado.Nome.Substring(0, 1).ToUpper()
+                    </div>
+
+                    <div class="fw-bold">@AlunoSelecionado.Nome</div>
+
+                    @if (MostrarDetalhes)
+                    {
+                        <div class="mt-2 border-top pt-2 text-start w-100">
+                            <small class="d-block"><strong>Email:</strong> @AlunoSelecionado.Email</small>
+                            <small class="d-block"><strong>Turma:</strong> @(AlunoSelecionado.Turma?.Nome ?? "Sem turma")</small>
+                        </div>
+                    }
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#f0f8ff;">
+                        <h6 class="text-muted">Entregues</h6>
+                        <h4 class="fw-bold mb-0">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Enviado))</h4>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#fff3cd;">
+                        <h6 class="text-muted">Pendentes</h6>
+                        <h4 class="fw-bold mb-0">@TrabalhosAluno.Count(t => t.Vertentes.All(v => !v.Enviado))</h4>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#d4edda;">
+                        <h6 class="text-muted">Corrigidos</h6>
+                        <h4 class="fw-bold mb-0">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue))</h4>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#e2e3e5;">
+                        <h6 class="text-muted">Média Geral</h6>
+                        <h4 class="fw-bold mb-0">
+                            @((TrabalhosAluno.SelectMany(t => t.Vertentes)
+                                                        .Where(v => v.Nota.HasValue)
+                                                        .Select(v => (double)v.Nota!.Value)
+                                                        .DefaultIfEmpty(0)
+                                                        .Average()).ToString("0.##"))
+                        </h4>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-}
-else if (AlunoSelecionado == null)
-{
-    <div class="alert alert-warning">Aluno não encontrado.</div>
-}
-else
-{
-    <div class="row g-3 mb-4">
 
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0 p-3 d-flex align-items-center justify-content-center"
-                 style="border-radius: 15px; cursor:pointer; width: 100%; text-align:center;"
-                 @onclick="ToggleDetalhes">
+        <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 15px; border-left: 5px solid #dc3545;">
+            <h5 class="fw-bold text-danger mb-3"><i class="bi bi-exclamation-octagon"></i> Análise de Recuperação</h5>
 
-                <div class="bg-primary text-white d-flex align-items-center justify-content-center mb-2"
-                     style="width:50px; height:50px; border-radius:50%; font-size:20px; margin:auto;">
-                    @AlunoSelecionado.Nome.Substring(0, 1).ToUpper()
+        @if (VertentesAbaixoDaMedia.Any())
+            {
+                <p class="text-muted small">As seguintes vertentes possuem média inferior a 10.0:</p>
+                <div class="row g-2">
+                    @foreach (var v in VertentesAbaixoDaMedia)
+                    {
+                        <div class="col-md-6">
+                            <div class="alert alert-light border d-flex justify-content-between align-items-center p-2 mb-0">
+                                <div>
+                                    <strong>@v.Tipo</strong>
+                                    <span class="badge bg-danger ms-2">@v.Media.ToString("F1")</span>
+                                </div>
+                                <button class="btn btn-danger btn-sm rounded-pill" @onclick="() => IniciarPlano(v)">
+                                    Criar Plano
+                                </button>
+                            </div>
+                        </div>
+                    }
                 </div>
 
-                <div class="fw-bold">@AlunoSelecionado.Nome</div>
-
-                @if (MostrarDetalhes)
+                @if (VertenteEmFoco != null)
                 {
-                    <div class="mt-2 border-top pt-2 text-start">
-                        <div><strong>Email:</strong> @AlunoSelecionado.Email</div>
-                        <div><strong>Turma:</strong> @(AlunoSelecionado.Turma?.Nome ?? "Sem turma")</div>
+                    <div class="mt-4 p-3 bg-light rounded border-start border-danger border-4">
+                        <h6 class="fw-bold text-danger">Novo Plano de Recuperação: @VertenteEmFoco.Tipo</h6>
+                        <textarea class="form-control mb-3" rows="3" @bind="DescricaoNovoPlano"
+                                  placeholder="Descreva as tarefas de recuperação para esta vertente específica..."></textarea>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-danger btn-sm px-4" @onclick="SubmeterPlanoRecuperacao" disabled="@string.IsNullOrEmpty(DescricaoNovoPlano)">
+                                Enviar para o Aluno
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" @onclick="() => VertenteEmFoco = null">Cancelar</button>
+                        </div>
                     </div>
                 }
-        </div>
-    </div>
-
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0 bg-warning text-dark p-3" style="border-radius: 15px;">
-            <h6>Total de Trabalhos</h6>
-            <h5 class="fw-bold">@TrabalhosAluno.Count</h5>
-        </div>
-    </div>
-</div>
-
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#f0f8ff;">
-            <h6>Trabalhos Entregues</h6>
-            <h5 class="fw-bold">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Enviado))</h5>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#fff3cd;">
-            <h6>Trabalhos Pendentes</h6>
-            <h5 class="fw-bold">@TrabalhosAluno.Count(t => t.Vertentes.All(v => !v.Enviado))</h5>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#d4edda;">
-            <h6>Trabalhos Corrigidos</h6>
-            <h5 class="fw-bold">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue))</h5>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#e2e3e5;">
-            <h6>Média de Notas</h6>
-            <h5 class="fw-bold">
-                @((TrabalhosAluno.SelectMany(t => t.Vertentes)
-                                .Where(v => v.Nota.HasValue)
-                                .Select(v => (double)v.Nota!.Value)
-                                .DefaultIfEmpty(0)
-                                .Average()).ToString("0.##"))
-            </h5>
-        </div>
-    </div>
-</div>
-
-    <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 15px; border-left: 5px solid #dc3545;">
-        <h5 class="fw-bold text-danger"><i class="bi bi- exclamation-octagon"></i> Plano de Recuperação</h5>
-
-    @if (VertenteCritica != null)
-        {
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <p class="mb-0">A vertente com menor nota é: <strong>@VertenteCritica.Tipo</strong> (Média: @VertenteCritica.Media.ToString("0.##"))</p>
-                <button class="btn btn-outline-danger btn-sm" @onclick="() => MostrarFormPlano = !MostrarFormPlano">
-                    @(MostrarFormPlano ? "Fechar" : "Criar Plano Agora")
-                </button>
-            </div>
-
-            @if (MostrarFormPlano)
-            {
-                <div class="bg-light p-3 rounded">
-                    <label class="form-label fw-bold small text-uppercase">Instruções para o Aluno (@VertenteCritica.Tipo)</label>
-                    <textarea class="form-control mb-3" rows="3" @bind="DescricaoNovoPlano"
-                              placeholder="Escreva as atividades ou conselhos para o aluno recuperar esta nota..."></textarea>
-                    <button class="btn btn-danger w-100" @onclick="SubmeterPlanoRecuperacao" disabled="@string.IsNullOrEmpty(DescricaoNovoPlano)">
-                        Enviar Plano ao Aluno
-                    </button>
-                </div>
             }
-        }
-        else
-        {
-            <p class="text-muted mb-0 small italicText">O aluno ainda não possui notas suficientes para análise de recuperação.</p>
-        }
-    </div>
-
-    <div class="d-flex justify-content-end mb-4 gap-2">
-        <button class="btn btn-success rounded-pill px-4"
-                @onclick='() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoSelecionado.Id}")'>
-            Avaliar Aluno
-        </button>
-        <button class="btn btn-secondary rounded-pill px-4"
-                @onclick="VoltarParaDashboard">
-            <i class="bi bi-arrow-left me-2"></i> Voltar
-        </button>
-    </div>
-
-    <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
-        <h5 class="fw-bold mb-4">Progresso do Aluno</h5>
-        <div class="progress mb-2" style="height:25px; border-radius:12px;">
-            <div class="progress-bar bg-success" role="progressbar"
-                 style="width: @(TrabalhosAluno.Count > 0 ? (TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue)) * 100 / TrabalhosAluno.Count) : 0)%"
-                 aria-valuenow="@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue))"
-                 aria-valuemin="0" aria-valuemax="@TrabalhosAluno.Count">
-                @((TrabalhosAluno.Count > 0 ? (TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue)) * 100 / TrabalhosAluno.Count) : 0))%
-            </div>
+            else
+            {
+                <p class="text-muted mb-0 small italicText">O aluno não possui vertentes críticas que necessitem de recuperação no momento.</p>
+            }
         </div>
-        <small class="text-muted">Percentual de trabalhos corrigidos</small>
-    </div>
-}
+
+        <div class="d-flex justify-content-end mb-4 gap-2">
+            <button class="btn btn-success rounded-pill px-4"
+                    @onclick='() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoSelecionado.Id}")'>
+                Avaliar Aluno
+            </button>
+            <button class="btn btn-secondary rounded-pill px-4"
+                    @onclick="VoltarParaDashboard">
+                <i class="bi bi-arrow-left me-2"></i> Voltar
+            </button>
+        </div>
+
+        <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
+            <h5 class="fw-bold mb-4">Progresso do Aluno</h5>
+            <div class="progress mb-2" style="height:25px; border-radius:12px;">
+                <div class="progress-bar bg-success" role="progressbar"
+                     style="width: @(TrabalhosAluno.Count > 0 ? (TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue)) * 100 / TrabalhosAluno.Count) : 0)%"
+                     aria-valuenow="@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue))"
+                     aria-valuemin="0" aria-valuemax="@TrabalhosAluno.Count">
+                    @((TrabalhosAluno.Count > 0 ? (TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue)) * 100 / TrabalhosAluno.Count) : 0))%
+                </div>
+            </div>
+            <small class="text-muted">Percentual de trabalhos corrigidos</small>
+        </div>
+    }
+</div>
 
 @code {
     [Parameter] public int AlunoId { get; set; }
@@ -151,15 +162,12 @@ else
     private bool IsLoading = true;
     private bool MostrarDetalhes = false;
 
-    // Variáveis para o Plano de Recuperação
-    private bool MostrarFormPlano = false;
+    // Lógica de Planos
+    private List<VertenteAnalise> VertentesAbaixoDaMedia = new();
+    private VertenteAnalise? VertenteEmFoco;
     private string DescricaoNovoPlano = "";
-    private VertenteAnalise? VertenteCritica;
 
-    private void ToggleDetalhes()
-    {
-        MostrarDetalhes = !MostrarDetalhes;
-    }
+    private void ToggleDetalhes() => MostrarDetalhes = !MostrarDetalhes;
 
     protected override async Task OnInitializedAsync()
     {
@@ -173,48 +181,29 @@ else
         {
             AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
 
-            if (AlunoSelecionado != null)
+            if (AlunoSelecionado != null && !string.IsNullOrEmpty(AlunoSelecionado.UserId))
             {
-                if (string.IsNullOrEmpty(AlunoSelecionado.UserId))
-                {
-                    Console.WriteLine($"⚠️ Aluno {AlunoSelecionado.Nome} não tem UserId vinculado!");
-                    TrabalhosAluno = new List<TrabalhoAluno>();
-                }
-                else
-                {
-                    var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
-                    Console.WriteLine($"✅ Trabalhos carregados: {trabalhos?.Count ?? 0}");
+                var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
 
-                    TrabalhosAluno = trabalhos?.Select(t => new TrabalhoAluno
+                TrabalhosAluno = trabalhos?.Select(t => new TrabalhoAluno
+                {
+                    TrabalhoId = t.Id,
+                    Titulo = t.Titulo,
+                    DisciplinaId = t.DisciplinaId,
+                    Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatus
                     {
-                        TrabalhoId = t.Id,
-                        Titulo = t.Titulo,
-                        AlunoNome = AlunoSelecionado.Nome,
-                        AlunoEmail = AlunoSelecionado.Email,
-                        ModuloNome = t.Modulo?.Nome ?? "Módulo não definido",
-                        DisciplinaNome = t.Disciplina?.Nome ?? "Disciplina não definida",
-                        DisciplinaId = t.DisciplinaId,
-                        Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatus
-                        {
-                            Tipo = v.Tipo,
-                            Conteudo = v.ConteudoTextoAluno ?? "",
-                            Enviado = !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null,
-                            Nota = v.Nota,
-                            Feedback = v.Feedback
-                        }).ToList() ?? new List<VertenteStatus>()
-                    }).ToList() ?? new List<TrabalhoAluno>();
+                        Tipo = v.Tipo,
+                        Enviado = !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null,
+                        Nota = v.Nota
+                    }).ToList() ?? new List<VertenteStatus>()
+                }).ToList() ?? new List<TrabalhoAluno>();
 
-                    AnalisarPiorVertente();
-                }
-            }
-            else
-            {
-                Console.WriteLine($"❌ Aluno com ID {AlunoId} não encontrado!");
+                AnalisarVertentesCriticas();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Erro ao carregar dados: {ex.Message}\n{ex.StackTrace}");
+            Console.WriteLine($"❌ Erro: {ex.Message}");
         }
         finally
         {
@@ -222,9 +211,9 @@ else
         }
     }
 
-    private void AnalisarPiorVertente()
+    private void AnalisarVertentesCriticas()
     {
-        var resumoVertentes = TrabalhosAluno.SelectMany(t => t.Vertentes)
+        VertentesAbaixoDaMedia = TrabalhosAluno.SelectMany(t => t.Vertentes)
             .Where(v => v.Nota.HasValue)
             .GroupBy(v => v.Tipo)
             .Select(g => new VertenteAnalise
@@ -232,14 +221,21 @@ else
                 Tipo = g.Key,
                 Media = (double)g.Average(v => v.Nota!.Value)
             })
+            .Where(v => v.Media < 10)
             .OrderBy(v => v.Media)
             .ToList();
+    }
 
-        VertenteCritica = resumoVertentes.FirstOrDefault(v => v.Media < 10);
+    private void IniciarPlano(VertenteAnalise v)
+    {
+        VertenteEmFoco = v;
+        DescricaoNovoPlano = "";
     }
 
     private async Task SubmeterPlanoRecuperacao()
     {
+        if (VertenteEmFoco == null) return;
+
         try
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
@@ -247,25 +243,26 @@ else
 
             var plano = new Trabalho
             {
-                Titulo = $"RECUPERAÇÃO: {VertenteCritica?.Tipo}",
+                Titulo = $"RECUPERAÇÃO: {VertenteEmFoco.Tipo}",
                 ConteudoTexto = DescricaoNovoPlano,
                 AlunoId = AlunoSelecionado.UserId,
                 ProfessorId = professorId,
-                IsPlanoRecuperacao = true, // Certifica-te que criaste este campo no Model
+                IsPlanoRecuperacao = true,
                 DataCriacao = DateTime.Now,
-                PrazoEntrega = DateTime.Now.AddDays(14),
+                PrazoEntrega = DateTime.Now.AddDays(7),
                 DisciplinaId = TrabalhosAluno.FirstOrDefault()?.DisciplinaId
             };
 
             await TrabalhoService.CriarTrabalhoAsync(plano);
-            await JS.InvokeVoidAsync("alert", "O plano de recuperação foi enviado para o dashboard do aluno!");
+            await JS.InvokeVoidAsync("alert", $"Plano de {VertenteEmFoco.Tipo} enviado com sucesso!");
 
-            MostrarFormPlano = false;
+            VertenteEmFoco = null;
             DescricaoNovoPlano = "";
+            await CarregarFichaCompleta(); // Recarregar para atualizar status
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", "Erro ao enviar plano: " + ex.Message);
+            await JS.InvokeVoidAsync("alert", "Erro: " + ex.Message);
         }
     }
 
@@ -275,10 +272,6 @@ else
     {
         public int TrabalhoId { get; set; }
         public string Titulo { get; set; } = "";
-        public string AlunoNome { get; set; } = "";
-        public string AlunoEmail { get; set; } = "";
-        public string ModuloNome { get; set; } = "";
-        public string DisciplinaNome { get; set; } = "";
         public int? DisciplinaId { get; set; }
         public List<VertenteStatus> Vertentes { get; set; } = new();
     }
@@ -286,13 +279,11 @@ else
     public class VertenteStatus
     {
         public string Tipo { get; set; } = "";
-        public string Conteudo { get; set; } = "";
         public bool Enviado { get; set; }
         public decimal? Nota { get; set; }
-        public string Feedback { get; set; } = "";
     }
 
-    private class VertenteAnalise
+    public class VertenteAnalise
     {
         public string Tipo { get; set; } = "";
         public double Media { get; set; }
