@@ -39,7 +39,7 @@
         <div class="row">
             <div class="col-lg-8">
                 <EditForm Model="Vertentes">
-                    @foreach (var vert in Vertentes ?? new())
+                    @foreach (var vert in Vertentes)
                     {
                         <div class="custom-card mb-4 elevation-2 border-start-primary">
                             <div class="card-header-custom d-flex justify-content-between align-items-center">
@@ -54,7 +54,7 @@
                                 @if (!string.IsNullOrWhiteSpace(vert.ConteudoTextoProfessor))
                                 {
                                     <div class="mb-3">
-                                        <label class="form-label text-muted small uppercase">Orientação do Professor</label>
+                                        <label class="form-label text-muted small uppercase">Orientação</label>
                                         <div class="p-3 bg-light rounded-lg border-start border-4 border-info">
                                             <i class="fas fa-info-circle text-info me-2"></i>
                                             @vert.ConteudoTextoProfessor
@@ -64,8 +64,8 @@
 
                                 <div class="form-group mt-4">
                                     <label class="form-label">Sua Resposta / Desenvolvimento</label>
-                                    <textarea class="form-control" rows="6" @bind="vert.ConteudoTextoAluno"
-                                              placeholder="Escreva aqui o seu trabalho para esta vertente..."></textarea>
+                                    <textarea class="form-control" rows="8" @bind="vert.ConteudoTextoAluno"
+                                              placeholder="Escreva aqui o seu trabalho..."></textarea>
                                 </div>
 
                                 <div class="mt-4 p-3 border rounded-lg bg-light shadow-sm">
@@ -102,11 +102,12 @@
                         <h5>Resumo da Entrega</h5>
                     </div>
                     <div class="card-body-custom">
-                        <p class="text-muted small mb-4">
-                            Pode gerar feedback para as vertentes selecionadas ou submeter diretamente para o professor.
-                        </p>
+                        <div class="mb-3">
+                            <small class="text-muted">Tipo de Trabalho:</small>
+                            <div class="fw-bold">@(Trabalho.IsPlanoRecuperacao ? "Plano de Recuperação" : "Avaliação Normal")</div>
+                        </div>
 
-                        <div class="d-grid gap-3">
+                        <div class="d-grid gap-3 mt-4">
                             <button class="btn-custom btn-custom-secondary w-100 justify-content-center"
                                     @onclick="GerarFeedbackSelecionadoAsync" disabled="@IsSaving">
                                 @if (IsSaving)
@@ -119,11 +120,6 @@
                             <button class="btn-custom btn-custom-primary w-100 justify-content-center py-3"
                                     @onclick="EnviarVertentesAsync" disabled="@IsSaving">
                                 <i class="fas fa-paper-plane me-2"></i> Submeter Trabalho
-                            </button>
-
-                            <button class="btn-custom btn-custom-outline w-100 justify-content-center"
-                                    @onclick='() => Nav.NavigateTo("/aluno/DashboardAluno")'>
-                                Cancelar
                             </button>
                         </div>
                     </div>
@@ -141,7 +137,6 @@
                 <h4 class="text-gradient mb-0"><i class="fas fa-magic me-2"></i> Sugestões da IA</h4>
                 <button type="button" class="btn-close" @onclick="FecharModalFeedback"></button>
             </div>
-
             <div style="max-height: 400px; overflow-y: auto; padding-right: 10px;">
                 @foreach (var fb in FeedbacksGerados)
                 {
@@ -155,14 +150,9 @@
                     </div>
                 }
             </div>
-
             <div class="d-flex gap-2 mt-4">
-                <button class="btn-custom btn-custom-outline flex-fill justify-content-center" @onclick="FecharModalFeedback">
-                    Ajustar Trabalho
-                </button>
-                <button class="btn-custom btn-custom-primary flex-fill justify-content-center" @onclick="AceitarFeedback">
-                    Submeter Como Está
-                </button>
+                <button class="btn-custom btn-custom-outline flex-fill justify-content-center" @onclick="FecharModalFeedback">Ajustar Trabalho</button>
+                <button class="btn-custom btn-custom-primary flex-fill justify-content-center" @onclick="AceitarFeedback">Submeter Como Está</button>
             </div>
         </div>
     </div>
@@ -172,7 +162,7 @@
     [Parameter] public int Id { get; set; }
 
     private Trabalho? Trabalho;
-    private List<AlunoVertenteModel>? Vertentes;
+    private List<AlunoVertenteModel> Vertentes = new();
     private string StatusMessage = "";
     private bool IsSaving = false;
     private bool MostrarModalFeedback = false;
@@ -180,54 +170,63 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(Id);
-
-        if (Trabalho != null)
+        try
         {
-            var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(Trabalho.Id);
+            Trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(Id);
 
-            Vertentes = vertentesDb.Select(v => new AlunoVertenteModel
+            if (Trabalho != null)
             {
-                Id = v.Id,
-                Tipo = v.Tipo,
-                ConteudoTextoProfessor = v.ConteudoTexto,
-                ConteudoTextoAluno = v.ConteudoTextoAluno ?? "",
-                ArquivoNome = v.FicheiroNome,
-                ArquivoBytes = v.FicheiroBytes,
-                ArquivoContentType = v.FicheiroContentType,
-                Feedback = v.Feedback,
-                Nota = v.Nota,
-                SolicitarFeedback = false
-            }).ToList();
+                var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(Trabalho.Id);
+
+                if (vertentesDb == null || !vertentesDb.Any())
+                {
+                    // Caso para Recuperação ou Trabalho sem vertentes específicas
+                    Vertentes.Add(new AlunoVertenteModel
+                    {
+                        Id = 0,
+                        Tipo = "Desenvolvimento Geral",
+                        ConteudoTextoProfessor = Trabalho.Descricao ?? "Realize a atividade conforme as orientações.",
+                        ConteudoTextoAluno = Trabalho.ConteudoTexto ?? ""
+                    });
+                }
+                else
+                {
+                    Vertentes = vertentesDb.Select(v => new AlunoVertenteModel
+                    {
+                        Id = v.Id,
+                        Tipo = v.Tipo,
+                        ConteudoTextoProfessor = v.ConteudoTexto,
+                        ConteudoTextoAluno = v.ConteudoTextoAluno ?? "",
+                        ArquivoNome = v.FicheiroNome,
+                        ArquivoBytes = v.FicheiroBytes,
+                        ArquivoContentType = v.FicheiroContentType,
+                        Feedback = v.Feedback,
+                        Nota = v.Nota
+                    }).ToList();
+                }
+            }
         }
+        catch (Exception ex) { StatusMessage = "Erro ao carregar: " + ex.Message; }
     }
 
     private async Task GerarFeedbackSelecionadoAsync()
     {
-        if (Vertentes == null || !Vertentes.Any(v => v.SolicitarFeedback))
+        if (!Vertentes.Any(v => v.SolicitarFeedback))
         {
-            StatusMessage = "Selecione pelo menos uma vertente para feedback.";
+            StatusMessage = "Selecione a opção de feedback na vertente desejada.";
             return;
         }
 
         IsSaving = true;
         FeedbacksGerados.Clear();
-
         try
         {
             foreach (var vert in Vertentes.Where(v => v.SolicitarFeedback))
             {
                 var feedback = await TrabalhoService.GerarFeedbackIAAsync(
-                    Trabalho!.AlunoId!,
-                    vert.ConteudoTextoAluno,
-                    vert.ArquivoBytes,
-                    Trabalho!.Id,
-                    vert.Id.ToString()
-                );
-
+                    Trabalho!.AlunoId!, vert.ConteudoTextoAluno, vert.ArquivoBytes, Trabalho.Id, vert.Id.ToString());
                 FeedbacksGerados.Add(new FeedbackModel { Tipo = vert.Tipo, Texto = feedback });
             }
-
             if (FeedbacksGerados.Any()) MostrarModalFeedback = true;
         }
         catch (Exception ex) { StatusMessage = $"Erro IA: {ex.Message}"; }
@@ -236,25 +235,26 @@
 
     private async Task EnviarVertentesAsync()
     {
-        if (Vertentes == null) return;
         IsSaving = true;
-        StatusMessage = "";
-
         try
         {
             foreach (var vert in Vertentes)
             {
-                var vertDb = await TrabalhoService.GetVertentePorIdAsync(vert.Id);
-                if (vertDb == null) continue;
-
-                vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                if (vert.ArquivoBytes != null)
+                if (vert.Id > 0)
                 {
-                    vertDb.FicheiroBytes = vert.ArquivoBytes;
-                    vertDb.FicheiroNome = vert.ArquivoNome;
-                    vertDb.FicheiroContentType = vert.ArquivoContentType;
+                    var vertDb = await TrabalhoService.GetVertentePorIdAsync(vert.Id);
+                    if (vertDb != null)
+                    {
+                        vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno;
+                        if (vert.ArquivoBytes != null)
+                        {
+                            vertDb.FicheiroBytes = vert.ArquivoBytes;
+                            vertDb.FicheiroNome = vert.ArquivoNome;
+                            vertDb.FicheiroContentType = vert.ArquivoContentType;
+                        }
+                        await TrabalhoService.AtualizarVertenteAsync(vertDb);
+                    }
                 }
-                await TrabalhoService.AtualizarVertenteAsync(vertDb);
             }
             Nav.NavigateTo("/aluno/DashboardAluno");
         }
@@ -266,10 +266,6 @@
 
     private async Task AceitarFeedback()
     {
-        foreach (var vert in Vertentes!)
-        {
-            if (vert.SolicitarFeedback) vert.AceitouFeedback = true;
-        }
         MostrarModalFeedback = false;
         await EnviarVertentesAsync();
     }
@@ -285,7 +281,7 @@
             await file.OpenReadStream(10_000_000).CopyToAsync(ms);
             vert.ArquivoBytes = ms.ToArray();
         }
-        catch (Exception ex) { StatusMessage = $"Erro no upload: {ex.Message}"; }
+        catch (Exception ex) { StatusMessage = $"Erro upload: {ex.Message}"; }
     }
 
     public class AlunoVertenteModel
@@ -300,7 +296,6 @@
         public string? Feedback { get; set; }
         public decimal? Nota { get; set; }
         public bool SolicitarFeedback { get; set; } = false;
-        public bool AceitouFeedback { get; set; } = false;
     }
 
     public class FeedbackModel
