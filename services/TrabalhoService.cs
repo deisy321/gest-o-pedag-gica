@@ -18,7 +18,6 @@ namespace gestaopedagogica.Services
         public async Task<int> CriarTrabalhoAsync(Trabalho trabalho)
         {
             if (trabalho == null) throw new ArgumentNullException(nameof(trabalho));
-
             trabalho.DataCriacao = DateTime.UtcNow;
             trabalho.ConteudoTexto ??= "";
             trabalho.TrabalhoVertentes ??= new List<TrabalhoVertente>();
@@ -50,6 +49,60 @@ namespace gestaopedagogica.Services
             _context.TrabalhoVertentes.Add(vertente);
             await _context.SaveChangesAsync();
         }
+
+        // --- MÉTODOS DE CONSULTA (ESSENCIAIS PARA O BUILD) ---
+
+        public async Task<TrabalhoVertente?> GetVertentePorIdAsync(int vertenteId)
+        {
+            return await _context.TrabalhoVertentes
+                .Include(v => v.Trabalho)
+                .FirstOrDefaultAsync(v => v.Id == vertenteId);
+        }
+
+        public async Task<List<TrabalhoVertente>> GetVertentesDoTrabalhoAsync(int trabalhoId)
+        {
+            return await _context.TrabalhoVertentes
+                .Where(v => v.TrabalhoId == trabalhoId)
+                .ToListAsync();
+        }
+
+        public async Task<List<Trabalho>> GetTrabalhosDoAlunoComVertentesAsync(string alunoUserId)
+        {
+            return await _context.Trabalhos
+                .Include(t => t.TrabalhoVertentes)
+                .Include(t => t.Disciplina)
+                .Include(t => t.Modulo)
+                .Where(t => t.AlunoId == alunoUserId)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        // NOVO: Necessário para RelatóriosGlobais.razor (Erro na imagem 6ccd26)
+        public async Task<List<Trabalho>> GetTodosTrabalhosComNotasAsync()
+        {
+            return await _context.Trabalhos
+                .Include(t => t.TrabalhoVertentes)
+                .Include(t => t.Disciplina)
+                .Include(t => t.Modulo)
+                .Include(t => t.Aluno)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        // NOVO: Necessário para RelatoriosProfessor.razor (Erro na imagem 6ccd26)
+        public async Task<List<Trabalho>> GetTodosTrabalhosComNotasAsync(string professorUserId)
+        {
+            return await _context.Trabalhos
+                .Include(t => t.TrabalhoVertentes)
+                .Include(t => t.Disciplina)
+                .Include(t => t.Modulo)
+                .Include(t => t.Aluno)
+                .Where(t => t.ProfessorId == professorUserId)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        // --- MÉTODOS DE ATUALIZAÇÃO ---
 
         public async Task AtualizarVertenteAsync(TrabalhoVertente vertente)
         {
@@ -91,38 +144,6 @@ namespace gestaopedagogica.Services
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 
-        // --- MÉTODOS ADICIONADOS PARA CORREÇÃO DOS ERROS ---
-
-        // 1. Necessário para a página AvaliarVertente.razor
-        public async Task<List<TrabalhoVertente>> GetVertentesDoTrabalhoAsync(int trabalhoId)
-        {
-            return await _context.TrabalhoVertentes
-                .Where(v => v.TrabalhoId == trabalhoId)
-                .ToListAsync();
-        }
-
-        // 2. Necessário para a página FichaAluno.razor
-        public async Task<List<Trabalho>> GetTrabalhosDoAlunoComVertentesAsync(string alunoUserId)
-        {
-            return await _context.Trabalhos
-                .Include(t => t.TrabalhoVertentes)
-                .Include(t => t.Disciplina)
-                .Include(t => t.Modulo)
-                .Where(t => t.AlunoId == alunoUserId)
-                .AsNoTracking()
-                .ToListAsync();
-        }
-
-        // 3. Necessário para a página EnviarTrabalho.razor
-        public async Task<TrabalhoVertente?> GetVertentePorIdAsync(int vertenteId)
-        {
-            return await _context.TrabalhoVertentes
-                .Include(v => v.Trabalho)
-                .FirstOrDefaultAsync(v => v.Id == vertenteId);
-        }
-
-        // --- FIM DOS MÉTODOS ADICIONADOS ---
-
         public async Task<List<Trabalho>> GetTrabalhosDisponiveisParaAlunoAsync(string alunoUserId)
         {
             var aluno = await _context.Alunos.AsNoTracking().FirstOrDefaultAsync(a => a.UserId == alunoUserId);
@@ -162,9 +183,7 @@ namespace gestaopedagogica.Services
         public async Task<string> GerarFeedbackIAAsync(string alunoUserId, string conteudoAluno, byte[]? arquivoBytes, int trabalhoId, string vertenteId)
         {
             if (string.IsNullOrWhiteSpace(conteudoAluno) && arquivoBytes == null) return "Conteúdo vazio.";
-
             if (!int.TryParse(vertenteId, out int vId)) return "ID de vertente inválido.";
-
             var vertente = await _context.TrabalhoVertentes.FindAsync(vId);
             if (vertente == null) return "Vertente não encontrada.";
 
