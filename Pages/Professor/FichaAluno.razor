@@ -1,9 +1,13 @@
 ﻿@page "/professor/FichaAluno/{AlunoId:int}"
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
+@using Microsoft.AspNetCore.Components.Authorization
 @inject AlunoService AlunoService
 @inject TrabalhoService TrabalhoService
+@inject ProfessorService ProfessorService
+@inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <h2 class="fw-bold mb-4">Ficha do Aluno</h2>
 
@@ -19,10 +23,8 @@ else if (AlunoSelecionado == null)
 }
 else
 {
-    <!-- PERFIL + TOTAL -->
     <div class="row g-3 mb-4">
 
-        <!-- PERFIL PEQUENO -->
         <div class="col-md-3">
             <div class="card shadow-sm border-0 p-3 d-flex align-items-center justify-content-center"
                  style="border-radius: 15px; cursor:pointer; width: 100%; text-align:center;"
@@ -39,24 +41,20 @@ else
                 {
                     <div class="mt-2 border-top pt-2 text-start">
                         <div><strong>Email:</strong> @AlunoSelecionado.Email</div>
-                        <div><strong>Turma:</strong> @AlunoSelecionado.Turma?.Nome ?? "Sem turma"</div>
+                        <div><strong>Turma:</strong> @(AlunoSelecionado.Turma?.Nome ?? "Sem turma")</div>
                     </div>
                 }
-
         </div>
     </div>
 
-    <!-- TOTAL TRABALHOS -->
     <div class="col-md-3">
         <div class="card shadow-sm border-0 bg-warning text-dark p-3" style="border-radius: 15px;">
             <h6>Total de Trabalhos</h6>
             <h5 class="fw-bold">@TrabalhosAluno.Count</h5>
         </div>
     </div>
-
 </div>
 
-<!-- MÉTRICAS DE DESEMPENHO -->
 <div class="row g-3 mb-4">
     <div class="col-md-3">
         <div class="card shadow-sm border-0 p-3" style="border-radius: 15px; background:#f0f8ff;">
@@ -82,7 +80,7 @@ else
             <h5 class="fw-bold">
                 @((TrabalhosAluno.SelectMany(t => t.Vertentes)
                                 .Where(v => v.Nota.HasValue)
-                                .Select(v => v.Nota.Value)
+                                .Select(v => (double)v.Nota!.Value)
                                 .DefaultIfEmpty(0)
                                 .Average()).ToString("0.##"))
             </h5>
@@ -90,7 +88,36 @@ else
     </div>
 </div>
 
-    <!-- BOTÕES -->
+    <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 15px; border-left: 5px solid #dc3545;">
+        <h5 class="fw-bold text-danger"><i class="bi bi- exclamation-octagon"></i> Plano de Recuperação</h5>
+
+    @if (VertenteCritica != null)
+        {
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <p class="mb-0">A vertente com menor nota é: <strong>@VertenteCritica.Tipo</strong> (Média: @VertenteCritica.Media.ToString("0.##"))</p>
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => MostrarFormPlano = !MostrarFormPlano">
+                    @(MostrarFormPlano ? "Fechar" : "Criar Plano Agora")
+                </button>
+            </div>
+
+            @if (MostrarFormPlano)
+            {
+                <div class="bg-light p-3 rounded">
+                    <label class="form-label fw-bold small text-uppercase">Instruções para o Aluno (@VertenteCritica.Tipo)</label>
+                    <textarea class="form-control mb-3" rows="3" @bind="DescricaoNovoPlano"
+                              placeholder="Escreva as atividades ou conselhos para o aluno recuperar esta nota..."></textarea>
+                    <button class="btn btn-danger w-100" @onclick="SubmeterPlanoRecuperacao" disabled="@string.IsNullOrEmpty(DescricaoNovoPlano)">
+                        Enviar Plano ao Aluno
+                    </button>
+                </div>
+            }
+        }
+        else
+        {
+            <p class="text-muted mb-0 small italicText">O aluno ainda não possui notas suficientes para análise de recuperação.</p>
+        }
+    </div>
+
     <div class="d-flex justify-content-end mb-4 gap-2">
         <button class="btn btn-success rounded-pill px-4"
                 @onclick='() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoSelecionado.Id}")'>
@@ -102,7 +129,6 @@ else
         </button>
     </div>
 
-    <!-- PROGRESSO -->
     <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
         <h5 class="fw-bold mb-4">Progresso do Aluno</h5>
         <div class="progress mb-2" style="height:25px; border-radius:12px;">
@@ -123,8 +149,12 @@ else
     private Aluno? AlunoSelecionado;
     private List<TrabalhoAluno> TrabalhosAluno = new();
     private bool IsLoading = true;
-
     private bool MostrarDetalhes = false;
+
+    // Variáveis para o Plano de Recuperação
+    private bool MostrarFormPlano = false;
+    private string DescricaoNovoPlano = "";
+    private VertenteAnalise? VertenteCritica;
 
     private void ToggleDetalhes()
     {
@@ -133,56 +163,109 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        IsLoading = true;
+        await CarregarFichaCompleta();
+    }
 
+    private async Task CarregarFichaCompleta()
+    {
+        IsLoading = true;
         try
         {
-          AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
+            AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
 
-    if (AlunoSelecionado != null)
-     {
-            if (string.IsNullOrEmpty(AlunoSelecionado.UserId))
-   {
-      Console.WriteLine($"⚠️ Aluno {AlunoSelecionado.Nome} não tem UserId vinculado!");
-           TrabalhosAluno = new List<TrabalhoAluno>();
-                }
-      else
-        {
-       var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
-      
-                  Console.WriteLine($"✅ Trabalhos carregados: {trabalhos?.Count ?? 0}");
-
-      TrabalhosAluno = trabalhos?.Select(t => new TrabalhoAluno
-    {
-        TrabalhoId = t.Id,
-      Titulo = t.Titulo,
-   AlunoNome = AlunoSelecionado.Nome,
-        AlunoEmail = AlunoSelecionado.Email,
-ModuloNome = t.Modulo?.Nome ?? "Módulo não definido",
-    DisciplinaNome = t.Disciplina?.Nome ?? "Disciplina não definida",
-          Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatus
-        {
-  Tipo = v.Tipo,
-          Conteudo = v.ConteudoTextoAluno ?? "",
-    Enviado = !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null,
-         Nota = v.Nota,
-   Feedback = v.Feedback
-            }).ToList() ?? new List<VertenteStatus>()
-     }).ToList() ?? new List<TrabalhoAluno>();
-          }
- }
-   else
+            if (AlunoSelecionado != null)
             {
-        Console.WriteLine($"❌ Aluno com ID {AlunoId} não encontrado!");
-  }
-   }
+                if (string.IsNullOrEmpty(AlunoSelecionado.UserId))
+                {
+                    Console.WriteLine($"⚠️ Aluno {AlunoSelecionado.Nome} não tem UserId vinculado!");
+                    TrabalhosAluno = new List<TrabalhoAluno>();
+                }
+                else
+                {
+                    var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
+                    Console.WriteLine($"✅ Trabalhos carregados: {trabalhos?.Count ?? 0}");
+
+                    TrabalhosAluno = trabalhos?.Select(t => new TrabalhoAluno
+                    {
+                        TrabalhoId = t.Id,
+                        Titulo = t.Titulo,
+                        AlunoNome = AlunoSelecionado.Nome,
+                        AlunoEmail = AlunoSelecionado.Email,
+                        ModuloNome = t.Modulo?.Nome ?? "Módulo não definido",
+                        DisciplinaNome = t.Disciplina?.Nome ?? "Disciplina não definida",
+                        DisciplinaId = t.DisciplinaId,
+                        Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatus
+                        {
+                            Tipo = v.Tipo,
+                            Conteudo = v.ConteudoTextoAluno ?? "",
+                            Enviado = !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null,
+                            Nota = v.Nota,
+                            Feedback = v.Feedback
+                        }).ToList() ?? new List<VertenteStatus>()
+                    }).ToList() ?? new List<TrabalhoAluno>();
+
+                    AnalisarPiorVertente();
+                }
+            }
+            else
+            {
+                Console.WriteLine($"❌ Aluno com ID {AlunoId} não encontrado!");
+            }
+        }
         catch (Exception ex)
         {
             Console.WriteLine($"❌ Erro ao carregar dados: {ex.Message}\n{ex.StackTrace}");
-    }
+        }
         finally
         {
             IsLoading = false;
+        }
+    }
+
+    private void AnalisarPiorVertente()
+    {
+        var resumoVertentes = TrabalhosAluno.SelectMany(t => t.Vertentes)
+            .Where(v => v.Nota.HasValue)
+            .GroupBy(v => v.Tipo)
+            .Select(g => new VertenteAnalise
+            {
+                Tipo = g.Key,
+                Media = (double)g.Average(v => v.Nota!.Value)
+            })
+            .OrderBy(v => v.Media)
+            .ToList();
+
+        VertenteCritica = resumoVertentes.FirstOrDefault(v => v.Media < 10);
+    }
+
+    private async Task SubmeterPlanoRecuperacao()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var professorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            var plano = new Trabalho
+            {
+                Titulo = $"RECUPERAÇÃO: {VertenteCritica?.Tipo}",
+                ConteudoTexto = DescricaoNovoPlano,
+                AlunoId = AlunoSelecionado.UserId,
+                ProfessorId = professorId,
+                IsPlanoRecuperacao = true, // Certifica-te que criaste este campo no Model
+                DataCriacao = DateTime.Now,
+                PrazoEntrega = DateTime.Now.AddDays(14),
+                DisciplinaId = TrabalhosAluno.FirstOrDefault()?.DisciplinaId
+            };
+
+            await TrabalhoService.CriarTrabalhoAsync(plano);
+            await JS.InvokeVoidAsync("alert", "O plano de recuperação foi enviado para o dashboard do aluno!");
+
+            MostrarFormPlano = false;
+            DescricaoNovoPlano = "";
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "Erro ao enviar plano: " + ex.Message);
         }
     }
 
@@ -196,6 +279,7 @@ ModuloNome = t.Modulo?.Nome ?? "Módulo não definido",
         public string AlunoEmail { get; set; } = "";
         public string ModuloNome { get; set; } = "";
         public string DisciplinaNome { get; set; } = "";
+        public int? DisciplinaId { get; set; }
         public List<VertenteStatus> Vertentes { get; set; } = new();
     }
 
@@ -206,5 +290,11 @@ ModuloNome = t.Modulo?.Nome ?? "Módulo não definido",
         public bool Enviado { get; set; }
         public decimal? Nota { get; set; }
         public string Feedback { get; set; } = "";
+    }
+
+    private class VertenteAnalise
+    {
+        public string Tipo { get; set; } = "";
+        public double Media { get; set; }
     }
 }

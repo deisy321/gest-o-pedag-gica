@@ -7,6 +7,7 @@ public class Trabalho
     public string Titulo { get; set; } = "";
 
     // Nova propriedade
+    public bool IsPlanoRecuperacao { get; set; } = false;
     public string? Descricao { get; set; }
 
     public string? AlunoId { get; set; }
