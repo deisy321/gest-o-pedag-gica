@@ -4,7 +4,7 @@
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
 @using Microsoft.AspNetCore.Authorization @* ADICIONE ESTA LINHA PARA CORRIGIR O ERRO DE BUILD *@
-
+@attribute [Authorize(Roles = "Admin")]
 
 @inject TurmaService TurmaService
 @inject ProfessorService ProfessorService
