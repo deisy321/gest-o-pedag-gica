@@ -6,7 +6,12 @@
 @inject TrabalhoService TrabalhoService
 @inject NavigationManager Nav
 
-<h3 class="fw-bold mb-4">Avaliar Aluno</h3>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="fw-bold mb-0">Avaliar Aluno</h3>
+    <button class="btn btn-secondary rounded-pill px-4" @onclick='() => Nav.NavigateTo($"/professor/FichaAluno/{AlunoId}")'>
+        <i class="bi bi-arrow-left me-2"></i>Voltar à Ficha
+    </button>
+</div>
 
 @if (IsLoading)
 {
@@ -24,18 +29,16 @@ else if (!Trabalhos.Any())
 }
 else
 {
-    <!-- INFO DO ALUNO -->
     <div class="card mb-4 p-3 shadow-sm" style="border-radius: 12px;">
-        <strong>@AlunoAtual.Email</strong><br />
+        <strong>@AlunoAtual.Nome</strong><br />
+        <span class="text-muted">@AlunoAtual.Email</span><br />
         Turma: @(AlunoAtual.Turma?.Nome ?? "Sem turma")
     </div>
 
-    <!-- TRABALHOS -->
     @foreach (var trabalho in Trabalhos)
     {
         <div class="card mb-4 shadow-sm border-0" style="border-radius: 15px;">
 
-            <!-- HEADER -->
             <div class="card-header bg-light fw-bold d-flex justify-content-between">
                 <span>@trabalho.Titulo</span>
             </div>
@@ -56,7 +59,6 @@ else
                     </div>
                 }
 
-                <!-- VERTENTES EM CARDS -->
                 <div class="row g-3">
                     @foreach (var vertente in trabalho.TrabalhoVertentes)
                     {
@@ -67,10 +69,8 @@ else
 
                                 <div class="card-body d-flex flex-column">
 
-                                    <!-- TIPO -->
                                     <h6 class="fw-bold">@vertente.Tipo</h6>
 
-                                    <!-- STATUS -->
                                     @if (!enviado)
                                     {
                                         <span class="badge bg-secondary mb-2">Não enviado</span>
@@ -84,7 +84,6 @@ else
                                         <span class="badge bg-warning text-dark mb-2">Enviado</span>
                                     }
 
-                                    <!-- TEXTO -->
                                     @if (!string.IsNullOrEmpty(vertente.ConteudoTextoAluno))
                                     {
                                         <p class="text-muted small">
@@ -92,7 +91,6 @@ else
                                         </p>
                                     }
 
-                                    <!-- NOTA -->
                                     @if (vertente.Nota.HasValue)
                                     {
                                         <div class="mt-auto">
@@ -101,7 +99,6 @@ else
                                         </div>
                                     }
 
-                                    <!-- BOTÃO -->
                                     <button class="btn btn-sm btn-success rounded-pill mt-3"
                                             @onclick='() => IrAvaliar(trabalho.Id, vertente.Tipo)'>
                                         Avaliar
@@ -127,21 +124,35 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await CarregarDados();
+    }
+
+    private async Task CarregarDados()
+    {
         IsLoading = true;
-
-        AlunoAtual = await AlunoService.GetAlunoByIdAsync(AlunoId);
-
-        if (AlunoAtual != null && !string.IsNullOrEmpty(AlunoAtual.UserId))
+        try
         {
-            Trabalhos = await TrabalhoService
-                .GetTrabalhosDoAlunoComVertentesAsync(AlunoAtual.UserId);
-        }
+            AlunoAtual = await AlunoService.GetAlunoByIdAsync(AlunoId);
 
-        IsLoading = false;
+            if (AlunoAtual != null && !string.IsNullOrEmpty(AlunoAtual.UserId))
+            {
+                Trabalhos = await TrabalhoService
+                    .GetTrabalhosDoAlunoComVertentesAsync(AlunoAtual.UserId);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     private void IrAvaliar(int trabalhoId, string tipo)
     {
-        Nav.NavigateTo($"/professor/AvaliarVertente/{trabalhoId}/{tipo}");
+        // Passamos o AlunoId na URL para que a página de avaliação saiba para onde voltar
+        Nav.NavigateTo($"/professor/AvaliarVertente/{trabalhoId}/{tipo}/{AlunoId}");
     }
 }
