@@ -91,6 +91,38 @@ namespace gestaopedagogica.Services
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 
+        // --- MÉTODOS ADICIONADOS PARA CORREÇÃO DOS ERROS ---
+
+        // 1. Necessário para a página AvaliarVertente.razor
+        public async Task<List<TrabalhoVertente>> GetVertentesDoTrabalhoAsync(int trabalhoId)
+        {
+            return await _context.TrabalhoVertentes
+                .Where(v => v.TrabalhoId == trabalhoId)
+                .ToListAsync();
+        }
+
+        // 2. Necessário para a página FichaAluno.razor
+        public async Task<List<Trabalho>> GetTrabalhosDoAlunoComVertentesAsync(string alunoUserId)
+        {
+            return await _context.Trabalhos
+                .Include(t => t.TrabalhoVertentes)
+                .Include(t => t.Disciplina)
+                .Include(t => t.Modulo)
+                .Where(t => t.AlunoId == alunoUserId)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        // 3. Necessário para a página EnviarTrabalho.razor
+        public async Task<TrabalhoVertente?> GetVertentePorIdAsync(int vertenteId)
+        {
+            return await _context.TrabalhoVertentes
+                .Include(v => v.Trabalho)
+                .FirstOrDefaultAsync(v => v.Id == vertenteId);
+        }
+
+        // --- FIM DOS MÉTODOS ADICIONADOS ---
+
         public async Task<List<Trabalho>> GetTrabalhosDisponiveisParaAlunoAsync(string alunoUserId)
         {
             var aluno = await _context.Alunos.AsNoTracking().FirstOrDefaultAsync(a => a.UserId == alunoUserId);
@@ -130,7 +162,10 @@ namespace gestaopedagogica.Services
         public async Task<string> GerarFeedbackIAAsync(string alunoUserId, string conteudoAluno, byte[]? arquivoBytes, int trabalhoId, string vertenteId)
         {
             if (string.IsNullOrWhiteSpace(conteudoAluno) && arquivoBytes == null) return "Conteúdo vazio.";
-            var vertente = await _context.TrabalhoVertentes.FindAsync(int.Parse(vertenteId));
+
+            if (!int.TryParse(vertenteId, out int vId)) return "ID de vertente inválido.";
+
+            var vertente = await _context.TrabalhoVertentes.FindAsync(vId);
             if (vertente == null) return "Vertente não encontrada.";
 
             string instrucaoIA = !string.IsNullOrWhiteSpace(vertente.ConteudoTexto)
