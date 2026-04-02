@@ -15,13 +15,6 @@ namespace gestaopedagogica.Services
             _iaService = iaService;
         }
 
-        // =============================
-        // CRIAR TRABALHO E VERTENTES
-        // =============================
-
-        /// <summary>
-        /// Método principal para criar um trabalho.
-        /// </summary>
         public async Task<int> CriarTrabalhoAsync(Trabalho trabalho)
         {
             if (trabalho == null) throw new ArgumentNullException(nameof(trabalho));
@@ -30,14 +23,12 @@ namespace gestaopedagogica.Services
             trabalho.ConteudoTexto ??= "";
             trabalho.TrabalhoVertentes ??= new List<TrabalhoVertente>();
 
-            // Validação condicional para Planos de Recuperação
             if (!trabalho.IsPlanoRecuperacao)
             {
-                if (trabalho.ModuloId <= 0) throw new Exception("ModuloId é obrigatório para trabalhos normais.");
-                if (trabalho.DisciplinaId <= 0) throw new Exception("DisciplinaId é obrigatório para trabalhos normais.");
+                if (trabalho.ModuloId <= 0) throw new Exception("ModuloId é obrigatório.");
+                if (trabalho.DisciplinaId <= 0) throw new Exception("DisciplinaId é obrigatório.");
             }
 
-            // Garante que o prazo de entrega seja válido
             if (trabalho.PrazoEntrega == default)
                 trabalho.PrazoEntrega = DateTime.UtcNow.AddDays(7);
 
@@ -49,9 +40,6 @@ namespace gestaopedagogica.Services
             return trabalho.Id;
         }
 
-        /// <summary>
-        /// Atalho para CriarTrabalhoAsync para manter compatibilidade com códigos antigos.
-        /// </summary>
         public async Task<int> AddTrabalhoAsync(Trabalho trabalho) => await CriarTrabalhoAsync(trabalho);
 
         public async Task AddVertenteAsync(TrabalhoVertente vertente)
@@ -59,7 +47,6 @@ namespace gestaopedagogica.Services
             vertente.Feedback ??= "";
             vertente.ConteudoTexto ??= "";
             vertente.ConteudoTextoAluno ??= "";
-
             _context.TrabalhoVertentes.Add(vertente);
             await _context.SaveChangesAsync();
         }
@@ -85,16 +72,11 @@ namespace gestaopedagogica.Services
         {
             var vertente = await _context.TrabalhoVertentes.FindAsync(vertenteId);
             if (vertente == null) return false;
-
             vertente.Nota = nota;
             vertente.Feedback = feedback ?? "";
             await _context.SaveChangesAsync();
             return true;
         }
-
-        // =============================
-        // OBTER TRABALHOS
-        // =============================
 
         public async Task<Trabalho?> GetTrabalhoPorIdAsync(int id)
         {
@@ -109,21 +91,6 @@ namespace gestaopedagogica.Services
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 
-        public async Task<List<Trabalho>> GetTrabalhosDoAlunoComVertentesAsync(string alunoUserId)
-        {
-            if (string.IsNullOrEmpty(alunoUserId)) return new List<Trabalho>();
-
-            return await _context.Trabalhos
-                .Include(t => t.TrabalhoVertentes)
-                .Include(t => t.Modulo)
-                .Include(t => t.Disciplina)
-                .Include(t => t.Professor)
-                .Include(t => t.Turma)
-                .Where(t => t.AlunoId == alunoUserId)
-                .AsNoTracking()
-                .ToListAsync();
-        }
-
         public async Task<List<Trabalho>> GetTrabalhosDisponiveisParaAlunoAsync(string alunoUserId)
         {
             var aluno = await _context.Alunos.AsNoTracking().FirstOrDefaultAsync(a => a.UserId == alunoUserId);
@@ -134,7 +101,7 @@ namespace gestaopedagogica.Services
                 .Include(t => t.Modulo)
                 .Include(t => t.Disciplina)
                 .Include(t => t.Professor)
-                .Where(t => t.TurmaId == aluno.TurmaId)
+                .Where(t => t.TurmaId == aluno.TurmaId || t.AlunoId == alunoUserId)
                 .AsNoTracking()
                 .ToListAsync();
         }
@@ -151,70 +118,18 @@ namespace gestaopedagogica.Services
                 .ToListAsync();
         }
 
-        public async Task<List<Trabalho>> GetTrabalhosPorTurmaAsync(int turmaId)
-        {
-            return await _context.Trabalhos
-                .Include(t => t.TrabalhoVertentes)
-                .Include(t => t.Modulo)
-                .Include(t => t.Disciplina)
-                .Include(t => t.Professor)
-                .Where(t => t.TurmaId == turmaId)
-                .AsNoTracking()
-                .ToListAsync();
-        }
-
-        public async Task<List<Trabalho>> GetTodosTrabalhosComNotasAsync()
-        {
-            return await _context.Trabalhos
-                .Include(t => t.TrabalhoVertentes)
-                .Include(t => t.Turma)
-                .AsNoTracking()
-                .ToListAsync();
-        }
-
-        // =============================
-        // AUXILIARES
-        // =============================
-
-        public async Task<List<TrabalhoVertente>> GetVertentesDoTrabalhoAsync(int trabalhoId)
-        {
-            return await _context.TrabalhoVertentes
-                .Where(v => v.TrabalhoId == trabalhoId)
-                .ToListAsync();
-        }
-
-        public async Task<TrabalhoVertente?> GetVertentePorIdAsync(int vertenteId)
-        {
-            return await _context.TrabalhoVertentes
-                .Include(v => v.Trabalho)
-                .FirstOrDefaultAsync(v => v.Id == vertenteId);
-        }
-
-        public async Task<string> ObterNomeAluno(string alunoUserId)
-        {
-            var aluno = await _context.Alunos.FirstOrDefaultAsync(a => a.UserId == alunoUserId);
-            return aluno?.Nome ?? "Aluno Desconhecido";
-        }
-
         public async Task<bool> ApagarTrabalhoAsync(int trabalhoId)
         {
             var trabalho = await _context.Trabalhos.FindAsync(trabalhoId);
             if (trabalho == null) return false;
-
             _context.Trabalhos.Remove(trabalho);
             await _context.SaveChangesAsync();
             return true;
         }
 
-        // =============================
-        // LÓGICA DE IA
-        // =============================
-
         public async Task<string> GerarFeedbackIAAsync(string alunoUserId, string conteudoAluno, byte[]? arquivoBytes, int trabalhoId, string vertenteId)
         {
-            if (string.IsNullOrWhiteSpace(conteudoAluno) && arquivoBytes == null)
-                return "Conteúdo vazio.";
-
+            if (string.IsNullOrWhiteSpace(conteudoAluno) && arquivoBytes == null) return "Conteúdo vazio.";
             var vertente = await _context.TrabalhoVertentes.FindAsync(int.Parse(vertenteId));
             if (vertente == null) return "Vertente não encontrada.";
 
@@ -223,35 +138,6 @@ namespace gestaopedagogica.Services
                 : (await _context.Trabalhos.FindAsync(trabalhoId))?.Descricao ?? "Instrução indisponível";
 
             return await _iaService.ObterSugestoes(conteudoAluno, instrucaoIA, vertenteId, alunoUserId, trabalhoId.ToString(), arquivoBytes);
-        }
-
-        public async Task<Dictionary<int, string>> GerarFeedbackIAPorVertenteAsync(int trabalhoId)
-        {
-            var trabalho = await GetTrabalhoPorIdAsync(trabalhoId);
-            var feedbacks = new Dictionary<int, string>();
-            if (trabalho?.TrabalhoVertentes == null) return feedbacks;
-
-            foreach (var vertente in trabalho.TrabalhoVertentes)
-            {
-                if (string.IsNullOrWhiteSpace(vertente.ConteudoTextoAluno) && vertente.FicheiroBytes == null)
-                {
-                    feedbacks[vertente.Id] = "Vazio.";
-                    continue;
-                }
-
-                var instrucaoIA = !string.IsNullOrWhiteSpace(vertente.ConteudoTexto)
-                    ? vertente.ConteudoTexto
-                    : trabalho.Descricao ?? "Instrução indisponível";
-
-                feedbacks[vertente.Id] = await _iaService.ObterSugestoes(
-                    vertente.ConteudoTextoAluno ?? "",
-                    instrucaoIA,
-                    vertente.Id.ToString(),
-                    trabalho.AlunoId ?? "",
-                    trabalhoId.ToString(),
-                    vertente.FicheiroBytes);
-            }
-            return feedbacks;
         }
     }
 }

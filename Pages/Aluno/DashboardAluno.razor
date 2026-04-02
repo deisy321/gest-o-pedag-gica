@@ -285,17 +285,14 @@
 @code {
     private Aluno? AlunoAtual;
     private Turma? TurmaAtual;
-
     private List<Trabalho> TodosTrabalhos = new();
     private List<Trabalho> TrabalhosPendentes = new();
     private List<Trabalho> TrabalhosFiltrados = new();
     private List<string> DisciplinasUnicas = new();
     private List<string> ModulosDisponiveis = new();
-
     private string DisciplinaSelecionada = "";
     private string ModuloSelecionado = "";
     private double MediaGeral = 0;
-
     private string? AlunoUserId;
     private bool IsLoading = true;
 
@@ -320,9 +317,8 @@
             AlunoUserId = auth.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             await CarregarDados();
 
-            // Lógica de Badges
             BadgesConquistados.Clear();
-            if (TrabalhosPendentes.Any() && TrabalhosPendentes.All(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.All(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno))))
+            if (TodosTrabalhos.Any() && TodosTrabalhos.All(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.All(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno))))
                 BadgesConquistados.Add("Entrega no Prazo");
 
             if (MediaGeral >= 9.5)
@@ -346,24 +342,22 @@
 
     private async Task CarregarDados()
     {
-        AlunoAtual = (await AlunoService.GetAlunosAsync()).FirstOrDefault(a => a.UserId == AlunoUserId);
+        var alunos = await AlunoService.GetAlunosAsync();
+        AlunoAtual = alunos.FirstOrDefault(a => a.UserId == AlunoUserId);
+
         if (AlunoAtual?.TurmaId != null)
             TurmaAtual = await TurmaService.GetTurmaByIdAsync(AlunoAtual.TurmaId.Value);
 
-        TodosTrabalhos = await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(AlunoUserId);
-
-        TrabalhosPendentes = TodosTrabalhos
-            .Where(t => t.TrabalhoVertentes == null || t.TrabalhoVertentes.Any(v => !v.Nota.HasValue))
-            .ToList();
-
+        TodosTrabalhos = await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(AlunoUserId ?? "");
+        TrabalhosPendentes = TodosTrabalhos.Where(t => t.TrabalhoVertentes == null || t.TrabalhoVertentes.Any(v => !v.Nota.HasValue)).ToList();
         TrabalhosFiltrados = TodosTrabalhos;
 
         DisciplinasUnicas = TodosTrabalhos.Select(t => t.Disciplina?.Nome).Where(n => n != null).Distinct().ToList()!;
         ModulosDisponiveis = TodosTrabalhos.Select(t => t.Modulo?.Nome).Where(n => n != null).Distinct().ToList()!;
 
         var notas = TodosTrabalhos.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                   .Where(v => v.Nota.HasValue)
-                   .Select(v => (double)v.Nota!.Value);
+                                 .Where(v => v.Nota.HasValue)
+                                 .Select(v => (double)v.Nota!.Value);
         MediaGeral = notas.Any() ? notas.Average() : 0;
     }
 
@@ -402,7 +396,6 @@
 }
 
 <style>
-    /* Estilo adicional para o plano de recuperação na tabela */
     .table-danger-light {
         background-color: rgba(220, 53, 69, 0.05) !important;
     }
