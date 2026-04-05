@@ -14,226 +14,223 @@
     @if (IsLoading)
     {
         <div class="text-center mt-5">
-       <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
-   <p class="mt-3 text-muted">Carregando trabalhos...</p>
-     </div>
+            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+            <p class="mt-3 text-muted">Carregando trabalhos...</p>
+        </div>
     }
     else
     {
-<!-- Cabeçalho -->
         <div class="admin-header-row">
             <div>
-             <h1 class="page-title">Gerir Trabalhos</h1>
+                <h1 class="page-title">Gerir Trabalhos</h1>
                 <p class="page-subtitle">Editar, eliminar ou aumentar prazo dos trabalhos</p>
-     </div>
+            </div>
             <a href="/professor/DashboardProfessor" class="btn btn-custom btn-custom-outline">
-       <i class="bi bi-arrow-left"></i> Voltar
-  </a>
+                <i class="bi bi-arrow-left"></i> Voltar
+            </a>
         </div>
 
-        <!-- Filtros -->
         <div class="custom-card elevation-2" style="margin-bottom: 2rem;">
             <div class="card-header-custom">
                 <h5><i class="bi bi-funnel"></i> Filtros</h5>
-     </div>
+            </div>
             <div class="card-body-custom">
-          <div class="row g-3">
-     <div class="col-md-6">
-           <label class="form-label">Turma</label>
-            <select class="form-select" @onchange="OnTurmaChanged">
-    <option value="">Todas as Turmas</option>
-             @foreach (var turma in ListaTurmas)
-{
-         <option value="@turma.Id">@turma.Nome</option>
-        }
-       </select>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Turma</label>
+                        <select class="form-select" @onchange="OnTurmaChanged">
+                            <option value="0">Todas as Turmas</option>
+                            @foreach (var turma in ListaTurmas)
+                            {
+                                <option value="@turma.Id">@turma.Nome</option>
+                            }
+                        </select>
                     </div>
-      <div class="col-md-6">
-      <label class="form-label">Status</label>
-               <select class="form-select" @bind="StatusFiltro" @bind:after="FiltrarTrabalhos">
-  <option value="">Todos</option>
- <option value="pendente">Pendente de Entrega</option>
-                <option value="atrasado">Atrasado</option>
-           <option value="entregue">Entregue</option>
-             </select>
-  </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" @bind="StatusFiltro" @bind:after="FiltrarTrabalhos">
+                            <option value="">Todos</option>
+                            <option value="pendente">Pendente de Entrega</option>
+                            <option value="atrasado">Atrasado</option>
+                            <option value="hoje">Entrega Hoje</option>
+                        </select>
+                    </div>
                 </div>
             </div>
-   </div>
+        </div>
 
-        <!-- Tabela de Trabalhos -->
-    <div class="custom-card elevation-2">
+        <div class="custom-card elevation-2">
             <div class="card-header-custom">
-    <h5><i class="bi bi-list-task"></i> Trabalhos (@TrabalhosFiltrados.Count)</h5>
+                <h5><i class="bi bi-list-task"></i> Trabalhos (@TrabalhosFiltrados.Count)</h5>
             </div>
             @if (!TrabalhosFiltrados.Any())
-     {
-           <div class="card-body-custom text-center py-5">
-   <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
-            <p class="mt-3 text-muted">Nenhum trabalho encontrado</p>
-     </div>
+            {
+                <div class="card-body-custom text-center py-5">
+                    <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                    <p class="mt-3 text-muted">Nenhum trabalho encontrado</p>
+                </div>
             }
-        else
+            else
             {
-    <div style="overflow-x: auto;">
-          <table class="custom-table">
-            <thead>
-       <tr>
-            <th style="width: 20%;">Título</th>
-       <th style="width: 15%;">Turma</th>
-             <th style="width: 12%;">Aluno</th>
-     <th style="width: 12%;">Prazo</th>
-              <th style="width: 10%;">Status</th>
-   <th style="width: 8%;">Entregues</th>
-     <th style="width: 13%;">Ações</th>
-          </tr>
-         </thead>
-             <tbody>
-     @foreach (var trabalho in TrabalhosFiltrados)
-            {
-     var entregues = trabalho.TrabalhoVertentes?.Count(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno)) ?? 0;
-       var total = trabalho.TrabalhoVertentes?.Count ?? 0;
-           var status = ObterStatus(trabalho.PrazoEntrega);
-   var hoje = DateTime.UtcNow.Date;
-                  var prazoData = trabalho.PrazoEntrega.Date;
-   var diasRestantes = (prazoData - hoje).Days;
+                <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 20%;">Título</th>
+                                <th style="width: 15%;">Turma</th>
+                                <th style="width: 12%;">Aluno</th>
+                                <th style="width: 12%;">Prazo</th>
+                                <th style="width: 10%;">Status</th>
+                                <th style="width: 8%;">Entregues</th>
+                                <th style="width: 13%;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var trabalho in TrabalhosFiltrados)
+                            {
+                                var entregues = trabalho.TrabalhoVertentes?.Count(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno)) ?? 0;
+                                var total = trabalho.TrabalhoVertentes?.Count ?? 0;
+                                var statusExibicao = ObterStatusExibicao(trabalho.PrazoEntrega);
+                                var hoje = DateTime.UtcNow.Date;
+                                var prazoData = trabalho.PrazoEntrega.Date;
+                                var diasRestantes = (prazoData - hoje).Days;
 
-    <tr>
-   <td>
-      <strong>@trabalho.Titulo</strong>
-        </td>
-       <td>
-       <span class="badge badge-custom badge-primary">@trabalho.Turma?.Nome</span>
-        </td>
-      <td>
-     @if (string.IsNullOrEmpty(trabalho.AlunoId))
-    {
-       <span class="badge badge-custom badge-info">Turma</span>
-     }
-     else
-       {
-  @trabalho.Aluno?.UserName
-  }
-           </td>
-  <td>
-<span style="@(diasRestantes < 0 ? "color: red; font-weight: bold;" : "")">
-   @trabalho.PrazoEntrega.ToString("dd/MM/yyyy")
-             @if (diasRestantes >= 0)
-        {
-       <br /><small style="color: #666;">(@diasRestantes dias)</small>
-       }
-   else
-{
- <br /><small style="color: red;">(@Math.Abs(diasRestantes) dias atrasado)</small>
-             }
-        </span>
-           </td>
-            <td>
-   <span class="badge @(status == "Entregue" ? "badge-custom badge-success" : status == "Atrasado" ? "badge-custom badge-danger" : "badge-custom badge-warning")">
-               @status
-      </span>
-        </td>
-      <td>
-           <span class="badge badge-info">@entregues/@total</span>
-            </td>
-  <td class="text-center">
-<button class="btn btn-sm btn-primary me-1" @onclick="() => AbrirEditar(trabalho)" title="Editar">
-     <i class="bi bi-pencil"></i>
-           </button>
-  <button class="btn btn-sm btn-warning me-1" @onclick="() => AumentarPrazo(trabalho)" title="Aumentar prazo">
-            <i class="bi bi-calendar-plus"></i>
-       </button>
-        <button class="btn btn-sm btn-danger" @onclick="() => ConfirmarDelete(trabalho.Id)" title="Eliminar">
-    <i class="bi bi-trash"></i>
-        </button>
-                  </td>
-    </tr>
-         }
-        </tbody>
- </table>
-       </div>
-    }
+                                <tr>
+                                    <td>
+                                        <strong>@trabalho.Titulo</strong>
+                                    </td>
+                                    <td>
+                                        @* CORREÇÃO TURMA *@
+                                        <span class="badge bg-primary text-white" style="background-color: #0d6efd !important; color: white !important;">
+                                            @(trabalho.Turma?.Nome ?? "N/D")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (string.IsNullOrEmpty(trabalho.AlunoId))
+                                        {
+                                            <span class="badge bg-info text-white" style="background-color: #0dcafm !important; color: white !important;">Turma</span>
+                                        }
+                                        else
+                                        {
+                                            @trabalho.Aluno?.UserName
+                                        }
+                                    </td>
+                                    <td>
+                                        <span style="@(diasRestantes < 0 ? "color: red; font-weight: bold;" : "")">
+                                            @trabalho.PrazoEntrega.ToString("dd/MM/yyyy")
+                                            @if (diasRestantes >= 0)
+                                            {
+                                                <br />
+                                
+                                                <small style="color: #666;">(@diasRestantes dias)</small>
+                                            }
+                                            else
+                                            {
+                                                <br />
+                                
+                                                <small style="color: red;">(@Math.Abs(diasRestantes) dias atrasado)</small>
+                                            }
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @* CORREÇÃO CORES STATUS *@
+                                        @{
+                                            var classeStatus = statusExibicao switch
+                                            {
+                                                "Atrasado" => "bg-danger",
+                                                "Hoje" => "bg-warning text-dark",
+                                                _ => "bg-success"
+                                            };
+                                            var corFixa = statusExibicao == "Hoje" ? "#000" : "#fff";
+                                        }
+                                        <span class="badge @classeStatus" style="color: @corFixa !important;">
+                                            @statusExibicao
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary text-white">@entregues/@total</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-primary me-1" @onclick="() => AbrirEditar(trabalho)" title="Editar">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-warning me-1" @onclick="() => AumentarPrazo(trabalho)" title="Aumentar prazo">
+                                            <i class="bi bi-calendar-plus"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => ConfirmarDelete(trabalho.Id)" title="Eliminar">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
         </div>
     }
 </div>
 
-<!-- Modal Editar -->
 @if (TrabalhoEmEdicao != null)
 {
     <div class="modal-bg" @onclick="FecharModal">
-    <div class="modal-card" @onclick:stopPropagation>
-         <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="m-0">Editar Trabalho</h5>
-          <button type="button" class="btn-close" @onclick="FecharModal"></button>
-            </div>
-
-            <div class="form-group mb-3">
-         <label class="form-label"><i class="bi bi-pencil-square"></i> Título</label>
-          <input type="text" class="form-control" @bind="TrabalhoEmEdicao.Titulo" />
-    </div>
-
-        <div class="form-group mb-3">
-  <label class="form-label"><i class="bi bi-file-text"></i> Descrição</label>
-         <textarea class="form-control" @bind="TrabalhoEmEdicao.Descricao" rows="3" placeholder="Descrição do trabalho"></textarea>
-            </div>
-
- <div class="form-group mb-3">
-     <label class="form-label"><i class="bi bi-calendar"></i> Novo Prazo</label>
-        <input type="date" class="form-control" @bind="NovaData" />
-            </div>
-
-  <div class="d-flex gap-2">
-        <button type="button" class="btn btn-custom btn-custom-outline" @onclick="FecharModal">Cancelar</button>
-      <button type="button" class="btn btn-custom btn-custom-success" @onclick="SalvarEdicao">Guardar Alterações</button>
-         </div>
-
-            @if (!string.IsNullOrEmpty(MensagemErro))
-       {
-    <div class="alert alert-danger mt-3">@MensagemErro</div>
-            }
-     </div>
-    </div>
-}
-
-<!-- Modal Aumentar Prazo -->
-@if (MostrarModalPrazo)
-{
-    <div class="modal-bg" @onclick="FecharModalPrazo">
-    <div class="modal-card" @onclick:stopPropagation>
+        <div class="modal-card" @onclick:stopPropagation>
             <div class="d-flex justify-content-between align-items-center mb-3">
-         <h5 class="m-0">Aumentar Prazo</h5>
-      <button type="button" class="btn-close" @onclick="FecharModalPrazo"></button>
-       </div>
-
-            <p class="text-muted">Prazo atual: <strong>@TrabalhoSelecionado?.PrazoEntrega.ToString("dd/MM/yyyy")</strong></p>
-
-   <div class="form-group mb-3">
-          <label class="form-label"><i class="bi bi-hourglass-split"></i> Dias a adicionar</label>
-        <input type="number" class="form-control" @bind="DiasAdicionais" min="1" max="30" />
+                <h5 class="m-0">Editar Trabalho</h5>
+                <button type="button" class="btn-close" @onclick="FecharModal"></button>
             </div>
-
-            <p class="small text-info"><i class="bi bi-info-circle"></i> Novo prazo: <strong>@CalcularNovaPrazo().ToString("dd/MM/yyyy")</strong></p>
-
+            <div class="form-group mb-3">
+                <label class="form-label"><i class="bi bi-pencil-square"></i> Título</label>
+                <input type="text" class="form-control" @bind="TrabalhoEmEdicao.Titulo" />
+            </div>
+            <div class="form-group mb-3">
+                <label class="form-label"><i class="bi bi-file-text"></i> Descrição</label>
+                <textarea class="form-control" @bind="TrabalhoEmEdicao.Descricao" rows="3"></textarea>
+            </div>
+            <div class="form-group mb-3">
+                <label class="form-label"><i class="bi bi-calendar"></i> Novo Prazo</label>
+                <input type="date" class="form-control" @bind="NovaData" />
+            </div>
             <div class="d-flex gap-2">
-             <button type="button" class="btn btn-custom btn-custom-outline" @onclick="FecharModalPrazo">Cancelar</button>
-      <button type="button" class="btn btn-custom btn-custom-warning" @onclick="SalvarNovaData">Confirmar</button>
-     </div>
+                <button type="button" class="btn btn-custom btn-custom-outline" @onclick="FecharModal">Cancelar</button>
+                <button type="button" class="btn btn-custom btn-custom-success" @onclick="SalvarEdicao">Guardar Alterações</button>
+            </div>
         </div>
     </div>
 }
 
-<!-- Modal Confirmação Delete -->
+@if (MostrarModalPrazo)
+{
+    <div class="modal-bg" @onclick="FecharModalPrazo">
+        <div class="modal-card" @onclick:stopPropagation>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="m-0">Aumentar Prazo</h5>
+                <button type="button" class="btn-close" @onclick="FecharModalPrazo"></button>
+            </div>
+            <p class="text-muted">Prazo atual: <strong>@TrabalhoSelecionado?.PrazoEntrega.ToString("dd/MM/yyyy")</strong></p>
+            <div class="form-group mb-3">
+                <label class="form-label">Dias a adicionar</label>
+                <input type="number" class="form-control" @bind="DiasAdicionais" min="1" max="30" />
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-custom btn-custom-outline" @onclick="FecharModalPrazo">Cancelar</button>
+                <button type="button" class="btn btn-custom btn-custom-warning" @onclick="SalvarNovaData">Confirmar</button>
+            </div>
+        </div>
+    </div>
+}
+
 @if (MostrarConfirmDelete)
 {
     <div class="modal-bg" @onclick="FecharConfirmDelete">
         <div class="modal-card" @onclick:stopPropagation style="max-width: 400px;">
-    <h5 class="mb-3"><i class="bi bi-exclamation-triangle"></i> Confirmar Eliminação</h5>
-  <p class="text-muted">Tem certeza que deseja eliminar este trabalho? <strong>Esta ação não pode ser desfeita.</strong></p>
-       <div class="d-flex gap-2">
+            <h5 class="mb-3"><i class="bi bi-exclamation-triangle"></i> Confirmar Eliminação</h5>
+            <p class="text-muted">Tem certeza que deseja eliminar este trabalho?</p>
+            <div class="d-flex gap-2">
                 <button type="button" class="btn btn-custom btn-custom-outline" @onclick="FecharConfirmDelete">Cancelar</button>
-     <button type="button" class="btn btn-custom btn-custom-danger" @onclick="EliminarTrabalho">Sim, Eliminar</button>
+                <button type="button" class="btn btn-custom btn-custom-danger" @onclick="EliminarTrabalho">Sim, Eliminar</button>
             </div>
-      </div>
+        </div>
     </div>
 }
 
@@ -243,11 +240,11 @@
     private List<Turma> ListaTurmas = new();
     private Trabalho? TrabalhoEmEdicao;
     private Trabalho? TrabalhoSelecionado;
-  private bool IsLoading = true;
+    private bool IsLoading = true;
     private bool MostrarModalPrazo = false;
     private bool MostrarConfirmDelete = false;
     private int TurmaFiltroId = 0;
-  private string StatusFiltro = "";
+    private string StatusFiltro = "";
     private string MensagemErro = "";
     private DateTime NovaData;
     private int DiasAdicionais = 7;
@@ -255,175 +252,110 @@
 
     protected override async Task OnInitializedAsync()
     {
-     IsLoading = true;
-  try
+        IsLoading = true;
+        try
         {
-  var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var professorUserId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var professorUserId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
             ListaTurmas = await TurmaService.GetTurmasAsync();
 
             if (!string.IsNullOrEmpty(professorUserId))
-       {
-     TodosTrabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(professorUserId);
-           TrabalhosFiltrados = TodosTrabalhos;
-     }
-   }
-        catch (Exception ex)
- {
-        Console.WriteLine($"Erro ao carregar trabalhos: {ex.Message}");
+            {
+                TodosTrabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(professorUserId);
+                TrabalhosFiltrados = TodosTrabalhos;
+            }
         }
-      finally
-        {
-     IsLoading = false;
-        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
+        finally { IsLoading = false; }
     }
 
     private void OnTurmaChanged(ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out int turmaId))
         {
-    TurmaFiltroId = turmaId;
- FiltrarTrabalhos();
-     }
+            TurmaFiltroId = turmaId;
+            FiltrarTrabalhos();
+        }
     }
 
     private void FiltrarTrabalhos()
     {
-    var temp = TodosTrabalhos;
+        var temp = TodosTrabalhos.AsEnumerable();
 
         if (TurmaFiltroId > 0)
-  {
-      temp = temp.Where(t => t.TurmaId == TurmaFiltroId).ToList();
-   }
-
-    if (!string.IsNullOrEmpty(StatusFiltro))
         {
-     temp = temp.Where(t => ObterStatus(t.PrazoEntrega) == StatusFiltro).ToList();
+            temp = temp.Where(t => t.TurmaId == TurmaFiltroId);
+        }
+
+        if (!string.IsNullOrEmpty(StatusFiltro))
+        {
+            // O filtro compara o valor do select (pendente, atrasado, hoje) com a lógica interna
+            temp = temp.Where(t => ObterValorStatusFiltro(t.PrazoEntrega) == StatusFiltro);
+        }
+
+        TrabalhosFiltrados = temp.ToList();
     }
 
-  TrabalhosFiltrados = temp;
-    }
-
-    private string ObterStatus(DateTime prazo)
+    // Função para o FILTRO (deve bater com os values do <select>)
+    private string ObterValorStatusFiltro(DateTime prazo)
     {
         var hoje = DateTime.UtcNow.Date;
         var prazoData = prazo.Date;
+        if (prazoData < hoje) return "atrasado";
+        if (prazoData == hoje) return "hoje";
+        return "pendente";
+    }
 
-     if (prazoData < hoje) return "Atrasado";
-      if (prazoData == hoje) return "Hoje";
-        return "Pendente de Entrega";
+    // Função para a EXIBIÇÃO na tabela
+    private string ObterStatusExibicao(DateTime prazo)
+    {
+        var hoje = DateTime.UtcNow.Date;
+        var prazoData = prazo.Date;
+        if (prazoData < hoje) return "Atrasado";
+        if (prazoData == hoje) return "Hoje";
+        return "Pendente";
     }
 
     private void AbrirEditar(Trabalho trabalho)
     {
-    TrabalhoEmEdicao = new Trabalho
-        {
-            Id = trabalho.Id,
-            Titulo = trabalho.Titulo,
-    Descricao = trabalho.Descricao,
-            PrazoEntrega = trabalho.PrazoEntrega
-     };
+        TrabalhoEmEdicao = new Trabalho { Id = trabalho.Id, Titulo = trabalho.Titulo, Descricao = trabalho.Descricao, PrazoEntrega = trabalho.PrazoEntrega };
         NovaData = trabalho.PrazoEntrega;
-        MensagemErro = "";
     }
 
     private async Task SalvarEdicao()
     {
-        try
-      {
-   if (TrabalhoEmEdicao == null) return;
-
-            var trabalhoLocal = TodosTrabalhos.FirstOrDefault(t => t.Id == TrabalhoEmEdicao.Id);
-       if (trabalhoLocal != null)
-   {
-                trabalhoLocal.Titulo = TrabalhoEmEdicao.Titulo;
-        trabalhoLocal.Descricao = TrabalhoEmEdicao.Descricao;
- trabalhoLocal.PrazoEntrega = NovaData;
-  }
-
-            FecharModal();
-            FiltrarTrabalhos();
-  }
-        catch (Exception ex)
-        {
-            MensagemErro = $"Erro ao guardar: {ex.Message}";
-        }
+        if (TrabalhoEmEdicao == null) return;
+        var t = TodosTrabalhos.FirstOrDefault(x => x.Id == TrabalhoEmEdicao.Id);
+        if (t != null) { t.Titulo = TrabalhoEmEdicao.Titulo; t.Descricao = TrabalhoEmEdicao.Descricao; t.PrazoEntrega = NovaData; }
+        FecharModal();
+        FiltrarTrabalhos();
     }
 
-    private void AumentarPrazo(Trabalho trabalho)
-    {
-        TrabalhoSelecionado = trabalho;
-        DiasAdicionais = 7;
-        MostrarModalPrazo = true;
-    }
-
-    private DateTime CalcularNovaPrazo()
-    {
-        return TrabalhoSelecionado?.PrazoEntrega.AddDays(DiasAdicionais) ?? DateTime.Now;
-    }
+    private void AumentarPrazo(Trabalho trabalho) { TrabalhoSelecionado = trabalho; MostrarModalPrazo = true; }
 
     private async Task SalvarNovaData()
-{
-        try
-        {
-       if (TrabalhoSelecionado == null) return;
-
-            var novaData = TrabalhoSelecionado.PrazoEntrega.AddDays(DiasAdicionais);
-
-  var trabalhoLocal = TodosTrabalhos.FirstOrDefault(t => t.Id == TrabalhoSelecionado.Id);
-         if (trabalhoLocal != null)
-      {
-                trabalhoLocal.PrazoEntrega = novaData;
-            }
-
-            FecharModalPrazo();
-    FiltrarTrabalhos();
-        }
-    catch (Exception ex)
- {
-            Console.WriteLine($"Erro ao aumentar prazo: {ex.Message}");
-    }
- }
-
-    private void ConfirmarDelete(int trabalhoId)
     {
-        TrabalhoParaDeleteId = trabalhoId;
-        MostrarConfirmDelete = true;
+        if (TrabalhoSelecionado == null) return;
+        var t = TodosTrabalhos.FirstOrDefault(x => x.Id == TrabalhoSelecionado.Id);
+        if (t != null) t.PrazoEntrega = t.PrazoEntrega.AddDays(DiasAdicionais);
+        FecharModalPrazo();
+        FiltrarTrabalhos();
     }
+
+    private void ConfirmarDelete(int id) { TrabalhoParaDeleteId = id; MostrarConfirmDelete = true; }
 
     private async Task EliminarTrabalho()
     {
-try
-  {
-            if (await TrabalhoService.ApagarTrabalhoAsync(TrabalhoParaDeleteId))
-       {
-                TodosTrabalhos.RemoveAll(t => t.Id == TrabalhoParaDeleteId);
-                FiltrarTrabalhos();
-                FecharConfirmDelete();
-            }
-        }
-      catch (Exception ex)
+        if (await TrabalhoService.ApagarTrabalhoAsync(TrabalhoParaDeleteId))
         {
-         Console.WriteLine($"Erro ao eliminar: {ex.Message}");
-      }
+            TodosTrabalhos.RemoveAll(t => t.Id == TrabalhoParaDeleteId);
+            FiltrarTrabalhos();
+            FecharConfirmDelete();
+        }
     }
 
-    private void FecharModal()
-    {
-        TrabalhoEmEdicao = null;
-        MensagemErro = "";
-    }
-
-    private void FecharModalPrazo()
-    {
-        MostrarModalPrazo = false;
-    TrabalhoSelecionado = null;
-    }
-
-    private void FecharConfirmDelete()
-    {
-        MostrarConfirmDelete = false;
-        TrabalhoParaDeleteId = 0;
-    }
+    private void FecharModal() => TrabalhoEmEdicao = null;
+    private void FecharModalPrazo() => MostrarModalPrazo = false;
+    private void FecharConfirmDelete() => MostrarConfirmDelete = false;
 }
