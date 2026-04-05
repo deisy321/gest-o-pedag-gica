@@ -132,7 +132,10 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="badge badge-custom badge-primary">@aluno.Turma?.Nome</span>
+                                            @* CORREÇÃO AQUI: Forçando cores de visibilidade para a turma *@
+                                            <span class="badge bg-primary text-white" style="display: inline-block; padding: 0.35em 0.65em; color: #fff !important; background-color: #0d6efd !important;">
+                                                @(aluno.Turma?.Nome ?? "Sem Turma")
+                                            </span>
                                         </td>
                                         <td class="text-center">
                                             <button class="btn btn-custom btn-custom-primary" style="padding: 6px 12px;"
