@@ -1,67 +1,95 @@
 ﻿@page "/professor/TrabalhosRecebidos"
 @page "/professor/TrabalhosRecebidos/{TurmaId:int}"
 @using gestaopedagogica.Services
+@using gestaopedagogica.Models
 @inject TrabalhoService TrabalhoService
 @inject AuthenticationStateProvider AuthStateProvider
 
+<div class="container mt-4">
+    <h3>Trabalhos Recebidos</h3>
 
-<h3>Trabalhos </h3>
-
-@if (ListaTrabalhos == null)
-{
-    <div class="spinner-border text-primary"></div>
-}
-else if (!ListaTrabalhos.Any())
-{
-    <div class="alert alert-info">Nenhum trabalho enviado.</div>
-}
-else
-{
-    @foreach (var t in ListaTrabalhos)
+    @if (ListaTrabalhos == null)
     {
-        <div class="card mb-3">
-            <div class="card-body">
-                <strong>@t.Titulo</strong> - @t.Aluno?.UserName ?? "Desconhecido"
-                <div class="d-flex flex-wrap mt-2 gap-2">
-                    @foreach (var v in t.TrabalhoVertentes)
-                    {
-                        <button class="btn btn-outline-primary btn-sm" @onclick="() => AbrirVertente(v)">
-                            @v.Tipo (@(v.Nota.HasValue? v.Nota.ToString() : "Pendente"))
-                        </button>
-                    }
-                </div>
-            </div>
+        <div class="text-center">
+            <div class="spinner-border text-primary"></div>
+            <p>Carregando trabalhos...</p>
         </div>
     }
-}
+    else if (!ListaTrabalhos.Any())
+    {
+        <div class="alert alert-info">Nenhum trabalho enviado para avaliação.</div>
+    }
+    else
+    {
+        @foreach (var t in ListaTrabalhos)
+        {
+            <div class="card mb-3 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">@t.Titulo</h5>
+                    <p class="card-text text-muted">Aluno: @(t.Aluno?.UserName ?? "Desconhecido")</p>
+
+                    <div class="d-flex flex-wrap mt-2 gap-2">
+                        @if (t.TrabalhoVertentes != null)
+                        {
+                            @foreach (var v in t.TrabalhoVertentes)
+                            {
+                                <button class="btn btn-outline-primary btn-sm" @onclick="() => AbrirVertente(v)">
+                                    @v.Tipo (@(v.Nota.HasValue? v.Nota.Value.ToString("F1") : "Pendente"))
+                                </button>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
 
 @if (Selecionado != null)
 {
     <div class="modal-backdrop fade show"></div>
-    <div class="modal fade show d-block">
+    <div class="modal fade show d-block" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
-                    <h5>Avaliar @Selecionado.Tipo</h5>
-                    <button class="btn-close btn-close-white" @onclick="CancelarAvaliacao"></button>
+                    <h5 class="modal-title">Avaliar: @Selecionado.Tipo</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CancelarAvaliacao"></button>
                 </div>
                 <div class="modal-body">
-                    <p><strong>Conteúdo do aluno:</strong></p>
-                    <div class="border p-2 mb-3">@Selecionado.ConteudoTexto</div>
+                    <div class="mb-3">
+                        <label class="fw-bold">Conteúdo do aluno:</label>
+                        <div class="border rounded p-3 bg-light" style="white-space: pre-wrap;">
+                            @(string.IsNullOrEmpty(Selecionado.ConteudoTextoAluno) ? "Sem conteúdo de texto." : Selecionado.ConteudoTextoAluno)
+                        </div>
+                    </div>
+
                     @if (Selecionado.FicheiroBytes != null)
                     {
-                        <p>Ficheiro enviado: <a href="@($"data:application/octet-stream;base64,{Convert.ToBase64String(Selecionado.FicheiroBytes)}")" target="_blank">@Selecionado.FicheiroNome</a></p>
+                        <div class="mb-3">
+                            <label class="fw-bold">Ficheiro enviado:</label>
+                            <br />
+                            <a class="btn btn-sm btn-info" href="@($"data:application/octet-stream;base64,{Convert.ToBase64String(Selecionado.FicheiroBytes)}")" download="@Selecionado.FicheiroNome">
+                                <i class="bi bi-download"></i> Descarregar @Selecionado.FicheiroNome
+                            </a>
+                        </div>
                     }
 
-                    <label>Nota (0-20)</label>
-                    <input type="number" class="form-control" @bind="Selecionado.Nota" min="0" max="20" />
-
-                    <label>Feedback</label>
-                    <textarea class="form-control" @bind="Selecionado.Feedback"></textarea>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Nota (0-20)</label>
+                            <input type="number" class="form-control" @bind="Selecionado.Nota" step="0.1" min="0" max="20" />
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label fw-bold">Feedback do Professor</label>
+                            <textarea class="form-control" @bind="Selecionado.Feedback" rows="4" placeholder="Escreva o feedback para o aluno..."></textarea>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="CancelarAvaliacao">Cancelar</button>
-                    <button class="btn btn-success" @onclick="SalvarAvaliacao">Salvar</button>
+                    <button class="btn btn-success" @onclick="SalvarAvaliacao">
+                        <i class="bi bi-check-lg"></i> Gravar Avaliação
+                    </button>
                 </div>
             </div>
         </div>
@@ -87,19 +115,29 @@ else
         var trabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(userId);
 
         if (TurmaId.HasValue)
+        {
             trabalhos = trabalhos.Where(t => t.TurmaId == TurmaId).ToList();
+        }
 
+        // Filtramos para mostrar apenas trabalhos que tenham vertentes (entregas)
         ListaTrabalhos = trabalhos;
     }
 
-    void AbrirVertente(TrabalhoVertente v) => Selecionado = v;
+    private void AbrirVertente(TrabalhoVertente v)
+    {
+        // Criamos uma cópia ou referenciamos para edição
+        Selecionado = v;
+    }
 
-    void CancelarAvaliacao() => Selecionado = null;
+    private void CancelarAvaliacao() => Selecionado = null;
 
-    async Task SalvarAvaliacao()
+    private async Task SalvarAvaliacao()
     {
         if (Selecionado == null) return;
+
+        // O Service agora aceita decimal?, resolvendo o erro de conversão
         await TrabalhoService.AtualizarNotaEFeedbackAsync(Selecionado.Id, Selecionado.Nota, Selecionado.Feedback);
+
         Selecionado = null;
         await CarregarTrabalhos();
     }

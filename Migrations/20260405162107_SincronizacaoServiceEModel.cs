@@ -5,24 +5,23 @@
 namespace gestaopedagogica.Migrations
 {
     /// <inheritdoc />
-    public partial class AdicionarCampoRecuperacao : Migration
+    public partial class SincronizacaoServiceEModel : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<bool>(
-                name: "IsPlanoRecuperacao",
+            migrationBuilder.AddColumn<string>(
+                name: "ConteudoTextoAluno",
                 table: "Trabalhos",
-                type: "boolean",
-                nullable: false,
-                defaultValue: false);
+                type: "text",
+                nullable: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "IsPlanoRecuperacao",
+                name: "ConteudoTextoAluno",
                 table: "Trabalhos");
         }
     }
