@@ -1,4 +1,4 @@
-using gestaopedagogica.Data;
+﻿using gestaopedagogica.Data;
 using gestaopedagogica.Models;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -17,7 +17,7 @@ namespace gestaopedagogica.Services
             _context = context;
         }
 
-        // Adicionar coment�rio do professor
+        // Adicionar comentário do professor
         public async Task<Comentario?> AdicionarComentarioAsync(int trabalhoId, string autorId, string conteudo)
         {
             if (string.IsNullOrWhiteSpace(conteudo))
@@ -28,9 +28,9 @@ namespace gestaopedagogica.Services
                 TrabalhoId = trabalhoId,
                 AutorId = autorId,
                 Conteudo = conteudo.Trim(),
-                Tipo = Comentario.TipoComentario.Observacao, // Apenas observa��o do professor
+                Tipo = Comentario.TipoComentario.Observacao, // Apenas observação do professor
                 DataCriacao = DateTime.UtcNow,
-                ComentarioPaiId = null // N�o usa hierarquia
+                ComentarioPaiId = null // Não usa hierarquia
             };
 
             _context.Comentarios.Add(comentario);
@@ -39,7 +39,7 @@ namespace gestaopedagogica.Services
             return comentario;
         }
 
-        // Listar coment�rios de um trabalho (para aluno ver)
+        // Listar comentários de um trabalho (para aluno ver)
         public async Task<List<Comentario>> ObterComentariosAsync(int trabalhoId)
         {
             return await _context.Comentarios
@@ -50,7 +50,7 @@ namespace gestaopedagogica.Services
                 .ToListAsync();
         }
 
-        // Atualizar coment�rio do professor
+        // Atualizar comentário do professor
         public async Task<bool> AtualizarComentarioAsync(int comentarioId, string novoConteudo)
         {
             var comentario = await _context.Comentarios.FindAsync(comentarioId);
@@ -63,7 +63,7 @@ namespace gestaopedagogica.Services
             return true;
         }
 
-        // Deletar coment�rio
+        // Deletar comentário
         public async Task<bool> DeletarComentarioAsync(int comentarioId)
         {
             var comentario = await _context.Comentarios.FindAsync(comentarioId);
@@ -74,7 +74,7 @@ namespace gestaopedagogica.Services
             return true;
         }
 
-        // Contar coment�rios de um trabalho
+        // Contar comentários de um trabalho
         public async Task<int> ContarComentariosAsync(int trabalhoId)
         {
             return await _context.Comentarios.CountAsync(c => c.TrabalhoId == trabalhoId);

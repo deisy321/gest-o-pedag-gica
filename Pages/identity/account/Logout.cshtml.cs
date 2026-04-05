@@ -1,4 +1,4 @@
-using gestaopedagogica.Data;
+ï»¿using gestaopedagogica.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -29,12 +29,12 @@ namespace gestaopedagogica.Pages.Identity.Account
             }
             else
             {
-                // Redireciona para a home ou login após sair
+                // Redireciona para a home ou login apÃ³s sair
                 return RedirectToPage("/Index");
             }
         }
 
-        // Caso alguém tente aceder via URL (GET), forçamos o logout e redirecionamos
+        // Caso alguÃ©m tente aceder via URL (GET), forÃ§amos o logout e redirecionamos
         public async Task<IActionResult> OnGetAsync()
         {
             await _signInManager.SignOutAsync();

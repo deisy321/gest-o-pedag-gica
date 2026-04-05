@@ -1,4 +1,4 @@
-using System.Net;
+Ôªøusing System.Net;
 using System.Net.Mail;
 using Microsoft.Extensions.Configuration;
 
@@ -32,7 +32,7 @@ namespace gestaopedagogica.Services
         {
             try
         {
-   var subject = "?? Novo Trabalho DisponÌvel - TriadeLearn";
+   var subject = "?? Novo Trabalho Dispon√≠vel - TriadeLearn";
         var body = $@"
 <html>
     <head>
@@ -49,27 +49,27 @@ namespace gestaopedagogica.Services
     <body>
         <div class='container'>
           <div class='header'>
-    <h1>?? Novo Trabalho DisponÌvel</h1>
+    <h1>?? Novo Trabalho Dispon√≠vel</h1>
      </div>
       <div class='content'>
-         <p>Ol· <strong>{nomeAluno}</strong>,</p>
-       <p>Um novo trabalho foi criado para vocÍ pelo seu professor!</p>
+         <p>Ol√° <strong>{nomeAluno}</strong>,</p>
+       <p>Um novo trabalho foi criado para voc√™ pelo seu professor!</p>
            
   <div class='info'>
-              <p><strong>?? TÌtulo:</strong> {titulo}</p>
+              <p><strong>?? T√≠tulo:</strong> {titulo}</p>
     <p><strong>?? Prazo de Entrega:</strong> {prazo:dd/MM/yyyy HH:mm}</p>
       <p><strong>? Dias Restantes:</strong> {(prazo - DateTime.Now).Days} dias</p>
             </div>
         
-        <p>Acesse sua dashboard para visualizar os detalhes do trabalho e comeÁar a resolver.</p>
+        <p>Acesse sua dashboard para visualizar os detalhes do trabalho e come√ßar a resolver.</p>
    
            <a href='http://localhost:5001/aluno/DashboardAluno' class='button'>Ver Meu Trabalho</a>
                 
       <p>Boa sorte! ??</p>
             </div>
      <div class='footer'>
-   <p>TriadeLearn - Sistema de Gest„o PedagÛgica</p>
-          <p>Esta È uma mensagem autom·tica. N„o responda diretamente.</p>
+   <p>TriadeLearn - Sistema de Gest√£o Pedag√≥gica</p>
+          <p>Esta √© uma mensagem autom√°tica. N√£o responda diretamente.</p>
             </div>
         </div>
     </body>
@@ -79,7 +79,7 @@ namespace gestaopedagogica.Services
             }
      catch (Exception ex)
 {
-         Console.WriteLine($"? Erro ao enviar email de confirmaÁ„o: {ex.Message}");
+         Console.WriteLine($"? Erro ao enviar email de confirma√ß√£o: {ex.Message}");
  }
         }
 
@@ -104,10 +104,10 @@ namespace gestaopedagogica.Services
     <body>
         <div class='container'>
 <div class='header'>
-      <h1>? Sua AvaliaÁ„o Est· Pronta!</h1>
+      <h1>? Sua Avalia√ß√£o Est√° Pronta!</h1>
     </div>
             <div>
-       <p>Ol· <strong>{nomeAluno}</strong>,</p>
+       <p>Ol√° <strong>{nomeAluno}</strong>,</p>
      <p>Seu professor avaliou o trabalho: <strong>{titulo}</strong></p>
          
       <div class='nota'>{nota:F1} / 20</div>
@@ -117,14 +117,14 @@ namespace gestaopedagogica.Services
 <p>{feedback}</p>
       </div>
            
-       <p>Acesse sua dashboard para ver os detalhes completos da avaliaÁ„o.</p>
+       <p>Acesse sua dashboard para ver os detalhes completos da avalia√ß√£o.</p>
      
-      <a href='http://localhost:5001/aluno/DashboardAluno' class='button'>Ver AvaliaÁ„o Completa</a>
+      <a href='http://localhost:5001/aluno/DashboardAluno' class='button'>Ver Avalia√ß√£o Completa</a>
       
-          <p>Continue com o Ûtimo trabalho! ??</p>
+          <p>Continue com o √≥timo trabalho! ??</p>
   </div>
      <div class='footer'>
- <p>TriadeLearn - Sistema de Gest„o PedagÛgica</p>
+ <p>TriadeLearn - Sistema de Gest√£o Pedag√≥gica</p>
    </div>
         </div>
     </body>
@@ -134,7 +134,7 @@ namespace gestaopedagogica.Services
     }
  catch (Exception ex)
      {
-           Console.WriteLine($"? Erro ao enviar email de avaliaÁ„o: {ex.Message}");
+           Console.WriteLine($"? Erro ao enviar email de avalia√ß√£o: {ex.Message}");
 }
         }
 
@@ -164,22 +164,22 @@ namespace gestaopedagogica.Services
     <h1>? Lembrete de Prazo!</h1>
             </div>
       <div>
-       <p>Ol· <strong>{nomeAluno}</strong>,</p>
-                <p>Este È um lembrete de que seu trabalho vence em breve!</p>
+       <p>Ol√° <strong>{nomeAluno}</strong>,</p>
+                <p>Este √© um lembrete de que seu trabalho vence em breve!</p>
                 
                 <div class='warning'>
    <p><strong>?? Trabalho:</strong> {titulo}</p>
     <p><strong>?? Tempo Restante:</strong> {diasRestantes} dias e {horasRestantes} horas</p>
       </div>
       
-     <p>N„o se esqueÁa de enviar sua resposta antes do prazo!</p>
+     <p>N√£o se esque√ßa de enviar sua resposta antes do prazo!</p>
         
          <a href='http://localhost:5001/aluno/DashboardAluno' class='button'>Ir para Meu Trabalho</a>
  
     <p>Bom trabalho! ??</p>
      </div>
             <div class='footer'>
-     <p>TriadeLearn - Sistema de Gest„o PedagÛgica</p>
+     <p>TriadeLearn - Sistema de Gest√£o Pedag√≥gica</p>
             </div>
 </div>
     </body>

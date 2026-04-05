@@ -1,4 +1,4 @@
-using System;
+Ôªøusing System;
 
 namespace gestaopedagogica.Models
 {
@@ -10,18 +10,18 @@ namespace gestaopedagogica.Models
         public int TrabalhoId { get; set; }
  public Trabalho Trabalho { get; set; } = null!;
 
-      // Autor do coment·rio (pode ser Professor ou Aluno)
+      // Autor do coment√°rio (pode ser Professor ou Aluno)
  public string AutorId { get; set; } = "";
    public virtual Data.ApplicationUser? Autor { get; set; }
 
-        // Conte˙do
+        // Conte√∫do
         public string Conteudo { get; set; } = "";
 
         // Timestamps
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
         public DateTime? DataAtualizacao { get; set; }
 
-        // Type de coment·rio
+        // Type de coment√°rio
         public enum TipoComentario
         {
           Pergunta = 0,
@@ -32,11 +32,11 @@ namespace gestaopedagogica.Models
 
         public TipoComentario Tipo { get; set; } = TipoComentario.Observacao;
 
-        // Se È resposta a outro coment·rio
+        // Se √© resposta a outro coment√°rio
         public int? ComentarioPaiId { get; set; }
         public virtual Comentario? ComentarioPai { get; set; }
 
-  // Respostas a este coment·rio
+  // Respostas a este coment√°rio
         public virtual ICollection<Comentario> Respostas { get; set; } = new List<Comentario>();
     }
 }

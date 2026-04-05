@@ -1,4 +1,4 @@
-@page "/professor/AvaliarVertente/{TrabalhoIdStr}/{Tipo}/{AlunoId:int}"
+Ôªø@page "/professor/AvaliarVertente/{TrabalhoIdStr}/{Tipo}/{AlunoId:int}"
 @namespace gestaopedagogica.Pages.Professor
 @layout MainLayout
 
@@ -39,7 +39,7 @@
             {
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle me-2"></i>
-                    Vertente n„o encontrada.
+                    Vertente n√£o encontrada.
                 </div>
             }
             else
@@ -50,11 +50,11 @@
                         <div class="col-md-6">
                             <strong>Aluno:</strong> @(Trabalho?.Aluno?.UserName ?? "N/A")<br>
                             <strong>Disciplina:</strong> @(Trabalho?.Disciplina?.Nome ?? "N/A")<br>
-                            <strong>MÛdulo:</strong> @(Trabalho?.Modulo?.Nome ?? "N/A")
+                            <strong>M√≥dulo:</strong> @(Trabalho?.Modulo?.Nome ?? "N/A")
                         </div>
                         <div class="col-md-6">
                             <strong>Prazo:</strong> @(Trabalho?.PrazoEntrega.ToString("dd/MM/yyyy HH:mm") ?? "N/A")<br>
-                            <strong>Data de Envio:</strong> @(Vertente?.DataEnvio?.ToString("dd/MM/yyyy HH:mm") ?? "N„o enviado")<br>
+                            <strong>Data de Envio:</strong> @(Vertente?.DataEnvio?.ToString("dd/MM/yyyy HH:mm") ?? "N√£o enviado")<br>
                             <strong>Status:</strong> <span class="badge bg-info">@(Vertente?.DataEnvio.HasValue == true ? "? Enviado" : "? Pendente")</span>
                         </div>
                     </div>
@@ -62,10 +62,10 @@
 
                 <div class="card mb-4 shadow-sm" style="border-radius: 12px;">
                     <div class="card-header bg-light" style="border-radius: 12px 12px 0 0;">
-                        <strong>?? InstruÁıes:</strong>
+                        <strong>?? Instru√ß√µes:</strong>
                     </div>
                     <div class="card-body">
-                        <p>@(Vertente?.ConteudoTexto ?? "Sem instruÁıes definidas.")</p>
+                        <p>@(Vertente?.ConteudoTexto ?? "Sem instru√ß√µes definidas.")</p>
                     </div>
                 </div>
 
@@ -78,7 +78,7 @@
                         {
                             <div class="alert alert-warning">
                                 <i class="bi bi-exclamation-circle me-2"></i>
-                                O aluno n„o enviou resposta para esta vertente.
+                                O aluno n√£o enviou resposta para esta vertente.
                             </div>
                         }
                         else
@@ -106,7 +106,7 @@
 
                 <div class="card shadow-sm" style="border-radius: 12px;">
                     <div class="card-header bg-light" style="border-radius: 12px 12px 0 0;">
-                        <strong>? AvaliaÁ„o:</strong>
+                        <strong>? Avalia√ß√£o:</strong>
                     </div>
                     <div class="card-body">
                         <form @onsubmit="SalvarAvaliacao">
@@ -125,9 +125,9 @@
                             </div>
 
                             <div class="mb-4">
-                                <label class="form-label fw-bold">Feedback / Coment·rio:</label>
+                                <label class="form-label fw-bold">Feedback / Coment√°rio:</label>
                                 <textarea class="form-control rounded-3" rows="5"
-                                          placeholder="Deixe um coment·rio construtivo para o aluno..."
+                                          placeholder="Deixe um coment√°rio construtivo para o aluno..."
                                           @bind="Feedback"></textarea>
                             </div>
 
@@ -146,7 +146,7 @@
                                 </button>
                                 <button type="submit" class="btn btn-success btn-lg rounded-pill px-4"
                                         disabled="@(IsSaving || Nota < 0 || Nota > 20)">
-                                    @(IsSaving ? "Salvando..." : "Guardar AvaliaÁ„o")
+                                    @(IsSaving ? "Salvando..." : "Guardar Avalia√ß√£o")
                                 </button>
                             </div>
                         </form>
@@ -182,7 +182,7 @@
         {
             if (!int.TryParse(TrabalhoIdStr, out TrabalhoId))
             {
-                StatusMessage = "? ID do trabalho inv·lido.";
+                StatusMessage = "? ID do trabalho inv√°lido.";
                 IsLoading = false;
                 return;
             }
@@ -207,7 +207,7 @@
             Trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(TrabalhoId);
             if (Trabalho == null)
             {
-                StatusMessage = "? Trabalho n„o encontrado.";
+                StatusMessage = "? Trabalho n√£o encontrado.";
                 return;
             }
 
@@ -216,7 +216,7 @@
 
             if (Vertente == null)
             {
-                StatusMessage = "? Vertente n„o encontrada.";
+                StatusMessage = "? Vertente n√£o encontrada.";
                 return;
             }
 
@@ -251,7 +251,7 @@
 
             if (Vertente == null)
             {
-                StatusMessage = "? Vertente n„o encontrada.";
+                StatusMessage = "? Vertente n√£o encontrada.";
                 return;
             }
 
@@ -259,7 +259,7 @@
             Vertente.Feedback = Feedback;
             await TrabalhoService.AtualizarVertenteAsync(Vertente);
 
-            StatusMessage = "? AvaliaÁ„o guardada com sucesso!";
+            StatusMessage = "? Avalia√ß√£o guardada com sucesso!";
             await Task.Delay(1000);
 
             // REDIRECIONAMENTO CORRIGIDO PARA VOLTAR AO ALUNO

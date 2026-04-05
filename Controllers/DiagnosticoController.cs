@@ -1,4 +1,4 @@
-using gestaopedagogica.Data;
+﻿using gestaopedagogica.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -59,7 +59,7 @@ namespace gestaopedagogica.Controllers
                     },
                     Turmas = turmasDto,
                     Cursos = await _context.Cursos.Select(c => new { c.Id, c.Nome }).ToListAsync(),
-                    Mensagem = "Diagn�stico realizado com sucesso"
+                    Mensagem = "Diagnóstico realizado com sucesso"
                 };
 
                 return Ok(diagnostico);

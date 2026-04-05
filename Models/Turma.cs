@@ -1,4 +1,4 @@
-namespace gestaopedagogica.Models
+﻿namespace gestaopedagogica.Models
 {
     public class Turma
     {

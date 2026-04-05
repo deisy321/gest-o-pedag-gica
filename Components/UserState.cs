@@ -1,4 +1,4 @@
-namespace gestaopedagogica.Components
+﻿namespace gestaopedagogica.Components
 {
  public class UserState
  {

@@ -1,4 +1,4 @@
-@page "/admin/registeradmin"
+Ôªø@page "/admin/registeradmin"
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Identity
 @using gestaopedagogica.Data
@@ -21,7 +21,7 @@
     <div class="page-admin">
         <AuthorizeView Roles="Admin">
             <Authorized Context="authContext">
-                @* CabeÁalho *@
+                @* Cabe√ßalho *@
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <div>
                         <h2 class="fw-bold text-gradient mb-0">Registar Utilizador</h2>
@@ -56,7 +56,7 @@
                                 <div class="row g-3">
                                     <div class="col-md-12">
                                         <label class="form-label small fw-bold text-muted text-uppercase">Nome Completo</label>
-                                        <InputText @bind-Value="Input.Nome" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="Ex: Jo„o Silva" />
+                                        <InputText @bind-Value="Input.Nome" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="Ex: Jo√£o Silva" />
                                         <ValidationMessage For="@(() => Input.Nome)" class="text-danger small" />
                                     </div>
 
@@ -87,7 +87,7 @@
 
                                     <div class="col-md-6">
                                         <label class="form-label small fw-bold text-muted text-uppercase">Senha</label>
-                                        <InputText type="password" @bind-Value="Input.Password" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="MÌnimo 6 caracteres" />
+                                        <InputText type="password" @bind-Value="Input.Password" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="M√≠nimo 6 caracteres" />
                                         <ValidationMessage For="@(() => Input.Password)" class="text-danger small" />
                                     </div>
 
@@ -120,7 +120,7 @@
                 </div>
             </Authorized>
             <NotAuthorized>
-                <div class="alert alert-warning m-5">N„o tem permiss„o para aceder a esta p·gina (Role "Admin" necess·ria).</div>
+                <div class="alert alert-warning m-5">N√£o tem permiss√£o para aceder a esta p√°gina (Role "Admin" necess√°ria).</div>
             </NotAuthorized>
         </AuthorizeView>
     </div>
@@ -135,18 +135,18 @@
 
     public class RegisterAdminInputModel
     {
-        [Required(ErrorMessage = "O nome È obrigatÛrio.")]
+        [Required(ErrorMessage = "O nome √© obrigat√≥rio.")]
         public string Nome { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "O email È obrigatÛrio.")]
-        [EmailAddress(ErrorMessage = "Email inv·lido.")]
+        [Required(ErrorMessage = "O email √© obrigat√≥rio.")]
+        [EmailAddress(ErrorMessage = "Email inv√°lido.")]
         public string Email { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "A senha È obrigatÛria.")]
+        [Required(ErrorMessage = "A senha √© obrigat√≥ria.")]
         [MinLength(6, ErrorMessage = "A senha deve ter pelo menos 6 caracteres.")]
         public string Password { get; set; } = string.Empty;
 
-        [Compare("Password", ErrorMessage = "As senhas n„o correspondem.")]
+        [Compare("Password", ErrorMessage = "As senhas n√£o correspondem.")]
         public string ConfirmPassword { get; set; } = string.Empty;
     }
 
@@ -172,7 +172,7 @@
             var usuarioExistente = await UserManager.FindByEmailAsync(Input.Email);
             if (usuarioExistente != null)
             {
-                ErrorMessage = "Este email j· est· registado no sistema.";
+                ErrorMessage = "Este email j√° est√° registado no sistema.";
                 IsSubmitting = false;
                 return;
             }

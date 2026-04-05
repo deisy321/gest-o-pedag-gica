@@ -1,4 +1,4 @@
-using gestaopedagogica.Models;
+﻿using gestaopedagogica.Models;
 using Microsoft.AspNetCore.Identity;
 
 namespace gestaopedagogica.Data

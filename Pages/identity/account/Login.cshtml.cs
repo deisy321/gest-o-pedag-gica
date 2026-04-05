@@ -1,4 +1,4 @@
-using gestaopedagogica.Data;
+ï»¿using gestaopedagogica.Data;
 using gestaopedagogica.Models;
 using gestaopedagogica.Services;
 using Microsoft.AspNetCore.Identity;
@@ -32,10 +32,10 @@ namespace gestaopedagogica.Pages.identity.account
 
         public class InputModel
         {
-            [Required(ErrorMessage = "O utilizador/email é obrigatório.")]
+            [Required(ErrorMessage = "O utilizador/email Ã© obrigatÃ³rio.")]
             public string Username { get; set; } = "";
 
-            [Required(ErrorMessage = "A senha é obrigatória.")]
+            [Required(ErrorMessage = "A senha Ã© obrigatÃ³ria.")]
             [DataType(DataType.Password)]
             public string Password { get; set; } = "";
 
@@ -55,7 +55,7 @@ namespace gestaopedagogica.Pages.identity.account
 
             if (user == null)
             {
-                ModelState.AddModelError(string.Empty, "Utilizador não encontrado.");
+                ModelState.AddModelError(string.Empty, "Utilizador nÃ£o encontrado.");
                 return Page();
             }
 
@@ -67,12 +67,12 @@ namespace gestaopedagogica.Pages.identity.account
             {
                 var destination = await DeterminarRetorno(user.Id);
 
-                // CRUCIAL: Forçamos minúsculas porque o Linux do Render é Case-Sensitive
+                // CRUCIAL: ForÃ§amos minÃºsculas porque o Linux do Render Ã© Case-Sensitive
                 destination = destination.ToLower().Trim();
 
                 Console.WriteLine($"[LOGIN SUCESSO] Redirecionando para: {destination}");
 
-                // LocalRedirect é mais seguro para rotas internas
+                // LocalRedirect Ã© mais seguro para rotas internas
                 return LocalRedirect(destination);
             }
 
@@ -95,7 +95,7 @@ namespace gestaopedagogica.Pages.identity.account
 
             var roles = await _userManager.GetRolesAsync(user);
 
-            // IMPORTANTE: Retornar as strings já em MINÚSCULAS para evitar 404 no Render
+            // IMPORTANTE: Retornar as strings jÃ¡ em MINÃšSCULAS para evitar 404 no Render
             if (roles.Contains("Admin")) return "/admin/dashboardadmin";
 
             var professor = await _professorService.GetProfessorByUserIdAsync(userId);

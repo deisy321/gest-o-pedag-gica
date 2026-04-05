@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+Ôªøusing System.Collections.Generic;
 
 namespace gestaopedagogica.Models
 {
@@ -8,15 +8,15 @@ namespace gestaopedagogica.Models
         public string Numero { get; set; } = "";
         public string Nome { get; set; } = "";
 
-        // --- A TRÕADE PEDAG”GICA ---
-        public string CriterioConhecimento { get; set; } = "AvaliaÁ„o teÛrica e compreens„o de conceitos.";
+        // --- A TR√çADE PEDAG√ìGICA ---
+        public string CriterioConhecimento { get; set; } = "Avalia√ß√£o te√≥rica e compreens√£o de conceitos.";
         public string CriterioCompetencia { get; set; } = "Capacidade de organizar e aplicar o saber.";
-        public string CriterioAptidao { get; set; } = "Talento pr·tico e execuÁ„o individual.";
+        public string CriterioAptidao { get; set; } = "Talento pr√°tico e execu√ß√£o individual.";
 
-        // CORRE«√O: O ponto de interrogaÁ„o '?' permite que o campo seja opcional (NULO)
+        // CORRE√á√ÉO: O ponto de interroga√ß√£o '?' permite que o campo seja opcional (NULO)
         public int? ProfessorId { get; set; }
 
-        // CORRE«√O: O professor tambÈm deve ser anul·vel para evitar erros de validaÁ„o
+        // CORRE√á√ÉO: O professor tamb√©m deve ser anul√°vel para evitar erros de valida√ß√£o
         public Professor? Professor { get; set; }
 
         // Relacionamento muitos-para-muitos com Turma

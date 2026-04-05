@@ -1,4 +1,4 @@
-@page "/professor/GerirTrabalhos"
+ï»¿@page "/professor/GerirTrabalhos"
 @namespace gestaopedagogica.Pages.Professor
 @layout MainLayout
 @using gestaopedagogica.Models
@@ -76,13 +76,13 @@
                     <table class="custom-table">
                         <thead>
                             <tr>
-                                <th style="width: 20%;">Título</th>
+                                <th style="width: 20%;">TÃ­tulo</th>
                                 <th style="width: 15%;">Turma</th>
                                 <th style="width: 12%;">Aluno</th>
                                 <th style="width: 12%;">Prazo</th>
                                 <th style="width: 10%;">Status</th>
                                 <th style="width: 8%;">Entregues</th>
-                                <th style="width: 13%;">Ações</th>
+                                <th style="width: 13%;">AÃ§Ãµes</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -168,11 +168,11 @@
                 <button type="button" class="btn-close" @onclick="FecharModal"></button>
             </div>
             <div class="form-group mb-3">
-                <label class="form-label">Título</label>
+                <label class="form-label">TÃ­tulo</label>
                 <input type="text" class="form-control" @bind="TrabalhoEmEdicao.Titulo" />
             </div>
             <div class="form-group mb-3">
-                <label class="form-label">Descrição</label>
+                <label class="form-label">DescriÃ§Ã£o</label>
                 <textarea class="form-control" @bind="TrabalhoEmEdicao.Descricao" rows="3"></textarea>
             </div>
             <div class="form-group mb-3">
@@ -181,7 +181,7 @@
             </div>
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-custom btn-custom-outline" @onclick="FecharModal">Cancelar</button>
-                <button type="button" class="btn btn-custom btn-custom-success" @onclick="SalvarEdicao">Guardar Alterações</button>
+                <button type="button" class="btn btn-custom btn-custom-success" @onclick="SalvarEdicao">Guardar AlteraÃ§Ãµes</button>
             </div>
         </div>
     </div>
@@ -209,7 +209,7 @@
 {
     <div class="modal-bg" @onclick="FecharConfirmDelete">
         <div class="modal-card" style="max-width: 400px;">
-            <h5>Confirmar Eliminação</h5>
+            <h5>Confirmar EliminaÃ§Ã£o</h5>
             <p>Deseja eliminar este trabalho?</p>
             <div class="d-flex gap-2">
                 <button class="btn btn-custom btn-custom-outline" @onclick="FecharConfirmDelete">Cancelar</button>
@@ -242,7 +242,7 @@
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var professorUserId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            // Carrega turmas primeiro para garantir que temos os nomes para exibição
+            // Carrega turmas primeiro para garantir que temos os nomes para exibiÃ§Ã£o
             ListaTurmas = await TurmaService.GetTurmasAsync();
 
             if (!string.IsNullOrEmpty(professorUserId))

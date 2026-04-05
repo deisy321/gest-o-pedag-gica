@@ -1,4 +1,4 @@
-@namespace gestaopedagogica.Components
+﻿@namespace gestaopedagogica.Components
 @using Microsoft.AspNetCore.Components.Authorization
 
 @inject AuthenticationStateProvider AuthStateProvider
@@ -16,6 +16,6 @@
  @ChildContent
  </Authorized>
  <NotAuthorized>
- <div class="alert alert-danger">Acesso negado. Este recurso � somente para: @string.Join(", ", AllowedRoles)</div>
+ <div class="alert alert-danger">Acesso negado. Este recurso é somente para: @string.Join(", ", AllowedRoles)</div>
  </NotAuthorized>
 </AuthorizeView>
