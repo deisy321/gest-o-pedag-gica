@@ -96,19 +96,25 @@
                                 var diasRestantes = (prazoData - hoje).Days;
 
                                 <tr>
+                                    <td><strong>@trabalho.Titulo</strong></td>
                                     <td>
-                                        <strong>@trabalho.Titulo</strong>
-                                    </td>
-                                    <td>
-                                        @* CORREÇÃO TURMA *@
-                                        <span class="badge bg-primary text-white" style="background-color: #0d6efd !important; color: white !important;">
-                                            @(trabalho.Turma?.Nome ?? "N/D")
+                                        @* RESOLVIDO: Busca o nome da turma na lista carregada caso o objeto Turma esteja nulo *@
+                                        <span class="badge bg-primary text-white" style="background-color: #0d6efd !important; color: white !important; padding: 5px 10px;">
+                                            @if (trabalho.Turma != null)
+                                            {
+                                                @trabalho.Turma.Nome
+                                            }
+                                            else
+                                            {
+
+                                                @(ListaTurmas.FirstOrDefault(t => t.Id == trabalho.TurmaId)?.Nome ?? "N/D")
+                                            }
                                         </span>
                                     </td>
                                     <td>
                                         @if (string.IsNullOrEmpty(trabalho.AlunoId))
                                         {
-                                            <span class="badge bg-info text-white" style="background-color: #0dcafm !important; color: white !important;">Turma</span>
+                                            <span class="badge bg-info text-white" style="background-color: #0dcaf0 !important; color: white !important;">Turma</span>
                                         }
                                         else
                                         {
@@ -118,22 +124,12 @@
                                     <td>
                                         <span style="@(diasRestantes < 0 ? "color: red; font-weight: bold;" : "")">
                                             @trabalho.PrazoEntrega.ToString("dd/MM/yyyy")
-                                            @if (diasRestantes >= 0)
-                                            {
-                                                <br />
-                                
-                                                <small style="color: #666;">(@diasRestantes dias)</small>
-                                            }
-                                            else
-                                            {
-                                                <br />
-                                
-                                                <small style="color: red;">(@Math.Abs(diasRestantes) dias atrasado)</small>
-                                            }
+                                            <br /><small style="color: @(diasRestantes < 0 ? "red" : "#666");">
+                                                (@(diasRestantes < 0 ? $"{Math.Abs(diasRestantes)} dias atrasado" : $"{diasRestantes} dias"))
+                                            </small>
                                         </span>
                                     </td>
                                     <td>
-                                        @* CORREÇÃO CORES STATUS *@
                                         @{
                                             var classeStatus = statusExibicao switch
                                             {
@@ -141,25 +137,16 @@
                                                 "Hoje" => "bg-warning text-dark",
                                                 _ => "bg-success"
                                             };
-                                            var corFixa = statusExibicao == "Hoje" ? "#000" : "#fff";
                                         }
-                                        <span class="badge @classeStatus" style="color: @corFixa !important;">
+                                        <span class="badge @classeStatus" style="padding: 5px 10px; color: @(statusExibicao == "Hoje" ? "black" : "white") !important;">
                                             @statusExibicao
                                         </span>
                                     </td>
-                                    <td>
-                                        <span class="badge bg-secondary text-white">@entregues/@total</span>
-                                    </td>
+                                    <td><span class="badge bg-secondary text-white">@entregues/@total</span></td>
                                     <td class="text-center">
-                                        <button class="btn btn-sm btn-primary me-1" @onclick="() => AbrirEditar(trabalho)" title="Editar">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-warning me-1" @onclick="() => AumentarPrazo(trabalho)" title="Aumentar prazo">
-                                            <i class="bi bi-calendar-plus"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" @onclick="() => ConfirmarDelete(trabalho.Id)" title="Eliminar">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
+                                        <button class="btn btn-sm btn-primary me-1" @onclick="() => AbrirEditar(trabalho)"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn btn-sm btn-warning me-1" @onclick="() => AumentarPrazo(trabalho)"><i class="bi bi-calendar-plus"></i></button>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => ConfirmarDelete(trabalho.Id)"><i class="bi bi-trash"></i></button>
                                     </td>
                                 </tr>
                             }
@@ -171,6 +158,7 @@
     }
 </div>
 
+@* MODAIS *@
 @if (TrabalhoEmEdicao != null)
 {
     <div class="modal-bg" @onclick="FecharModal">
@@ -180,15 +168,15 @@
                 <button type="button" class="btn-close" @onclick="FecharModal"></button>
             </div>
             <div class="form-group mb-3">
-                <label class="form-label"><i class="bi bi-pencil-square"></i> Título</label>
+                <label class="form-label">Título</label>
                 <input type="text" class="form-control" @bind="TrabalhoEmEdicao.Titulo" />
             </div>
             <div class="form-group mb-3">
-                <label class="form-label"><i class="bi bi-file-text"></i> Descrição</label>
+                <label class="form-label">Descrição</label>
                 <textarea class="form-control" @bind="TrabalhoEmEdicao.Descricao" rows="3"></textarea>
             </div>
             <div class="form-group mb-3">
-                <label class="form-label"><i class="bi bi-calendar"></i> Novo Prazo</label>
+                <label class="form-label">Novo Prazo</label>
                 <input type="date" class="form-control" @bind="NovaData" />
             </div>
             <div class="d-flex gap-2">
@@ -203,18 +191,15 @@
 {
     <div class="modal-bg" @onclick="FecharModalPrazo">
         <div class="modal-card" @onclick:stopPropagation>
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="m-0">Aumentar Prazo</h5>
-                <button type="button" class="btn-close" @onclick="FecharModalPrazo"></button>
-            </div>
-            <p class="text-muted">Prazo atual: <strong>@TrabalhoSelecionado?.PrazoEntrega.ToString("dd/MM/yyyy")</strong></p>
-            <div class="form-group mb-3">
+            <h5>Aumentar Prazo</h5>
+            <p>Prazo atual: <strong>@TrabalhoSelecionado?.PrazoEntrega.ToString("dd/MM/yyyy")</strong></p>
+            <div class="mb-3">
                 <label class="form-label">Dias a adicionar</label>
                 <input type="number" class="form-control" @bind="DiasAdicionais" min="1" max="30" />
             </div>
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-custom btn-custom-outline" @onclick="FecharModalPrazo">Cancelar</button>
-                <button type="button" class="btn btn-custom btn-custom-warning" @onclick="SalvarNovaData">Confirmar</button>
+                <button class="btn btn-custom btn-custom-outline" @onclick="FecharModalPrazo">Cancelar</button>
+                <button class="btn btn-custom btn-custom-warning" @onclick="SalvarNovaData">Confirmar</button>
             </div>
         </div>
     </div>
@@ -223,12 +208,12 @@
 @if (MostrarConfirmDelete)
 {
     <div class="modal-bg" @onclick="FecharConfirmDelete">
-        <div class="modal-card" @onclick:stopPropagation style="max-width: 400px;">
-            <h5 class="mb-3"><i class="bi bi-exclamation-triangle"></i> Confirmar Eliminação</h5>
-            <p class="text-muted">Tem certeza que deseja eliminar este trabalho?</p>
+        <div class="modal-card" style="max-width: 400px;">
+            <h5>Confirmar Eliminação</h5>
+            <p>Deseja eliminar este trabalho?</p>
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-custom btn-custom-outline" @onclick="FecharConfirmDelete">Cancelar</button>
-                <button type="button" class="btn btn-custom btn-custom-danger" @onclick="EliminarTrabalho">Sim, Eliminar</button>
+                <button class="btn btn-custom btn-custom-outline" @onclick="FecharConfirmDelete">Cancelar</button>
+                <button class="btn btn-custom btn-custom-danger" @onclick="EliminarTrabalho">Sim, Eliminar</button>
             </div>
         </div>
     </div>
@@ -245,7 +230,6 @@
     private bool MostrarConfirmDelete = false;
     private int TurmaFiltroId = 0;
     private string StatusFiltro = "";
-    private string MensagemErro = "";
     private DateTime NovaData;
     private int DiasAdicionais = 7;
     private int TrabalhoParaDeleteId = 0;
@@ -258,6 +242,7 @@
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var professorUserId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
+            // Carrega turmas primeiro para garantir que temos os nomes para exibição
             ListaTurmas = await TurmaService.GetTurmasAsync();
 
             if (!string.IsNullOrEmpty(professorUserId))
@@ -290,14 +275,12 @@
 
         if (!string.IsNullOrEmpty(StatusFiltro))
         {
-            // O filtro compara o valor do select (pendente, atrasado, hoje) com a lógica interna
             temp = temp.Where(t => ObterValorStatusFiltro(t.PrazoEntrega) == StatusFiltro);
         }
 
         TrabalhosFiltrados = temp.ToList();
     }
 
-    // Função para o FILTRO (deve bater com os values do <select>)
     private string ObterValorStatusFiltro(DateTime prazo)
     {
         var hoje = DateTime.UtcNow.Date;
@@ -307,7 +290,6 @@
         return "pendente";
     }
 
-    // Função para a EXIBIÇÃO na tabela
     private string ObterStatusExibicao(DateTime prazo)
     {
         var hoje = DateTime.UtcNow.Date;
