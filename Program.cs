@@ -92,8 +92,13 @@ builder.Services.AddScoped<ProfessorService>();
 builder.Services.AddScoped<AlunoService>();
 builder.Services.AddScoped<DisciplinaService>();
 builder.Services.AddScoped<CursoService>();
+// Garante que o sistema lê as chaves do appsettings.json
+builder.Services.Configure<VapidSettings>(builder.Configuration.GetSection("VAPID"));
 
+// Regista o serviço de envio de notificações
+builder.Services.AddScoped<PushService>();
 builder.Services.AddHttpClient<IAService>(client =>
+
 {
     var ollamaUrl = Environment.GetEnvironmentVariable("OllamaConfig__BaseUrl") ?? "http://127.0.0.1:11434/";
     client.BaseAddress = new Uri(ollamaUrl);

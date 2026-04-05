@@ -10,7 +10,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GestÃ£o PedagÃ³gica</title>
+    <title>Gestão Pedagógica</title>
 
     <base href="/" />
 
@@ -36,6 +36,20 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script src="js/site.js"></script>
+
+    @* --- INTEGRAÇÃO DO SERVICE WORKER PARA NOTIFICAÇÕES --- *@
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/service-worker.js').then(function (registration) {
+                    console.log('ServiceWorker registado com sucesso:', registration.scope);
+                }, function (err) {
+                    console.log('Falha ao registar ServiceWorker:', err);
+                });
+            });
+        }
+    </script>
+    @* ------------------------------------------------------ *@
 
     <script src="_framework/blazor.server.js"></script>
 </body>

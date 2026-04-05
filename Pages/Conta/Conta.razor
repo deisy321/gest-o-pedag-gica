@@ -4,12 +4,16 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@using System.Net.Http.Json
 
 @attribute [Authorize]
 
 @inject NavigationManager Nav
 @inject UserManager<ApplicationUser> UserManager
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
+@inject HttpClient Http
 
 <AuthorizeView>
     <Authorized>
@@ -64,28 +68,31 @@
                 <div class="col-md-6 col-lg-6 mb-4">
                     <div class="custom-card elevation-2 h-100">
                         <div class="card-header-custom">
-                            <h5><i class="bi bi-shield-lock"></i> Segurança da Conta</h5>
+                            <h5><i class="bi bi-shield-lock"></i> Segurança e Notificações</h5>
                         </div>
                         <div class="card-body-custom d-flex flex-column justify-content-between">
                             <div>
                                 <div class="alert-custom alert-info mb-4">
                                     <i class="bi bi-info-circle-fill"></i>
                                     <div>
-                                        <strong>Dica de Segurança:</strong>
-                                        <p class="mb-0 small">Nunca partilhe as suas credenciais de acesso com terceiros.</p>
+                                        <strong>Notificações Push:</strong>
+                                        <p class="mb-0 small">Ative para receber avisos de novos trabalhos mesmo com o navegador fechado.</p>
                                     </div>
                                 </div>
 
-                                <p class="text-muted">Pode alterar a sua palavra-passe a qualquer momento para garantir que a sua conta permanece segura.</p>
+                                <button class="btn btn-primary w-100 mb-3 justify-content-center" @onclick="AtivarNotificacoes">
+                                    <i class="bi bi-bell-fill"></i> Ativar Notificações no Dispositivo
+                                </button>
+
+                                <p class="text-muted small text-center">@statusMessage</p>
                             </div>
 
-                            <div class="mt-4">
+                            <div class="mt-4 pt-3 border-top">
                                 <button class="btn-custom btn-custom-primary w-100 mb-3 justify-content-center"
                                         @onclick='() => Nav.NavigateTo("/Conta/MudarSenha")'>
                                     <i class="bi bi-key-fill"></i> Alterar Palavra-Passe
                                 </button>
 
-                                @* Opção 1: Formulário POST Corrigido *@
                                 <form method="post" action="Identity/Account/Logout?returnUrl=%2F">
                                     <AntiforgeryToken />
                                     <button type="submit" class="btn-custom btn-custom-danger w-100 justify-content-center">
@@ -114,6 +121,7 @@
     private string UserNome = "Utilizador";
     private string UserEmail = "";
     private string UserRole = "Membro";
+    private string statusMessage = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -123,7 +131,6 @@
         if (userClaims.Identity?.IsAuthenticated == true)
         {
             UserNome = userClaims.Identity.Name ?? "Utilizador";
-
             UserEmail = userClaims.FindFirst(c => c.Type == "emails")?.Value
                         ?? userClaims.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value
                         ?? "utilizador@sistema.local";
@@ -131,6 +138,47 @@
             if (userClaims.IsInRole("Admin") || UserEmail.Contains("admin")) UserRole = "Administrador";
             else if (userClaims.IsInRole("Professor") || UserEmail.Contains("prof")) UserRole = "Professor";
             else UserRole = "Aluno";
+        }
+    }
+
+    private async Task AtivarNotificacoes()
+    {
+        try
+        {
+            // Public Key do seu VAPID
+            string publicKey = "BHyk2wAbiSLuakbaHIO-wiiCX4QBB-QGRBjY6C22S7pODIK_yxUB3yxLhKd91Gxsr2mBxeP8DWMO86HygQ7Nh9c";
+
+            statusMessage = "A solicitar permissão ao navegador...";
+
+            // 1. Solicita a subscrição ao navegador via JavaScript
+            var subscriptionJson = await JSRuntime.InvokeAsync<string>(
+                "blazorPushNotifications.requestSubscription", publicKey);
+
+            if (!string.IsNullOrEmpty(subscriptionJson))
+            {
+                statusMessage = "A guardar definições no servidor...";
+
+                // 2. Envia o JSON da subscrição para a API no servidor
+                var response = await Http.PostAsJsonAsync("api/push/subscribe", subscriptionJson);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    statusMessage = "✅ Notificações ativadas com sucesso!";
+                }
+                else
+                {
+                    statusMessage = "❌ Erro ao guardar no servidor. Tente novamente.";
+                }
+            }
+            else
+            {
+                statusMessage = "❌ Permissão negada ou erro no navegador.";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "❌ Erro ao configurar notificações.";
+            Console.WriteLine($"Erro Push: {ex.Message}");
         }
     }
 }

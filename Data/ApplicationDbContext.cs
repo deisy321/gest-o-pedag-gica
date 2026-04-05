@@ -11,6 +11,8 @@ namespace gestaopedagogica.Data
         {
         }
 
+        // Definido como PushSubscriptions para manter consistência com o Service e a tabela física
+        public DbSet<NotificationSubscription> PushSubscriptions { get; set; }
         public DbSet<Aluno> Alunos { get; set; }
         public DbSet<Avaliacao> Avaliacoes { get; set; }
         public DbSet<Curso> Cursos { get; set; }
@@ -66,87 +68,49 @@ namespace gestaopedagogica.Data
             builder.Entity<Modulo>(entity =>
             {
                 entity.ToTable("Modulos");
-                // Forçamos o EF a ignorar a propriedade TurmaId se ela tentar ser criada por convenção
                 entity.Ignore("TurmaId");
             });
 
             // ===== Disciplina =====
             builder.Entity<Disciplina>(entity =>
-          {
-    entity.ToTable("Disciplinas");
-                if (entity.Property(d => d.CursoId).Metadata.IsNullable)
-     {
-      entity.HasOne(d => d.Curso).WithMany().HasForeignKey(d => d.CursoId).IsRequired(false);
-           }
-    });
+            {
+                entity.ToTable("Disciplinas");
+                entity.HasOne(d => d.Curso).WithMany().HasForeignKey(d => d.CursoId).IsRequired(false);
+            });
 
             // ===== Trabalho =====
-   builder.Entity<Trabalho>(entity =>
-     {
-        entity.ToTable("Trabalhos");
-   entity.HasKey(t => t.Id);
-
-       // Relacionamentos
-   entity.HasOne(t => t.Modulo)
-      .WithMany()
-       .HasForeignKey(t => t.ModuloId)
-  .IsRequired(false);
-
-     entity.HasOne(t => t.Disciplina)
-   .WithMany()
-      .HasForeignKey(t => t.DisciplinaId)
-        .IsRequired(false);
-
-     entity.HasOne(t => t.Turma)
-      .WithMany()
-       .HasForeignKey(t => t.TurmaId)
-        .IsRequired(false);
-
-    entity.HasOne(t => t.Aluno)
-      .WithMany()
-              .HasForeignKey(t => t.AlunoId)
-      .IsRequired(false);
-
-   entity.HasOne(t => t.Professor)
-   .WithMany()
-      .HasForeignKey(t => t.ProfessorId)
- .IsRequired(false);
-  });
-
- // ===== TrabalhoVertente =====
- builder.Entity<TrabalhoVertente>(entity =>
+            builder.Entity<Trabalho>(entity =>
             {
- entity.ToTable("TrabalhoVertentes");
- entity.HasKey(tv => tv.Id);
+                entity.ToTable("Trabalhos");
+                entity.HasKey(t => t.Id);
 
-    entity.HasOne(tv => tv.Trabalho)
-    .WithMany(t => t.TrabalhoVertentes)
-         .HasForeignKey(tv => tv.TrabalhoId)
-  .OnDelete(DeleteBehavior.Cascade);
-   });
+                entity.HasOne(t => t.Modulo).WithMany().HasForeignKey(t => t.ModuloId).IsRequired(false);
+                entity.HasOne(t => t.Disciplina).WithMany().HasForeignKey(t => t.DisciplinaId).IsRequired(false);
+                entity.HasOne(t => t.Turma).WithMany().HasForeignKey(t => t.TurmaId).IsRequired(false);
+                entity.HasOne(t => t.Aluno).WithMany().HasForeignKey(t => t.AlunoId).IsRequired(false);
+                entity.HasOne(t => t.Professor).WithMany().HasForeignKey(t => t.ProfessorId).IsRequired(false);
+            });
 
-// ===== Comentario =====
- builder.Entity<Comentario>(entity =>
+            // ===== TrabalhoVertente =====
+            builder.Entity<TrabalhoVertente>(entity =>
             {
-  entity.ToTable("Comentarios");
-              entity.HasKey(c => c.Id);
+                entity.ToTable("TrabalhoVertentes");
+                entity.HasKey(tv => tv.Id);
+                entity.HasOne(tv => tv.Trabalho)
+                    .WithMany(t => t.TrabalhoVertentes)
+                    .HasForeignKey(tv => tv.TrabalhoId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
- entity.HasOne(c => c.Trabalho)
-          .WithMany()
-          .HasForeignKey(c => c.TrabalhoId)
-       .OnDelete(DeleteBehavior.Cascade);
-
-    entity.HasOne(c => c.Autor)
-  .WithMany()
-         .HasForeignKey(c => c.AutorId)
-    .IsRequired(false);
-
-entity.HasOne(c => c.ComentarioPai)
-         .WithMany(c => c.Respostas)
-     .HasForeignKey(c => c.ComentarioPaiId)
-  .IsRequired(false)
-        .OnDelete(DeleteBehavior.Cascade);
-  });
+            // ===== Comentario =====
+            builder.Entity<Comentario>(entity =>
+            {
+                entity.ToTable("Comentarios");
+                entity.HasKey(c => c.Id);
+                entity.HasOne(c => c.Trabalho).WithMany().HasForeignKey(c => c.TrabalhoId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(c => c.Autor).WithMany().HasForeignKey(c => c.AutorId).IsRequired(false);
+                entity.HasOne(c => c.ComentarioPai).WithMany(c => c.Respostas).HasForeignKey(c => c.ComentarioPaiId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            });
 
             // ===== Mapeamento de Tabelas Físicas (Case Sensitive Postgres) =====
             builder.Entity<Professor>().ToTable("Professores");
@@ -157,6 +121,7 @@ entity.HasOne(c => c.ComentarioPai)
             builder.Entity<Trabalho>().ToTable("Trabalhos");
             builder.Entity<TrabalhoVertente>().ToTable("TrabalhoVertentes");
             builder.Entity<Comentario>().ToTable("Comentarios");
+            builder.Entity<NotificationSubscription>().ToTable("PushSubscriptions");
         }
     }
 }
