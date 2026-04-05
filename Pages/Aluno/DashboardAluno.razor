@@ -162,7 +162,10 @@
                                         }
                                     </td>
                                     <td>
-                                        <span class="badge badge-custom badge-primary">@t.Disciplina?.Nome</span>
+                                        @* CORREÇÃO AQUI: bg-primary força o azul e text-white força o branco sempre *@
+                                        <span class="badge bg-primary text-white" style="display: inline-block; padding: 0.35em 0.65em; color: #fff !important;">
+                                            @(t.Disciplina?.Nome ?? "N/D")
+                                        </span>
                                     </td>
                                     <td>@t.Modulo?.Nome</td>
                                     <td>
@@ -319,19 +322,15 @@
 
             BadgesConquistados.Clear();
 
-            // Lógica para badge "Entrega no Prazo"
             if (TodosTrabalhos.Any() && TodosTrabalhos.All(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.All(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno))))
                 BadgesConquistados.Add("Entrega no Prazo");
 
-            // AJUSTE: Notas Altas agora é média geral >= 15
             if (MediaGeral >= 15.0)
                 BadgesConquistados.Add("Notas Altas");
 
-            // Lógica para badge "Envio Consistente"
             if (TodosTrabalhos.Any() && TodosTrabalhos.All(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null)))
                 BadgesConquistados.Add("Envio Consistente");
 
-            // AJUSTE: Top Performer (Pelo menos 3 notas de 15 para cima)
             if (TodosTrabalhos.Count(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => v.Nota.HasValue && v.Nota.Value >= 15)) >= 3)
                 BadgesConquistados.Add("Top Performer");
         }
@@ -357,8 +356,8 @@
         TrabalhosPendentes = TodosTrabalhos.Where(t => t.TrabalhoVertentes == null || t.TrabalhoVertentes.Any(v => !v.Nota.HasValue)).ToList();
         TrabalhosFiltrados = TodosTrabalhos;
 
-        DisciplinasUnicas = TodosTrabalhos.Select(t => t.Disciplina?.Nome).Where(n => n != null).Distinct().ToList()!;
-        ModulosDisponiveis = TodosTrabalhos.Select(t => t.Modulo?.Nome).Where(n => n != null).Distinct().ToList()!;
+        DisciplinasUnicas = TodosTrabalhos.Select(t => t.Disciplina?.Nome).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
+        ModulosDisponiveis = TodosTrabalhos.Select(t => t.Modulo?.Nome).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
 
         var notas = TodosTrabalhos.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
                                  .Where(v => v.Nota.HasValue)
