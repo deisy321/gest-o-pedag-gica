@@ -3,6 +3,7 @@
 @using gestaopedagogica.Data
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
 
 @attribute [Authorize]
 
@@ -84,7 +85,9 @@
                                     <i class="bi bi-key-fill"></i> Alterar Palavra-Passe
                                 </button>
 
-                                <form method="post" action="/Identity/Account/Logout">
+                                @* Opção 1: Formulário POST Corrigido *@
+                                <form method="post" action="Identity/Account/Logout?returnUrl=%2F">
+                                    <AntiforgeryToken />
                                     <button type="submit" class="btn-custom btn-custom-danger w-100 justify-content-center">
                                         <i class="bi bi-box-arrow-right"></i> Terminar Sessão
                                     </button>
@@ -97,7 +100,13 @@
         </div>
     </Authorized>
     <NotAuthorized>
-        @* Conteúdo de acesso negado idêntico ao anterior *@
+        <div class="container text-center py-5">
+            <div class="alert alert-warning">
+                <h4>Acesso Negado</h4>
+                <p>Precisa de estar autenticado para ver esta página.</p>
+                <a href="Identity/Account/Login" class="btn btn-primary">Ir para Login</a>
+            </div>
+        </div>
     </NotAuthorized>
 </AuthorizeView>
 
