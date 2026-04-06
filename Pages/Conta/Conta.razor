@@ -80,9 +80,18 @@
                                     </div>
                                 </div>
 
-                                <button class="btn btn-primary w-100 mb-3 justify-content-center" @onclick="AtivarNotificacoes">
-                                    <i class="bi bi-bell-fill"></i> Ativar Notificações no Dispositivo
-                                </button>
+                                @if (!isSubscribed)
+                                {
+                                    <button class="btn btn-primary w-100 mb-3 justify-content-center" @onclick="AtivarNotificacoes">
+                                        <i class="bi bi-bell-fill"></i> Ativar Notificações no Dispositivo
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-outline-danger w-100 mb-3 justify-content-center" @onclick="DesativarNotificacoes">
+                                        <i class="bi bi-bell-slash-fill"></i> Desativar Notificações
+                                    </button>
+                                }
 
                                 <p class="text-muted small text-center">@statusMessage</p>
                             </div>
@@ -122,6 +131,7 @@
     private string UserEmail = "";
     private string UserRole = "Membro";
     private string statusMessage = "";
+    private bool isSubscribed = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -141,33 +151,43 @@
         }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // Verifica o estado atual no carregamento da página
+                isSubscribed = await JSRuntime.InvokeAsync<bool>("blazorPushNotifications.checkSubscription");
+                StateHasChanged();
+            }
+            catch { /* Silencioso se o JS ainda não estiver pronto */ }
+        }
+    }
+
     private async Task AtivarNotificacoes()
     {
         try
         {
-            // Public Key do seu VAPID
             string publicKey = "BHyk2wAbiSLuakbaHIO-wiiCX4QBB-QGRBjY6C22S7pODIK_yxUB3yxLhKd91Gxsr2mBxeP8DWMO86HygQ7Nh9c";
-
             statusMessage = "A solicitar permissão ao navegador...";
 
-            // 1. Solicita a subscrição ao navegador via JavaScript
             var subscriptionJson = await JSRuntime.InvokeAsync<string>(
                 "blazorPushNotifications.requestSubscription", publicKey);
 
             if (!string.IsNullOrEmpty(subscriptionJson))
             {
                 statusMessage = "A guardar definições no servidor...";
-
-                // 2. Envia o JSON da subscrição para a API no servidor
                 var response = await Http.PostAsJsonAsync("api/push/subscribe", subscriptionJson);
 
                 if (response.IsSuccessStatusCode)
                 {
+                    isSubscribed = true;
                     statusMessage = "✅ Notificações ativadas com sucesso!";
                 }
                 else
                 {
-                    statusMessage = "❌ Erro ao guardar no servidor. Tente novamente.";
+                    statusMessage = "❌ Erro ao guardar no servidor.";
                 }
             }
             else
@@ -179,6 +199,30 @@
         {
             statusMessage = "❌ Erro ao configurar notificações.";
             Console.WriteLine($"Erro Push: {ex.Message}");
+        }
+    }
+
+    private async Task DesativarNotificacoes()
+    {
+        try
+        {
+            statusMessage = "A desativar notificações...";
+            var success = await JSRuntime.InvokeAsync<bool>("blazorPushNotifications.unsubscribe");
+
+            if (success)
+            {
+                isSubscribed = false;
+                statusMessage = "🔔 Notificações desativadas neste dispositivo.";
+            }
+            else
+            {
+                statusMessage = "❌ Erro ao desativar. Tente novamente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "❌ Erro ao desativar notificações.";
+            Console.WriteLine($"Erro Unsubscribe: {ex.Message}");
         }
     }
 }
