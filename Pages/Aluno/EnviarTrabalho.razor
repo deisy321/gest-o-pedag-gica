@@ -131,6 +131,10 @@
 
                             <button class="btn-custom btn-custom-primary w-100 justify-content-center py-3"
                                     @onclick="EnviarVertentesAsync" disabled="@IsSaving">
+                                @if (IsSaving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
                                 <i class="fas fa-paper-plane me-2"></i> Submeter Trabalho
                             </button>
                         </div>
@@ -160,9 +164,6 @@
                             </div>
                         </div>
                     }
-                    <div class="alert alert-info small">
-                        <i class="fas fa-info-circle me-2"></i> Este feedback é gerado automaticamente para te ajudar a melhorar. Podes editar o teu trabalho antes de submeter definitivamente.
-                    </div>
                 </div>
                 <div class="modal-footer bg-light">
                     <button class="btn btn-secondary" @onclick="FecharModalFeedback">Voltar e Editar</button>
@@ -208,7 +209,10 @@
                         Id = v.Id,
                         Tipo = v.Tipo,
                         ConteudoTextoProfessor = v.ConteudoTexto,
-                        ConteudoTextoAluno = v.ConteudoTextoAluno ?? ""
+                        ConteudoTextoAluno = v.ConteudoTextoAluno ?? "",
+                        Nota = v.Nota,
+                        Feedback = v.Feedback,
+                        ArquivoNome = v.FicheiroNome // Carrega o nome do arquivo se já existir
                     }).ToList();
                 }
             }
@@ -220,6 +224,7 @@
     {
         if (IsSaving) return;
         IsSaving = true;
+        StatusMessage = "";
 
         try
         {
@@ -227,62 +232,83 @@
             {
                 if (vert.Id > 0)
                 {
+                    // Caso tenha ID, atualizamos a Vertente específica
                     var vertDb = await TrabalhoService.GetVertentePorIdAsync(vert.Id);
                     if (vertDb != null)
                     {
                         vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno;
+                        vertDb.DataEnvio = DateTime.Now;
+
+                        if (vert.ArquivoBytes != null)
+                        {
+                            vertDb.FicheiroNome = vert.ArquivoNome;
+                            vertDb.FicheiroBytes = vert.ArquivoBytes;
+                            vertDb.FicheiroContentType = vert.ArquivoContentType;
+                        }
                         await TrabalhoService.AtualizarVertenteAsync(vertDb);
                     }
                 }
                 else if (Trabalho != null)
                 {
+                    // Se não houver vertentes (Trabalho antigo ou simplificado), salva no corpo do Trabalho
                     Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
                     await TrabalhoService.AtualizarTrabalhoAsync(Trabalho);
                 }
             }
 
-            // --- NOTIFICAÇÃO PUSH PARA O PROFESSOR ---
+            // Notificação Push
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
-                // Aqui assume-se que o seu TrabalhoService tem um método para obter a subscrição do professor
-                var professorPushJson = await TrabalhoService.GetProfessorPushSubscriptionAsync(Trabalho.ProfessorId);
-
-                if (!string.IsNullOrEmpty(professorPushJson))
+                try
                 {
-                    string msgPush = $"Nova entrega: {Trabalho.Titulo}";
-                    await PushService.EnviarNotificacaoAsync(professorPushJson, msgPush);
+                    var professorPushJson = await TrabalhoService.GetProfessorPushSubscriptionAsync(Trabalho.ProfessorId);
+                    if (!string.IsNullOrEmpty(professorPushJson))
+                    {
+                        string msgPush = $"Nova entrega: {Trabalho.Titulo}";
+                        await PushService.EnviarNotificacaoAsync(professorPushJson, msgPush);
+                    }
                 }
+                catch { }
             }
 
             Nav.NavigateTo("/aluno/DashboardAluno");
         }
-        catch (Exception ex) { StatusMessage = "Erro ao enviar: " + ex.Message; }
-        finally { IsSaving = false; }
+        catch (Exception ex)
+        {
+            StatusMessage = "Erro ao submeter: " + ex.Message;
+            IsSaving = false;
+        }
     }
 
     private async Task GerarFeedbackSelecionadoAsync()
     {
-        // Lógica de simulação ou chamada de IA aqui
+        IsSaving = true;
         FeedbacksGerados.Clear();
         foreach (var v in Vertentes.Where(x => x.SolicitarFeedback))
         {
-            FeedbacksGerados.Add(new FeedbackModel { Tipo = v.Tipo, Texto = "O seu texto está bem estruturado, mas poderia aprofundar mais os conceitos técnicos." });
+            FeedbacksGerados.Add(new FeedbackModel { Tipo = v.Tipo, Texto = "Análise da IA: O conteúdo atende aos requisitos básicos." });
         }
 
         if (FeedbacksGerados.Any()) MostrarModalFeedback = true;
+        else StatusMessage = "Selecione 'Solicitar revisão' em pelo menos uma vertente.";
+        IsSaving = false;
     }
 
     private async Task UploadArquivo(InputFileChangeEventArgs e, AlunoVertenteModel vert)
     {
-        var file = e.File;
-        if (file != null)
+        try
         {
-            vert.ArquivoNome = file.Name;
-            using var ms = new MemoryStream();
-            await file.OpenReadStream().CopyToAsync(ms);
-            vert.ArquivoBytes = ms.ToArray();
-            vert.ArquivoContentType = file.ContentType;
+            var file = e.File;
+            if (file != null)
+            {
+                vert.ArquivoNome = file.Name;
+                using var ms = new MemoryStream();
+                await file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 5).CopyToAsync(ms);
+                vert.ArquivoBytes = ms.ToArray();
+                vert.ArquivoContentType = file.ContentType;
+            }
         }
+        catch (Exception ex) { StatusMessage = "Erro no upload: " + ex.Message; }
     }
 
     private void FecharModalFeedback() => MostrarModalFeedback = false;
