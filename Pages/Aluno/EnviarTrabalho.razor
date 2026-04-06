@@ -32,8 +32,12 @@
 
         @if (!string.IsNullOrEmpty(StatusMessage))
         {
-            <div class="alert-custom alert-danger mb-4 animate-slide-up">
-                <i class="fas fa-exclamation-triangle"></i>
+            @* Lógica para mudar a cor do alerta dependendo do conteúdo da mensagem *@
+            var alertClass = StatusMessage.Contains("sucesso") ? "alert-success" : "alert-danger";
+            var alertIcon = StatusMessage.Contains("sucesso") ? "fa-check-circle" : "fa-exclamation-triangle";
+
+            <div class="alert-custom @alertClass mb-4 animate-slide-up">
+                <i class="fas @alertIcon me-2"></i>
                 <span>@StatusMessage</span>
             </div>
         }
@@ -140,6 +144,7 @@
     }
 </div>
 
+@* MODAL DE FEEDBACK IA *@
 @if (MostrarModalFeedback)
 {
     <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
@@ -169,6 +174,26 @@
     </div>
 }
 
+@* NOVO: MODAL DE SUCESSO *@
+@if (MostrarModalSucesso)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.7);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 text-center p-4">
+                <div class="modal-body">
+                    <div class="text-success mb-3">
+                        <i class="fas fa-check-circle fa-5x animate-bounce"></i>
+                    </div>
+                    <h3 class="fw-bold">Enviado com Sucesso!</h3>
+                    <p class="text-muted">O teu trabalho foi entregue ao professor e registado no sistema.</p>
+                    <div class="spinner-border spinner-border-sm text-muted mt-2"></div>
+                    <small class="d-block mt-1 text-muted">A redirecionar para o dashboard...</small>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public int Id { get; set; }
 
@@ -177,6 +202,7 @@
     private string StatusMessage = "";
     private bool IsSaving = false;
     private bool MostrarModalFeedback = false;
+    private bool MostrarModalSucesso = false; // Novo controle
     private List<FeedbackModel> FeedbacksGerados = new();
 
     protected override async Task OnInitializedAsync()
@@ -224,7 +250,6 @@
 
         try
         {
-            // CORREÇÃO POSTGRES: Garante DateTime Kind Utc
             var dataAtualUtc = DateTime.UtcNow;
 
             foreach (var vert in Vertentes)
@@ -236,7 +261,6 @@
                     {
                         vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno;
                         vertDb.DataEnvio = dataAtualUtc;
-
                         if (vert.ArquivoBytes != null)
                         {
                             vertDb.FicheiroNome = vert.ArquivoNome;
@@ -250,34 +274,41 @@
                 {
                     Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
                     Trabalho.DataEntrega = dataAtualUtc;
-
                     if (vert.ArquivoBytes != null)
                     {
                         Trabalho.FicheiroNome = vert.ArquivoNome;
                         Trabalho.FicheiroBytes = vert.ArquivoBytes;
                         Trabalho.FicheiroContentType = vert.ArquivoContentType;
                     }
-
                     await TrabalhoService.AtualizarTrabalhoAsync(Trabalho);
                 }
             }
 
+            // Notificação ao Professor
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
                 try
                 {
                     var push = await TrabalhoService.GetProfessorPushSubscriptionAsync(Trabalho.ProfessorId);
-                    if (!string.IsNullOrEmpty(push)) await PushService.EnviarNotificacaoAsync(push, $"Nova entrega: {Trabalho.Titulo}");
+                    if (!string.IsNullOrEmpty(push))
+                        await PushService.EnviarNotificacaoAsync(push, $"Nova entrega: {Trabalho.Titulo}");
                 }
-                catch { /* Silencia erro de push para não travar a entrega */ }
+                catch { }
             }
 
+            // FEEDBACK VISUAL DE SUCESSO
+            StatusMessage = "Trabalho submetido com sucesso!";
+            MostrarModalSucesso = true;
+            StateHasChanged();
+
+            await Task.Delay(2500); // Espera 2.5 segundos para o aluno ver o sucesso
             Nav.NavigateTo("/aluno/DashboardAluno");
         }
         catch (Exception ex)
         {
             StatusMessage = "Erro no servidor: " + (ex.InnerException?.Message ?? ex.Message);
             IsSaving = false;
+            MostrarModalSucesso = false;
         }
     }
 
@@ -295,7 +326,6 @@
 
         foreach (var v in selecionadas)
         {
-            // Simulação de chamada de IA (pode ser substituído por serviço real de GPT/Gemini)
             FeedbacksGerados.Add(new FeedbackModel
             {
                 Tipo = v.Tipo,
@@ -315,15 +345,11 @@
                 vert.ArquivoNome = file.Name;
                 vert.ArquivoContentType = file.ContentType;
                 using var ms = new MemoryStream();
-                // Limite de 10MB
                 await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
                 vert.ArquivoBytes = ms.ToArray();
             }
         }
-        catch (Exception ex)
-        {
-            StatusMessage = "Erro no upload: " + ex.Message;
-        }
+        catch (Exception ex) { StatusMessage = "Erro no upload: " + ex.Message; }
     }
 
     private void FecharModalFeedback() => MostrarModalFeedback = false;
