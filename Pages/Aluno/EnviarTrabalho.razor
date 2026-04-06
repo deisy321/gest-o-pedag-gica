@@ -224,6 +224,9 @@
 
         try
         {
+            // Fix PostgreSQL: Garantir que o Kind seja UTC
+            var dataAtualUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+
             foreach (var vert in Vertentes)
             {
                 if (vert.Id > 0)
@@ -232,11 +235,11 @@
                     if (vertDb != null)
                     {
                         vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                        vertDb.DataEnvio = DateTime.UtcNow; // FIX: PostgreSQL
+                        vertDb.DataEnvio = dataAtualUtc;
 
                         if (vert.ArquivoBytes != null)
                         {
-                            vertDb.FicheiroNome = vert.ArquivoNome; // Corrigido de ArquivoNome para FicheiroNome
+                            vertDb.FicheiroNome = vert.ArquivoNome;
                             vertDb.FicheiroBytes = vert.ArquivoBytes;
                             vertDb.FicheiroContentType = vert.ArquivoContentType;
                         }
@@ -246,11 +249,11 @@
                 else if (Trabalho != null)
                 {
                     Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                    Trabalho.DataEntrega = DateTime.UtcNow; // FIX: PostgreSQL
+                    Trabalho.DataEntrega = dataAtualUtc;
 
                     if (vert.ArquivoBytes != null)
                     {
-                        Trabalho.FicheiroNome = vert.ArquivoNome; // Corrigido aqui também
+                        Trabalho.FicheiroNome = vert.ArquivoNome;
                         Trabalho.FicheiroBytes = vert.ArquivoBytes;
                         Trabalho.FicheiroContentType = vert.ArquivoContentType;
                     }
@@ -259,7 +262,7 @@
                 }
             }
 
-            // Notificação Push (Fail-safe)
+            // Notificação Push
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
                 try
@@ -267,7 +270,7 @@
                     var push = await TrabalhoService.GetProfessorPushSubscriptionAsync(Trabalho.ProfessorId);
                     if (!string.IsNullOrEmpty(push)) await PushService.EnviarNotificacaoAsync(push, $"Entrega: {Trabalho.Titulo}");
                 }
-                catch { /* Ignora erro de push */ }
+                catch { }
             }
 
             Nav.NavigateTo("/aluno/DashboardAluno");
@@ -294,15 +297,19 @@
 
     private async Task UploadArquivo(InputFileChangeEventArgs e, AlunoVertenteModel vert)
     {
-        var file = e.File;
-        if (file != null)
+        try
         {
-            vert.ArquivoNome = file.Name;
-            vert.ArquivoContentType = file.ContentType;
-            using var ms = new MemoryStream();
-            await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
-            vert.ArquivoBytes = ms.ToArray();
+            var file = e.File;
+            if (file != null)
+            {
+                vert.ArquivoNome = file.Name;
+                vert.ArquivoContentType = file.ContentType;
+                using var ms = new MemoryStream();
+                await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
+                vert.ArquivoBytes = ms.ToArray();
+            }
         }
+        catch (Exception ex) { StatusMessage = "Erro no upload: " + ex.Message; }
     }
 
     private void FecharModalFeedback() => MostrarModalFeedback = false;
