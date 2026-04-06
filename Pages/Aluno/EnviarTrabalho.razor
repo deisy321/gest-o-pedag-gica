@@ -124,7 +124,7 @@
                         <div class="d-grid gap-3 mt-4">
                             <button class="btn-custom btn-custom-secondary w-100 justify-content-center"
                                     @onclick="GerarFeedbackSelecionadoAsync" disabled="@IsSaving">
-                                @if (IsSaving)
+                                @if (IsSaving && !MostrarModalSucesso)
                                 {
                                     <span class="spinner-border spinner-border-sm me-2"></span>
                                 }
@@ -133,6 +133,10 @@
 
                             <button class="btn-custom btn-custom-primary w-100 justify-content-center py-3"
                                     @onclick="EnviarVertentesAsync" disabled="@IsSaving">
+                                @if (IsSaving && MostrarModalSucesso)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
                                 <i class="fas fa-paper-plane me-2"></i> Submeter Trabalho
                             </button>
                         </div>
@@ -246,6 +250,7 @@
         if (IsSaving) return;
         IsSaving = true;
         StatusMessage = "";
+        StateHasChanged();
 
         try
         {
@@ -271,7 +276,6 @@
                 }
                 else if (Trabalho != null)
                 {
-                    // Lógica para Id = 0 (Trabalhos de Recuperação ou sem vertentes específicas)
                     Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
                     Trabalho.DataEntrega = dataAtualUtc;
                     if (vert.ArquivoBytes != null)
@@ -284,7 +288,7 @@
                 }
             }
 
-            // Notificação Push
+            // Notificação Push para o Professor
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
                 try
@@ -293,21 +297,19 @@
                     if (!string.IsNullOrEmpty(push))
                         await PushService.EnviarNotificacaoAsync(push, $"Nova entrega de {Trabalho.Aluno?.UserName}: {Trabalho.Titulo}");
                 }
-                catch { }
+                catch { /* Silent fail para não bloquear a submissão principal */ }
             }
 
-            // --- CORREÇÃO DO ESTADO VISUAL ---
-            StatusMessage = "Trabalho submetido com sucesso!";
             MostrarModalSucesso = true;
-            IsSaving = false; // Liberta o botão antes da navegação
+            StatusMessage = "Trabalho submetido com sucesso!";
             StateHasChanged();
 
             await Task.Delay(2000);
-            Nav.NavigateTo("/aluno/DashboardAluno", true); // forceLoad: true garante a limpeza do estado
+            Nav.NavigateTo("/aluno/DashboardAluno", true);
         }
         catch (Exception ex)
         {
-            StatusMessage = "Erro no servidor: " + (ex.InnerException?.Message ?? ex.Message);
+            StatusMessage = "Erro ao submeter: " + (ex.InnerException?.Message ?? ex.Message);
             IsSaving = false;
             MostrarModalSucesso = false;
             StateHasChanged();
@@ -318,17 +320,18 @@
     {
         if (IsSaving || Trabalho == null) return;
 
-        StatusMessage = "";
-        FeedbacksGerados.Clear();
         var selecionadas = Vertentes.Where(x => x.SolicitarFeedback).ToList();
-
         if (!selecionadas.Any())
         {
-            StatusMessage = "Selecione 'Solicitar revisão' em pelo menos uma vertente.";
+            StatusMessage = "Selecione a opção 'Solicitar revisão da IA' na vertente desejada.";
             return;
         }
 
         IsSaving = true;
+        StatusMessage = "A IA está a analisar o teu trabalho...";
+        FeedbacksGerados.Clear();
+        StateHasChanged();
+
         try
         {
             foreach (var v in selecionadas)
@@ -344,18 +347,19 @@
                 FeedbacksGerados.Add(new FeedbackModel
                 {
                     Tipo = v.Tipo,
-                    Texto = feedbackIA ?? "A IA não conseguiu processar o feedback no momento."
+                    Texto = feedbackIA ?? "A IA não conseguiu processar esta parte."
                 });
             }
             MostrarModalFeedback = true;
         }
         catch (Exception ex)
         {
-            StatusMessage = "Erro ao contactar IA: " + ex.Message;
+            StatusMessage = "Erro IA: " + ex.Message;
         }
         finally
         {
             IsSaving = false;
+            StateHasChanged();
         }
     }
 
@@ -369,11 +373,12 @@
                 vert.ArquivoNome = file.Name;
                 vert.ArquivoContentType = file.ContentType;
                 using var ms = new MemoryStream();
+                // Limite de 10MB
                 await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
                 vert.ArquivoBytes = ms.ToArray();
             }
         }
-        catch (Exception ex) { StatusMessage = "Erro no upload: " + ex.Message; }
+        catch (Exception ex) { StatusMessage = "Erro no ficheiro: " + ex.Message; }
     }
 
     private void FecharModalFeedback() => MostrarModalFeedback = false;
