@@ -271,7 +271,7 @@
                 }
                 else if (Trabalho != null)
                 {
-                    // AQUI ESTAVA O ERRO: Precisamos garantir que as propriedades do Trabalho sejam atualizadas
+                    // Lógica para Id = 0 (Trabalhos de Recuperação ou sem vertentes específicas)
                     Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
                     Trabalho.DataEntrega = dataAtualUtc;
                     if (vert.ArquivoBytes != null)
@@ -280,12 +280,11 @@
                         Trabalho.FicheiroBytes = vert.ArquivoBytes;
                         Trabalho.FicheiroContentType = vert.ArquivoContentType;
                     }
-                    // Chamada ao service para salvar no banco
                     await TrabalhoService.AtualizarTrabalhoAsync(Trabalho);
                 }
             }
 
-            // Notificação Push para o Professor
+            // Notificação Push
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
                 try
@@ -297,18 +296,21 @@
                 catch { }
             }
 
+            // --- CORREÇÃO DO ESTADO VISUAL ---
             StatusMessage = "Trabalho submetido com sucesso!";
             MostrarModalSucesso = true;
+            IsSaving = false; // Liberta o botão antes da navegação
             StateHasChanged();
 
             await Task.Delay(2000);
-            Nav.NavigateTo("/aluno/DashboardAluno");
+            Nav.NavigateTo("/aluno/DashboardAluno", true); // forceLoad: true garante a limpeza do estado
         }
         catch (Exception ex)
         {
             StatusMessage = "Erro no servidor: " + (ex.InnerException?.Message ?? ex.Message);
             IsSaving = false;
             MostrarModalSucesso = false;
+            StateHasChanged();
         }
     }
 
@@ -367,7 +369,6 @@
                 vert.ArquivoNome = file.Name;
                 vert.ArquivoContentType = file.ContentType;
                 using var ms = new MemoryStream();
-                // Limite de 10MB
                 await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
                 vert.ArquivoBytes = ms.ToArray();
             }
