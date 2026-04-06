@@ -224,8 +224,8 @@
 
         try
         {
-            // Fix PostgreSQL: Garantir que o Kind seja UTC
-            var dataAtualUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+            // CORREÇÃO POSTGRES: DateTime.UtcNow é o padrão aceito pelo Npgsql para 'timestamp with time zone'
+            var dataAtualUtc = DateTime.UtcNow;
 
             foreach (var vert in Vertentes)
             {
@@ -235,7 +235,7 @@
                     if (vertDb != null)
                     {
                         vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                        vertDb.DataEnvio = dataAtualUtc;
+                        vertDb.DataEnvio = dataAtualUtc; // Atribuição direta de UTC
 
                         if (vert.ArquivoBytes != null)
                         {
@@ -249,7 +249,7 @@
                 else if (Trabalho != null)
                 {
                     Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                    Trabalho.DataEntrega = dataAtualUtc;
+                    Trabalho.DataEntrega = dataAtualUtc; // Atribuição direta de UTC
 
                     if (vert.ArquivoBytes != null)
                     {
@@ -262,7 +262,6 @@
                 }
             }
 
-            // Notificação Push
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
                 try
