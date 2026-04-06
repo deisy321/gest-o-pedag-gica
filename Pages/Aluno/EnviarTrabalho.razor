@@ -199,7 +199,7 @@
                         Tipo = Trabalho.IsPlanoRecuperacao ? "Recuperação de Nota" : "Desenvolvimento Geral",
                         ConteudoTextoProfessor = Trabalho.ConteudoTexto ?? Trabalho.Descricao ?? "Siga as orientações.",
                         ConteudoTextoAluno = Trabalho.ConteudoTextoAluno ?? "",
-                        ArquivoNome = Trabalho.FicheiroNome, // Carrega arquivo existente se houver
+                        ArquivoNome = Trabalho.FicheiroNome,
                         Nota = Trabalho.Nota
                     });
                 }
@@ -232,12 +232,11 @@
             {
                 if (vert.Id > 0)
                 {
-                    // --- CENÁRIO A: TRABALHO COM VERTENTES (Roteiro) ---
                     var vertDb = await TrabalhoService.GetVertentePorIdAsync(vert.Id);
                     if (vertDb != null)
                     {
                         vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                        vertDb.DataEnvio = DateTime.Now;
+                        vertDb.DataEnvio = DateTime.UtcNow; // CORREÇÃO: Usar UtcNow para PostgreSQL
 
                         if (vert.ArquivoBytes != null)
                         {
@@ -250,22 +249,21 @@
                 }
                 else if (Trabalho != null)
                 {
-                    // --- CENÁRIO B: TRABALHO NORMAL OU RECUPERAÇÃO ---
                     Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                    Trabalho.DataEntrega = DateTime.Now;
+                    Trabalho.DataEntrega = DateTime.UtcNow; // CORREÇÃO: Usar UtcNow para PostgreSQL
 
                     if (vert.ArquivoBytes != null)
                     {
                         Trabalho.FicheiroNome = vert.ArquivoNome;
                         Trabalho.FicheiroBytes = vert.ArquivoBytes;
-                        // Trabalho.FicheiroContentType = vert.ArquivoContentType; // Ative se existir no model
+                        Trabalho.FicheiroContentType = vert.ArquivoContentType; // CORREÇÃO: Descomentado e verificado
                     }
 
                     await TrabalhoService.AtualizarTrabalhoAsync(Trabalho);
                 }
             }
 
-            // Notificação Push para o Professor
+            // Notificação Push
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
                 try
@@ -277,7 +275,7 @@
                         await PushService.EnviarNotificacaoAsync(professorPushJson, msgPush);
                     }
                 }
-                catch { /* Falha silenciosa no Push para não impedir o fluxo principal */ }
+                catch { }
             }
 
             Nav.NavigateTo("/aluno/DashboardAluno");
@@ -302,7 +300,6 @@
 
         foreach (var v in vertentesParaFeedback)
         {
-            // Simulação de chamada de IA - No futuro integrar com serviço real
             FeedbacksGerados.Add(new FeedbackModel
             {
                 Tipo = v.Tipo,
@@ -318,7 +315,6 @@
         var file = e.File;
         if (file != null)
         {
-            // Limite de 10MB para segurança (opcional)
             if (file.Size > 10 * 1024 * 1024)
             {
                 StatusMessage = "O ficheiro é demasiado grande (máximo 10MB).";
