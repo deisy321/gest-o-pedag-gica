@@ -1,6 +1,19 @@
-﻿public class NotificationSubscription
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace gestaopedagogica.Models
 {
-    public int Id { get; set; }
-    public string UserId { get; set; } // ID do Aluno ou Professor
-    public string Payload { get; set; } // O JSON gigante que o JS devolve
+    public class NotificationSubscription
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        public string UserId { get; set; } = string.Empty;
+
+        [Required]
+        public string Payload { get; set; } = string.Empty;
+
+        // Opcional: Data de criação para controle
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
 }
