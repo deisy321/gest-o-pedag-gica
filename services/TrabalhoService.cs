@@ -146,7 +146,6 @@ namespace gestaopedagogica.Services
             _context.Entry(vertente).State = EntityState.Modified;
             await _context.SaveChangesAsync();
 
-            // Sincronizar data de entrega com o trabalho principal
             var trabalho = await _context.Trabalhos.FindAsync(vertente.TrabalhoId);
             if (trabalho != null)
             {
@@ -186,6 +185,7 @@ namespace gestaopedagogica.Services
 
         public async Task<string> GerarFeedbackIAAsync(string alunoUserId, string conteudoAluno, byte[]? arquivoBytes, int trabalhoId, string vertenteId)
         {
+            // Ajustado para bater com os parâmetros enviados pela Razor Page
             return await _iaService.ObterSugestoes(conteudoAluno, "", vertenteId, alunoUserId, trabalhoId.ToString(), arquivoBytes);
         }
 

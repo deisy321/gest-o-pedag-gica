@@ -286,7 +286,6 @@
                 }
             }
 
-            // Notificação Push
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
                 var push = await TrabalhoService.GetProfessorPushSubscriptionAsync(Trabalho.ProfessorId);
@@ -320,6 +319,7 @@
         {
             foreach (var v in selecionadas)
             {
+                // Passando o AlunoId e os bytes do arquivo para o serviço
                 var feedbackIA = await TrabalhoService.GerarFeedbackIAAsync(Trabalho.AlunoId, v.ConteudoTextoAluno, v.ArquivoBytes, Trabalho.Id, v.Id.ToString());
                 FeedbacksGerados.Add(new FeedbackModel { Tipo = v.Tipo, Texto = feedbackIA ?? "Sem resposta da IA." });
             }
