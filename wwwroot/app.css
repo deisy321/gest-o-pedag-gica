@@ -703,3 +703,15 @@ margin-bottom: 0.5rem;
         font-size: 0.55rem;
     }
 }
+.dropdown-item:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.bi-bell-fill {
+    transition: transform 0.2s;
+}
+
+    .bi-bell-fill:hover {
+        transform: rotate(15deg);
+        color: #ffc107 !important; /* Cor de destaque ao passar o mouse */
+    }

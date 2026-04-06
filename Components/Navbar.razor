@@ -1,7 +1,9 @@
 ﻿@namespace gestaopedagogica.Components
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Antiforgery
+@using gestaopedagogica.Services
 @inject NavigationManager Nav
+@inject PushService PushService 
 
 <nav class="navbar navbar-expand-lg navbar-dark custom-navbar fixed-top">
     <div class="container-fluid">
@@ -15,10 +17,37 @@
         </button>
 
         <div class="collapse navbar-collapse" id="navbarNav">
-            <div class="navbar-nav">
+            <div class="ms-auto d-flex align-items-center">
                 <AuthorizeView>
                     <Authorized>
-                        <a href="/Conta" class="user-profile-btn">
+                        <div class="dropdown me-3">
+                            <button class="btn btn-link text-white position-relative p-0" id="notificacoesDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-bell-fill fs-5"></i>
+                                @* O distintivo (badge) pode ser dinâmico no futuro usando o PushService *@
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" style="font-size: 0.6rem;">
+                                    3
+                                </span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-lg p-2" aria-labelledby="notificacoesDropdown" style="min-width: 280px; border-radius: 12px;">
+                                <li class="dropdown-header border-bottom mb-2 pb-2">
+                                    <h6 class="mb-0 fw-bold">Notificações</h6>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item p-2 rounded" href="/notificacoes">
+                                        <div class="d-flex flex-column">
+                                            <span class="small fw-bold">Novo Trabalho!</span>
+                                            <span class="small text-muted text-wrap">O professor enviou uma nova atividade.</span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-center small text-primary fw-bold" href="/notificacoes">Ver todas</a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <a href="/Conta" class="user-profile-btn me-2">
                             <div class="avatar-circle">
                                 <i class="bi bi-person-fill"></i>
                             </div>

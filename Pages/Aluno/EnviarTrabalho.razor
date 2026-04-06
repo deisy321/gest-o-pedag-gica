@@ -1,140 +1,174 @@
-﻿@page "/aluno/EnviarTrabalho/{Id:int}"
-@namespace gestaopedagogica.Pages.Aluno
+﻿@page "/professor/CriarRoteiro/{TurmaIdStr}"
+@namespace gestaopedagogica.Pages.Professor
 @layout MainLayout
+
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
-@using Microsoft.AspNetCore.Components.Forms
-@using System.IO
+@using Microsoft.AspNetCore.Components.Authorization
 
 @inject TrabalhoService TrabalhoService
+@inject TurmaService TurmaService
+@inject ModuloService ModuloService
+@inject DisciplinaService DisciplinaService
+@inject ProfessorService ProfessorService
+@inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 
-<div class="page-student animate-fade-in">
-    @if (Trabalho == null)
+<div class="page-teacher animate-fade-in">
+    @if (IsLoading)
     {
         <div class="text-center mt-5">
             <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted">A carregar detalhes do trabalho...</p>
+            <p class="mt-2 text-muted">A preparar o ambiente...</p>
+        </div>
+    }
+    else if (TurmaSelecionada == null)
+    {
+        <div class="alert-custom alert-danger">
+            <i class="fas fa-exclamation-circle"></i>
+            <span>Turma não encontrada!</span>
         </div>
     }
     else
     {
         <div class="admin-header-row">
             <div>
-                <h1 class="page-title">Entrega de Trabalho</h1>
-                <p class="page-subtitle">Submissão para: <span class="text-gradient">@Trabalho.Titulo</span></p>
+                <h1 class="page-title">Novo Trabalho</h1>
+                <p class="page-subtitle">Turma: <span class="text-gradient">@TurmaSelecionada.Nome</span></p>
             </div>
-            <button class="btn-custom btn-custom-outline" @onclick='() => Nav.NavigateTo("/aluno/DashboardAluno")'>
-                <i class="fas fa-arrow-left"></i> Voltar
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn-custom btn-custom-outline" @onclick='() => Nav.NavigateTo("/professor/DashboardProfessor")'>
+                    <i class="fas fa-arrow-left"></i> Voltar
+                </button>
+            </div>
         </div>
-
-        @if (!string.IsNullOrEmpty(StatusMessage))
-        {
-            <div class="alert-custom alert-danger mb-4 animate-slide-up">
-                <i class="fas fa-exclamation-triangle"></i>
-                <span>@StatusMessage</span>
-            </div>
-        }
 
         <div class="row">
             <div class="col-lg-8">
-                <EditForm Model="Vertentes">
-                    @foreach (var vert in Vertentes)
-                    {
-                        <div class="custom-card mb-4 elevation-2 border-start-primary">
-                            <div class="card-header-custom d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0 text-primary">@vert.Tipo</h5>
-                                @if (vert.Nota.HasValue)
-                                {
-                                    <span class="badge-custom badge-success">Nota Atual: @vert.Nota</span>
-                                }
-                            </div>
+                <div class="custom-card mb-4 elevation-2 border-start-primary">
+                    <div class="card-header-custom">
+                        <h5><i class="fas fa-pen-nib me-2"></i>Informações Gerais</h5>
+                    </div>
+                    <div class="card-body-custom">
+                        <div class="form-group">
+                            <label class="form-label">Título do Trabalho</label>
+                            <input class="form-control @(string.IsNullOrEmpty(ErroTitulo) ? "" : "is-invalid")"
+                                   @bind="Titulo" placeholder="Ex: Relatório de Atividades Práticas" />
+                            <small class="text-danger">@ErroTitulo</small>
+                        </div>
 
-                            <div class="card-body-custom">
-                                @* SEÇÃO DE ORIENTAÇÃO (APENAS LEITURA) *@
-                                @if (!string.IsNullOrWhiteSpace(vert.ConteudoTextoProfessor))
-                                {
-                                    <div class="mb-3">
-                                        <label class="form-label text-muted small fw-bold">ORIENTAÇÕES DO PROFESSOR</label>
-                                        <div class="p-3 bg-light rounded-lg border-start border-4 border-info" style="white-space: pre-line;">
-                                            <i class="fas fa-chalkboard-teacher text-info me-2"></i>
-                                            @vert.ConteudoTextoProfessor
-                                        </div>
-                                    </div>
-                                }
+                        <div class="form-group">
+                            <label class="form-label">Descrição / Instruções</label>
+                            <textarea class="form-control @(string.IsNullOrEmpty(ErroDescricao) ? "" : "is-invalid")"
+                                      @bind="Descricao" rows="4" placeholder="Descreva os objetivos e o que é esperado do aluno..."></textarea>
+                            <small class="text-danger">@ErroDescricao</small>
+                        </div>
 
-                                @* SEÇÃO DE RESPOSTA (ONDE O ALUNO EDITA) *@
-                                <div class="form-group mt-4">
-                                    <label class="form-label fw-bold">Sua Resposta / Desenvolvimento</label>
-                                    <textarea class="form-control" rows="10" @bind="vert.ConteudoTextoAluno"
-                                              placeholder="Escreva seu trabalho aqui baseando-se nas orientações acima..."></textarea>
-                                </div>
-
-                                <div class="mt-4 p-3 border rounded-lg bg-light shadow-sm">
-                                    <label class="form-label fw-bold">
-                                        <i class="fas fa-paperclip me-2 text-primary"></i>Anexar Documento (Opcional)
-                                    </label>
-                                    <InputFile OnChange="async e => await UploadArquivo(e, vert)" class="form-control mt-2" />
-
-                                    @if (!string.IsNullOrEmpty(vert.ArquivoNome))
+                        <div class="row mt-3">
+                            <div class="col-md-6 form-group">
+                                <label class="form-label">Módulo</label>
+                                <select class="form-select" @bind="ModuloSelecionadoId">
+                                    <option value="0">-- Selecione o Módulo --</option>
+                                    @foreach (var mod in ListaModulos)
                                     {
-                                        <div class="badge-custom badge-primary mt-2 d-inline-flex align-items-center">
-                                            <i class="fas fa-file-alt me-2"></i> @vert.ArquivoNome
-                                        </div>
+                                        <option value="@mod.Id">@mod.Nome</option>
                                     }
-                                </div>
-
-                                <div class="mt-4 pt-3 border-top">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="feedback_@vert.Id" @bind="vert.SolicitarFeedback" />
-                                        <label class="form-check-label fw-600 ms-2" for="feedback_@vert.Id">
-                                            Solicitar revisão da IA antes do envio oficial
-                                        </label>
-                                    </div>
-                                </div>
+                                </select>
+                                <small class="text-danger">@ErroModulo</small>
+                            </div>
+                            <div class="col-md-6 form-group">
+                                <label class="form-label">Disciplina</label>
+                                <select class="form-select" @bind="DisciplinaSelecionadaId">
+                                    <option value="0">-- Selecione a Disciplina --</option>
+                                    @foreach (var disc in ListaDisciplinas)
+                                    {
+                                        <option value="@disc.Id">@disc.Nome</option>
+                                    }
+                                </select>
+                                <small class="text-danger">@ErroDisciplina</small>
                             </div>
                         </div>
-                    }
-                </EditForm>
+                    </div>
+                </div>
+
+                <div class="custom-card mb-4 elevation-2">
+                    <div class="card-header-custom">
+                        <h5><i class="fas fa-list-check me-2"></i>Vertentes e Critérios</h5>
+                    </div>
+                    <div class="card-body-custom">
+                        <div class="row">
+                            @foreach (var vert in Vertentes)
+                            {
+                                <div class="col-md-4 mb-3">
+                                    <div class="p-3 border rounded-lg bg-light">
+                                        <label class="form-label d-block text-center border-bottom pb-2">@vert.Tipo</label>
+                                        <textarea class="form-control mt-2" @bind="vert.ConteudoTexto"
+                                                  rows="2" placeholder="Notas sobre @vert.Tipo.ToLower()..."></textarea>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="col-lg-4">
-                <div class="custom-card elevation-3 sticky-top" style="top: 100px;">
-                    <div class="card-header-custom bg-white">
-                        <h5>Resumo da Entrega</h5>
+                <div class="custom-card elevation-2 mb-4">
+                    <div class="card-header-custom">
+                        <h5><i class="fas fa-cog me-2"></i>Configurações</h5>
                     </div>
                     <div class="card-body-custom">
-                        <div class="mb-3">
-                            <small class="text-muted">Tipo de Trabalho:</small>
-                            @if (Trabalho.IsPlanoRecuperacao)
+                        <div class="form-group">
+                            <label class="form-label">Prazo de Entrega</label>
+                            <input type="date" class="form-control" @bind="PrazoEntrega" />
+                            <small class="text-danger">@ErroPrazo</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Destinatário</label>
+                            <select class="form-select" @bind="TipoAtribuicao">
+                                <option value="turma">Toda a Turma (@TurmaSelecionada.Alunos.Count alunos)</option>
+                                <option value="aluno">Aluno Específico</option>
+                            </select>
+                        </div>
+
+                        @if (TipoAtribuicao == "aluno")
+                        {
+                            <div class="form-group animate-slide-up">
+                                <label class="form-label">Selecionar Aluno</label>
+                                <select class="form-select" @bind="AlunoSelecionadoId">
+                                    <option value="0">-- Escolha o aluno --</option>
+                                    @foreach (var aluno in TurmaSelecionada.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)))
+                                    {
+                                        <option value="@aluno.Id">@aluno.Nome</option>
+                                    }
+                                </select>
+                                <small class="text-danger">@ErroAluno</small>
+                            </div>
+                        }
+
+                        <hr />
+
+                        <button type="button" class="btn-custom btn-custom-success w-100 justify-content-center py-3 mt-2"
+                                @onclick="SalvarRoteiro" disabled="@IsSaving">
+                            @if (IsSaving)
                             {
-                                <div class="badge bg-danger text-white d-block p-2 mt-1">
-                                    <i class="fas fa-retweet"></i> PLANO DE RECUPERAÇÃO
-                                </div>
-                                <small class="text-danger mt-1 d-block text-center fw-bold">Este envio visa melhorar sua nota anterior.</small>
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>A gravar...</span>
                             }
                             else
                             {
-                                <div class="fw-bold text-primary">Avaliação Normal</div>
+                                <i class="fas fa-save me-2"></i>
+                                <span>Criar Trabalho</span>
                             }
-                        </div>
+                        </button>
 
-                        <div class="d-grid gap-3 mt-4">
-                            <button class="btn-custom btn-custom-secondary w-100 justify-content-center"
-                                    @onclick="GerarFeedbackSelecionadoAsync" disabled="@IsSaving">
-                                @if (IsSaving)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-2"></span>
-                                }
-                                <i class="fas fa-robot me-2"></i> Gerar Feedback IA
-                            </button>
-
-                            <button class="btn-custom btn-custom-primary w-100 justify-content-center py-3"
-                                    @onclick="EnviarVertentesAsync" disabled="@IsSaving">
-                                <i class="fas fa-paper-plane me-2"></i> Submeter Trabalho
-                            </button>
-                        </div>
+                        @if (!string.IsNullOrEmpty(StatusMessage))
+                        {
+                            <div class="alert-custom @(StatusMessage.Contains("✅") ? "alert-success" : "alert-danger") mt-3 animate-fade-in">
+                                <span>@StatusMessage</span>
+                            </div>
+                        }
                     </div>
                 </div>
             </div>
@@ -142,186 +176,186 @@
     }
 </div>
 
-@if (MostrarModalFeedback)
-{
-    <div class="modal-bg">
-        <div class="modal-card animate-slide-up" style="max-width: 650px;">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="text-gradient mb-0"><i class="fas fa-magic me-2"></i> Sugestões da IA</h4>
-                <button type="button" class="btn-close" @onclick="FecharModalFeedback"></button>
-            </div>
-            <div style="max-height: 400px; overflow-y: auto; padding-right: 10px;">
-                @foreach (var fb in FeedbacksGerados)
-                {
-                    <div class="custom-card elevation-1 mb-3">
-                        <div class="p-3 bg-light border-bottom">
-                            <strong class="text-primary">@fb.Tipo</strong>
-                        </div>
-                        <div class="p-3">
-                            <p class="mb-0" style="white-space: pre-line;">@fb.Texto</p>
-                        </div>
-                    </div>
-                }
-            </div>
-            <div class="d-flex gap-2 mt-4">
-                <button class="btn-custom btn-custom-outline flex-fill justify-content-center" @onclick="FecharModalFeedback">Ajustar Trabalho</button>
-                <button class="btn-custom btn-custom-primary flex-fill justify-content-center" @onclick="AceitarFeedback">Submeter Como Está</button>
-            </div>
-        </div>
-    </div>
-}
-
 @code {
-    [Parameter] public int Id { get; set; }
+    [Parameter] public string? TurmaIdStr { get; set; }
 
-    private Trabalho? Trabalho;
-    private List<AlunoVertenteModel> Vertentes = new();
+    private int TurmaId = 0;
+    private Turma? TurmaSelecionada;
+    private List<Modulo> ListaModulos = new();
+    private List<Disciplina> ListaDisciplinas = new();
+
+    private string Titulo = "";
+    private string Descricao = "";
+    private int ModuloSelecionadoId = 0;
+    private int DisciplinaSelecionadaId = 0;
+    private int AlunoSelecionadoId = 0;
+    private string TipoAtribuicao = "turma";
+    private DateTime? PrazoEntrega = DateTime.Today.AddDays(7);
     private string StatusMessage = "";
     private bool IsSaving = false;
-    private bool MostrarModalFeedback = false;
-    private List<FeedbackModel> FeedbacksGerados = new();
+    private bool IsLoading = true;
+    private string? ProfessorUserId;
+
+    private string ErroTitulo = "";
+    private string ErroDescricao = "";
+    private string ErroModulo = "";
+    private string ErroDisciplina = "";
+    private string ErroAluno = "";
+    private string ErroPrazo = "";
+
+    private List<VertenteEditModel> Vertentes = new()
+    {
+        new VertenteEditModel { Tipo = "Competência" },
+        new VertenteEditModel { Tipo = "Aptidão" },
+        new VertenteEditModel { Tipo = "Conhecimento" }
+    };
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            Trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(Id);
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            ProfessorUserId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            if (Trabalho != null)
+            if (!int.TryParse(TurmaIdStr, out TurmaId))
             {
-                var vertentesDb = await TrabalhoService.GetVertentesDoTrabalhoAsync(Trabalho.Id);
-
-                if (vertentesDb == null || !vertentesDb.Any())
-                {
-                    // LÓGICA CORRIGIDA: Separa orientação (Trabalho.ConteudoTexto) da resposta (Trabalho.ConteudoTextoAluno)
-                    Vertentes.Add(new AlunoVertenteModel
-                    {
-                        Id = 0,
-                        Tipo = Trabalho.IsPlanoRecuperacao ? "Recuperação de Nota" : "Desenvolvimento Geral",
-                        ConteudoTextoProfessor = Trabalho.ConteudoTexto ?? Trabalho.Descricao ?? "Siga as orientações do professor.",
-                        ConteudoTextoAluno = Trabalho.ConteudoTextoAluno ?? "" // Começa vazio para o aluno escrever
-                    });
-                }
-                else
-                {
-                    Vertentes = vertentesDb.Select(v => new AlunoVertenteModel
-                    {
-                        Id = v.Id,
-                        Tipo = v.Tipo,
-                        ConteudoTextoProfessor = v.ConteudoTexto, // Instrução do professor
-                        ConteudoTextoAluno = v.ConteudoTextoAluno ?? "", // Resposta do aluno
-                        ArquivoNome = v.FicheiroNome,
-                        ArquivoBytes = v.FicheiroBytes,
-                        ArquivoContentType = v.FicheiroContentType,
-                        Feedback = v.Feedback,
-                        Nota = v.Nota
-                    }).ToList();
-                }
+                StatusMessage = "❌ ID da turma inválido.";
+                return;
             }
+
+            await CarregarDados();
         }
-        catch (Exception ex) { StatusMessage = "Erro ao carregar: " + ex.Message; }
+        catch (Exception ex)
+        {
+            StatusMessage = $"❌ Erro ao carregar: {ex.Message}";
+        }
+        finally { IsLoading = false; }
     }
 
-    private async Task EnviarVertentesAsync()
+    private async Task CarregarDados()
     {
+        TurmaSelecionada = await TurmaService.GetTurmaByIdAsync(TurmaId);
+        ListaModulos = await ModuloService.GetModulosAsync() ?? new();
+        ListaDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new();
+    }
+
+    private bool ValidarFormulario()
+    {
+        ErroTitulo = string.IsNullOrWhiteSpace(Titulo) ? "O título é obrigatório" : "";
+        ErroDescricao = string.IsNullOrWhiteSpace(Descricao) ? "A descrição é exigida" : "";
+        ErroModulo = (ModuloSelecionadoId <= 0) ? "Selecione um módulo" : "";
+        ErroDisciplina = (DisciplinaSelecionadaId <= 0) ? "Selecione uma disciplina" : "";
+        ErroPrazo = !PrazoEntrega.HasValue ? "Escolha um prazo" : "";
+        ErroAluno = (TipoAtribuicao == "aluno" && AlunoSelecionadoId <= 0) ? "Selecione um aluno" : "";
+
+        return string.IsNullOrEmpty(ErroTitulo) &&
+               string.IsNullOrEmpty(ErroDescricao) &&
+               string.IsNullOrEmpty(ErroModulo) &&
+               string.IsNullOrEmpty(ErroDisciplina) &&
+               string.IsNullOrEmpty(ErroPrazo) &&
+               string.IsNullOrEmpty(ErroAluno);
+    }
+
+    private async Task SalvarRoteiro()
+    {
+        if (IsSaving) return;
         IsSaving = true;
+        StatusMessage = "Processando...";
+        StateHasChanged();
+
         try
         {
-            foreach (var vert in Vertentes)
+            if (!ValidarFormulario())
             {
-                // Se for uma vertente vinda do banco
-                if (vert.Id > 0)
+                StatusMessage = "❌ Corrija os erros antes de salvar.";
+                IsSaving = false;
+                return;
+            }
+
+            var professor = await ProfessorService.GetProfessorByUserIdAsync(ProfessorUserId!);
+            if (professor == null)
+            {
+                StatusMessage = "❌ Professor não localizado.";
+                IsSaving = false;
+                return;
+            }
+
+            // Filtra apenas alunos que possuem um UserId vinculado
+            var alunosParaAtribuir = TipoAtribuicao == "aluno"
+                ? TurmaSelecionada!.Alunos.Where(a => a.Id == AlunoSelecionadoId && !string.IsNullOrEmpty(a.UserId)).ToList()
+                : TurmaSelecionada!.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)).ToList();
+
+            int sucessos = 0;
+            string detalheErro = "";
+
+            foreach (var aluno in alunosParaAtribuir)
+            {
+                try
                 {
-                    var vertDb = await TrabalhoService.GetVertentePorIdAsync(vert.Id);
-                    if (vertDb != null)
-                    {
-                        vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                        if (vert.ArquivoBytes != null)
-                        {
-                            vertDb.FicheiroBytes = vert.ArquivoBytes;
-                            vertDb.FicheiroNome = vert.ArquivoNome;
-                            vertDb.FicheiroContentType = vert.ArquivoContentType;
-                        }
-                        await TrabalhoService.AtualizarVertenteAsync(vertDb);
-                    }
+                    // Chamar o método do Service que já cria o trabalho E envia a notificação automaticamente
+                    await CriarTrabalhoCompleto(professor.UserId, aluno.UserId!);
+                    sucessos++;
                 }
-                else if (Trabalho != null)
+                catch (Exception ex)
                 {
-                    // Caso seja um trabalho sem vertentes (como Recuperação direta no objeto Trabalho)
-                    Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                    // Note: Aqui você deve garantir que o seu Service tenha um método para atualizar o Trabalho principal
-                    await TrabalhoService.AtualizarTrabalhoAsync(Trabalho);
+                    detalheErro = ex.InnerException?.Message ?? ex.Message;
                 }
             }
-            Nav.NavigateTo("/aluno/DashboardAluno");
+
+            if (sucessos > 0)
+            {
+                StatusMessage = $"✅ {sucessos} trabalho(s) criado(s) com sucesso!";
+                StateHasChanged();
+                await Task.Delay(1500);
+                Nav.NavigateTo("/professor/DashboardProfessor");
+            }
+            else
+            {
+                StatusMessage = $"❌ Falha ao gravar: {detalheErro}";
+            }
         }
-        catch (Exception ex) { StatusMessage = "Erro ao enviar: " + ex.Message; }
+        catch (Exception ex)
+        {
+            StatusMessage = $"❌ Erro Crítico: {ex.Message}";
+        }
         finally { IsSaving = false; }
     }
 
-    private async Task GerarFeedbackSelecionadoAsync()
+    private async Task CriarTrabalhoCompleto(string professorId, string alunoId)
     {
-        if (!Vertentes.Any(v => v.SolicitarFeedback))
+        var trabalho = new Trabalho
         {
-            StatusMessage = "Selecione a opção de feedback na vertente desejada.";
-            return;
-        }
+            Titulo = Titulo.Trim(),
+            Descricao = Descricao.Trim(),
+            ProfessorId = professorId,
+            AlunoId = alunoId,
+            TurmaId = TurmaSelecionada!.Id,
+            ModuloId = ModuloSelecionadoId,
+            DisciplinaId = DisciplinaSelecionadaId,
+            DataCriacao = DateTime.UtcNow,
+            PrazoEntrega = PrazoEntrega ?? DateTime.UtcNow.AddDays(7)
+        };
 
-        IsSaving = true;
-        FeedbacksGerados.Clear();
-        try
+        // O método AddTrabalhoAsync já chama internamente o EnviarNotificacaoParaUsuario
+        int trabalhoId = await TrabalhoService.AddTrabalhoAsync(trabalho);
+
+        if (trabalhoId <= 0) throw new Exception("Erro ao gerar ID do trabalho.");
+
+        foreach (var vertente in Vertentes)
         {
-            foreach (var vert in Vertentes.Where(v => v.SolicitarFeedback))
+            var vertDb = new TrabalhoVertente
             {
-                var feedback = await TrabalhoService.GerarFeedbackIAAsync(
-                    Trabalho!.AlunoId!, vert.ConteudoTextoAluno, vert.ArquivoBytes, Trabalho.Id, vert.Id.ToString());
-                FeedbacksGerados.Add(new FeedbackModel { Tipo = vert.Tipo, Texto = feedback });
-            }
-            if (FeedbacksGerados.Any()) MostrarModalFeedback = true;
+                TrabalhoId = trabalhoId,
+                Tipo = vertente.Tipo,
+                ConteudoTexto = vertente.ConteudoTexto ?? ""
+            };
+            await TrabalhoService.AddVertenteAsync(vertDb);
         }
-        catch (Exception ex) { StatusMessage = $"Erro IA: {ex.Message}"; }
-        finally { IsSaving = false; }
     }
 
-    private void FecharModalFeedback() => MostrarModalFeedback = false;
-
-    private async Task AceitarFeedback()
-    {
-        MostrarModalFeedback = false;
-        await EnviarVertentesAsync();
-    }
-
-    private async Task UploadArquivo(InputFileChangeEventArgs e, AlunoVertenteModel vert)
-    {
-        try
-        {
-            var file = e.File;
-            vert.ArquivoNome = file.Name;
-            vert.ArquivoContentType = file.ContentType;
-            using var ms = new MemoryStream();
-            await file.OpenReadStream(10_000_000).CopyToAsync(ms);
-            vert.ArquivoBytes = ms.ToArray();
-        }
-        catch (Exception ex) { StatusMessage = $"Erro upload: {ex.Message}"; }
-    }
-
-    public class AlunoVertenteModel
-    {
-        public int Id { get; set; }
-        public string Tipo { get; set; } = "";
-        public string ConteudoTextoProfessor { get; set; } = "";
-        public string ConteudoTextoAluno { get; set; } = "";
-        public string? ArquivoNome { get; set; }
-        public byte[]? ArquivoBytes { get; set; }
-        public string? ArquivoContentType { get; set; }
-        public string? Feedback { get; set; }
-        public decimal? Nota { get; set; }
-        public bool SolicitarFeedback { get; set; } = false;
-    }
-
-    public class FeedbackModel
+    public class VertenteEditModel
     {
         public string Tipo { get; set; } = "";
-        public string Texto { get; set; } = "";
+        public string? ConteudoTexto { get; set; }
     }
 }

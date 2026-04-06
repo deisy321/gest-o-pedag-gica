@@ -6,114 +6,173 @@
 @inject TrabalhoService TrabalhoService
 @inject NavigationManager Nav
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h3 class="fw-bold mb-0">Avaliar Aluno</h3>
-    <button class="btn btn-secondary rounded-pill px-4" @onclick='() => Nav.NavigateTo($"/professor/FichaAluno/{AlunoId}")'>
-        <i class="bi bi-arrow-left me-2"></i>Voltar à Ficha
-    </button>
-</div>
-
-@if (IsLoading)
-{
-    <div class="text-center mt-5">
-        <div class="spinner-border text-primary"></div>
-    </div>
-}
-else if (AlunoAtual == null)
-{
-    <div class="alert alert-danger">Aluno não encontrado</div>
-}
-else if (!Trabalhos.Any())
-{
-    <div class="alert alert-warning">Aluno ainda não tem trabalhos</div>
-}
-else
-{
-    <div class="card mb-4 p-3 shadow-sm" style="border-radius: 12px;">
-        <strong>@AlunoAtual.Nome</strong><br />
-        <span class="text-muted">@AlunoAtual.Email</span><br />
-        Turma: @(AlunoAtual.Turma?.Nome ?? "Sem turma")
+<div class="page-teacher animate-fade-in">
+    <div class="admin-header-row mb-4">
+        <div>
+            <h1 class="page-title">Avaliar Aluno</h1>
+            @if (AlunoAtual != null)
+            {
+                <p class="page-subtitle">Progresso acadêmico de: <span class="text-gradient">@AlunoAtual.Nome</span></p>
+            }
+        </div>
+        <button class="btn-custom btn-custom-outline" @onclick='() => Nav.NavigateTo($"/professor/FichaAluno/{AlunoId}")'>
+            <i class="fas fa-arrow-left me-2"></i>Voltar à Ficha
+        </button>
     </div>
 
-    @foreach (var trabalho in Trabalhos)
+    @if (IsLoading)
     {
-        <div class="card mb-4 shadow-sm border-0" style="border-radius: 15px;">
-
-            <div class="card-header bg-light fw-bold d-flex justify-content-between">
-                <span>@trabalho.Titulo</span>
+        <div class="text-center mt-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">A carregar trabalhos do aluno...</p>
+        </div>
+    }
+    else if (AlunoAtual == null)
+    {
+        <div class="alert-custom alert-danger">
+            <i class="fas fa-exclamation-circle"></i>
+            <span>Aluno não encontrado no sistema.</span>
+        </div>
+    }
+    else if (!Trabalhos.Any())
+    {
+        <div class="alert-custom alert-warning">
+            <i class="fas fa-info-circle"></i>
+            <span>Este aluno ainda não possui trabalhos atribuídos.</span>
+        </div>
+    }
+    else
+    {
+        <div class="custom-card mb-4 p-3 elevation-1 border-start-primary">
+            <div class="d-flex align-items-center">
+                <div class="avatar-circle me-3">
+                    <i class="fas fa-user-graduate"></i>
+                </div>
+                <div>
+                    <h5 class="mb-0 fw-bold">@AlunoAtual.Nome</h5>
+                    <span class="text-muted small">@AlunoAtual.Email</span> |
+                    <span class="badge bg-light text-primary border">Turma: @(AlunoAtual.Turma?.Nome ?? "N/A")</span>
+                </div>
             </div>
+        </div>
 
-            <div class="card-body">
+        @foreach (var trabalho in Trabalhos)
+        {
+            <div class="custom-card mb-4 elevation-2 overflow-hidden">
+                <div class="card-header-custom bg-light d-flex justify-content-between align-items-center">
+                    <span class="fw-bold text-dark"><i class="fas fa-file-signature me-2 text-primary"></i>@trabalho.Titulo</span>
+                    <span class="badge bg-white text-muted border">ID: #@trabalho.Id</span>
+                </div>
 
-                @if (!trabalho.TrabalhoVertentes.Any())
-                {
-                    <div class="alert alert-warning mb-0">
-                        Este trabalho ainda não tem vertentes.
-                    </div>
-                }
-                else if (trabalho.TrabalhoVertentes.All(v =>
-                string.IsNullOrEmpty(v.ConteudoTextoAluno) && v.FicheiroBytes == null))
-                {
-                    <div class="alert alert-secondary mb-3">
-                        O aluno ainda não enviou nenhuma resposta para este trabalho.
-                    </div>
-                }
-
-                <div class="row g-3">
-                    @foreach (var vertente in trabalho.TrabalhoVertentes)
+                <div class="card-body-custom p-4">
+                    @if (!trabalho.TrabalhoVertentes.Any())
                     {
-                        var enviado = !string.IsNullOrEmpty(vertente.ConteudoTextoAluno) || vertente.FicheiroBytes != null;
+                        <div class="text-center py-3">
+                            <p class="text-muted mb-0 italic">Este trabalho foi criado sem vertentes específicas.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row g-4">
+                            @foreach (var vertente in trabalho.TrabalhoVertentes)
+                            {
+                                var enviado = !string.IsNullOrEmpty(vertente.ConteudoTextoAluno) || vertente.FicheiroBytes != null;
 
-                        <div class="col-md-6 col-lg-4">
-                            <div class="card h-100 border-0 shadow-sm" style="border-radius: 12px;">
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="vertente-item p-3 border rounded-lg h-100 shadow-sm bg-white hover-up">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <h6 class="fw-bold mb-0 text-primary">@vertente.Tipo</h6>
 
-                                <div class="card-body d-flex flex-column">
-
-                                    <h6 class="fw-bold">@vertente.Tipo</h6>
-
-                                    @if (!enviado)
-                                    {
-                                        <span class="badge bg-secondary mb-2">Não enviado</span>
-                                    }
-                                    else if (vertente.Nota.HasValue)
-                                    {
-                                        <span class="badge bg-success mb-2">Corrigido</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-warning text-dark mb-2">Enviado</span>
-                                    }
-
-                                    @if (!string.IsNullOrEmpty(vertente.ConteudoTextoAluno))
-                                    {
-                                        <p class="text-muted small">
-                                            @vertente.ConteudoTextoAluno
-                                        </p>
-                                    }
-
-                                    @if (vertente.Nota.HasValue)
-                                    {
-                                        <div class="mt-auto">
-                                            <strong>Nota:</strong> @vertente.Nota<br />
-                                            <small class="text-muted">@vertente.Feedback</small>
+                                            @if (!enviado)
+                                            {
+                                                <span class="badge rounded-pill bg-secondary">Pendente</span>
+                                            }
+                                            else if (vertente.Nota.HasValue)
+                                            {
+                                                <span class="badge rounded-pill bg-success">Avaliado</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge rounded-pill bg-warning text-dark">Para Corrigir</span>
+                                            }
                                         </div>
-                                    }
 
-                                    <button class="btn btn-sm btn-success rounded-pill mt-3"
-                                            @onclick='() => IrAvaliar(trabalho.Id, vertente.Tipo)'>
-                                        Avaliar
-                                    </button>
+                                        <div class="vertente-preview my-3" style="min-height: 60px;">
+                                            @if (!string.IsNullOrEmpty(vertente.ConteudoTextoAluno))
+                                            {
+                                                <p class="text-muted small text-truncate-3 mb-0">
+                                                    @vertente.ConteudoTextoAluno
+                                                </p>
+                                            }
+                                            else if (vertente.FicheiroBytes != null)
+                                            {
+                                                <p class="text-info small mb-0">
+                                                    <i class="fas fa-paperclip me-1"></i> Possui arquivo anexo
+                                                </p>
+                                            }
+                                            else
+                                            {
+                                                <p class="text-muted small italic mb-0">Nenhum conteúdo enviado.</p>
+                                            }
+                                        </div>
 
+                                        @if (vertente.Nota.HasValue)
+                                        {
+                                            <div class="nota-box p-2 bg-light rounded mb-3 border-start border-3 border-success">
+                                                <div class="d-flex justify-content-between">
+                                                    <span class="small fw-bold">Nota:</span>
+                                                    <span class="badge bg-success">@vertente.Nota</span>
+                                                </div>
+                                                @if (!string.IsNullOrEmpty(vertente.Feedback))
+                                                {
+                                                    <div class="small text-muted text-truncate mt-1">"@vertente.Feedback"</div>
+                                                }
+                                            </div>
+                                        }
+
+                                        <button class="btn-custom btn-custom-primary btn-sm w-100 justify-content-center"
+                                                @onclick='() => IrAvaliar(trabalho.Id, vertente.Tipo)'>
+                                            <i class="fas fa-clipboard-check me-2"></i>Abrir Avaliação
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            }
                         </div>
                     }
                 </div>
-
             </div>
-        </div>
+        }
     }
-}
+</div>
+
+<style>
+    .text-truncate-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .hover-up {
+        transition: transform 0.2s;
+    }
+
+        .hover-up:hover {
+            transform: translateY(-5px);
+        }
+
+    .avatar-circle {
+        width: 45px;
+        height: 45px;
+        background: linear-gradient(135deg, var(--primary-color), #6e8efb);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+    }
+</style>
 
 @code {
     [Parameter] public int AlunoId { get; set; }
@@ -142,7 +201,7 @@ else
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erro: {ex.Message}");
+            Console.WriteLine($"Erro ao carregar dados de avaliação: {ex.Message}");
         }
         finally
         {

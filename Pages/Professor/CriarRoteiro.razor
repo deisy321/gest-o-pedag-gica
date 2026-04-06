@@ -177,8 +177,6 @@
 </div>
 
 @code {
-    // Mantenha toda a sua lógica C# exatamente como estava no arquivo original
-    // (Apenas adicionei o bind das mensagens de erro e ajustes no HTML acima)
     [Parameter] public string? TurmaIdStr { get; set; }
 
     private int TurmaId = 0;
@@ -293,7 +291,8 @@
             {
                 try
                 {
-                    await CriarTrabalhoAluno(professor.UserId, aluno.UserId!);
+                    // CHAMADA CORRIGIDA: O service já trata o PUSH internamente
+                    await CriarTrabalhoCompleto(professor.UserId, aluno.UserId!);
                     sucessos++;
                 }
                 catch (Exception ex)
@@ -311,7 +310,7 @@
             }
             else
             {
-                StatusMessage = $"❌ Falha ao gravar no Banco: {detalheErro}";
+                StatusMessage = $"❌ Falha ao gravar: {detalheErro}";
             }
         }
         catch (Exception ex)
@@ -321,7 +320,7 @@
         finally { IsSaving = false; }
     }
 
-    private async Task CriarTrabalhoAluno(string professorId, string alunoId)
+    private async Task CriarTrabalhoCompleto(string professorId, string alunoId)
     {
         var trabalho = new Trabalho
         {
@@ -336,9 +335,10 @@
             PrazoEntrega = PrazoEntrega ?? DateTime.UtcNow.AddDays(7)
         };
 
+        // O método AddTrabalhoAsync chama CriarTrabalhoAsync, que já envia o PUSH.
         int trabalhoId = await TrabalhoService.AddTrabalhoAsync(trabalho);
 
-        if (trabalhoId <= 0) throw new Exception("ID retornado pelo banco foi zero.");
+        if (trabalhoId <= 0) throw new Exception("Erro ao gerar ID do trabalho.");
 
         foreach (var vertente in Vertentes)
         {
