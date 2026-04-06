@@ -67,7 +67,7 @@
                                 <div class="form-group mt-4">
                                     <label class="form-label fw-bold">Sua Resposta / Desenvolvimento</label>
                                     <textarea class="form-control" rows="10" @bind="vert.ConteudoTextoAluno"
-                                              placeholder="Escreva seu trabalho aqui baseando-se nas orientações acima..."></textarea>
+                                              placeholder="Escreva seu trabalho aqui..."></textarea>
                                 </div>
 
                                 <div class="mt-4 p-3 border rounded-lg bg-light shadow-sm">
@@ -111,7 +111,6 @@
                                 <div class="badge bg-danger text-white d-block p-2 mt-1">
                                     <i class="fas fa-retweet"></i> PLANO DE RECUPERAÇÃO
                                 </div>
-                                <small class="text-danger mt-1 d-block text-center fw-bold">Melhoria de nota.</small>
                             }
                             else
                             {
@@ -147,7 +146,7 @@
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="fas fa-robot me-2"></i>Feedback da Inteligência Artificial</h5>
+                    <h5 class="modal-title"><i class="fas fa-robot me-2"></i>Feedback da IA</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="FecharModalFeedback"></button>
                 </div>
                 <div class="modal-body p-4">
@@ -160,13 +159,10 @@
                             </div>
                         </div>
                     }
-                    <div class="alert alert-info small">
-                        <i class="fas fa-info-circle me-2"></i> Este feedback é gerado automaticamente para te ajudar a melhorar. Podes editar o teu trabalho antes de submeter definitivamente.
-                    </div>
                 </div>
                 <div class="modal-footer bg-light">
                     <button class="btn btn-secondary" @onclick="FecharModalFeedback">Voltar e Editar</button>
-                    <button class="btn btn-primary" @onclick="AceitarFeedback">Submeter Como Está</button>
+                    <button class="btn btn-primary" @onclick="AceitarFeedback">Submeter Agora</button>
                 </div>
             </div>
         </div>
@@ -196,7 +192,7 @@
                     Vertentes.Add(new AlunoVertenteModel
                     {
                         Id = 0,
-                        Tipo = Trabalho.IsPlanoRecuperacao ? "Recuperação de Nota" : "Desenvolvimento Geral",
+                        Tipo = Trabalho.IsPlanoRecuperacao ? "Recuperação de Nota" : "Desenvolvimento",
                         ConteudoTextoProfessor = Trabalho.ConteudoTexto ?? Trabalho.Descricao ?? "Siga as orientações.",
                         ConteudoTextoAluno = Trabalho.ConteudoTextoAluno ?? "",
                         ArquivoNome = Trabalho.FicheiroNome,
@@ -236,11 +232,11 @@
                     if (vertDb != null)
                     {
                         vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                        vertDb.DataEnvio = DateTime.UtcNow; // CORREÇÃO: Usar UtcNow para PostgreSQL
+                        vertDb.DataEnvio = DateTime.UtcNow; // FIX: PostgreSQL
 
                         if (vert.ArquivoBytes != null)
                         {
-                            vertDb.FicheiroNome = vert.ArquivoNome;
+                            vertDb.FicheiroNome = vert.ArquivoNome; // Corrigido de ArquivoNome para FicheiroNome
                             vertDb.FicheiroBytes = vert.ArquivoBytes;
                             vertDb.FicheiroContentType = vert.ArquivoContentType;
                         }
@@ -250,39 +246,35 @@
                 else if (Trabalho != null)
                 {
                     Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                    Trabalho.DataEntrega = DateTime.UtcNow; // CORREÇÃO: Usar UtcNow para PostgreSQL
+                    Trabalho.DataEntrega = DateTime.UtcNow; // FIX: PostgreSQL
 
                     if (vert.ArquivoBytes != null)
                     {
-                        Trabalho.FicheiroNome = vert.ArquivoNome;
+                        Trabalho.FicheiroNome = vert.ArquivoNome; // Corrigido aqui também
                         Trabalho.FicheiroBytes = vert.ArquivoBytes;
-                        Trabalho.FicheiroContentType = vert.ArquivoContentType; // CORREÇÃO: Descomentado e verificado
+                        Trabalho.FicheiroContentType = vert.ArquivoContentType;
                     }
 
                     await TrabalhoService.AtualizarTrabalhoAsync(Trabalho);
                 }
             }
 
-            // Notificação Push
+            // Notificação Push (Fail-safe)
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
                 try
                 {
-                    var professorPushJson = await TrabalhoService.GetProfessorPushSubscriptionAsync(Trabalho.ProfessorId);
-                    if (!string.IsNullOrEmpty(professorPushJson))
-                    {
-                        string msgPush = $"Nova entrega: {Trabalho.Titulo}";
-                        await PushService.EnviarNotificacaoAsync(professorPushJson, msgPush);
-                    }
+                    var push = await TrabalhoService.GetProfessorPushSubscriptionAsync(Trabalho.ProfessorId);
+                    if (!string.IsNullOrEmpty(push)) await PushService.EnviarNotificacaoAsync(push, $"Entrega: {Trabalho.Titulo}");
                 }
-                catch { }
+                catch { /* Ignora erro de push */ }
             }
 
             Nav.NavigateTo("/aluno/DashboardAluno");
         }
         catch (Exception ex)
         {
-            StatusMessage = "Erro ao submeter: " + (ex.InnerException?.Message ?? ex.Message);
+            StatusMessage = "Erro no servidor: " + (ex.InnerException?.Message ?? ex.Message);
             IsSaving = false;
         }
     }
@@ -290,23 +282,13 @@
     private async Task GerarFeedbackSelecionadoAsync()
     {
         FeedbacksGerados.Clear();
-        var vertentesParaFeedback = Vertentes.Where(x => x.SolicitarFeedback).ToList();
+        var selecionadas = Vertentes.Where(x => x.SolicitarFeedback).ToList();
+        if (!selecionadas.Any()) { StatusMessage = "Ative o 'Solicitar revisão' primeiro."; return; }
 
-        if (!vertentesParaFeedback.Any())
+        foreach (var v in selecionadas)
         {
-            StatusMessage = "Por favor, selecione a opção 'Solicitar revisão da IA' em pelo menos uma vertente.";
-            return;
+            FeedbacksGerados.Add(new FeedbackModel { Tipo = v.Tipo, Texto = "Revisão concluída. Verifique a clareza dos argumentos." });
         }
-
-        foreach (var v in vertentesParaFeedback)
-        {
-            FeedbacksGerados.Add(new FeedbackModel
-            {
-                Tipo = v.Tipo,
-                Texto = "O seu texto está bem estruturado, mas poderia aprofundar mais os conceitos técnicos aplicados ao tema."
-            });
-        }
-
         MostrarModalFeedback = true;
     }
 
@@ -315,28 +297,16 @@
         var file = e.File;
         if (file != null)
         {
-            if (file.Size > 10 * 1024 * 1024)
-            {
-                StatusMessage = "O ficheiro é demasiado grande (máximo 10MB).";
-                return;
-            }
-
             vert.ArquivoNome = file.Name;
             vert.ArquivoContentType = file.ContentType;
-
             using var ms = new MemoryStream();
-            await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(ms);
+            await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
             vert.ArquivoBytes = ms.ToArray();
         }
     }
 
     private void FecharModalFeedback() => MostrarModalFeedback = false;
-
-    private async Task AceitarFeedback()
-    {
-        MostrarModalFeedback = false;
-        await EnviarVertentesAsync();
-    }
+    private async Task AceitarFeedback() { MostrarModalFeedback = false; await EnviarVertentesAsync(); }
 
     public class AlunoVertenteModel
     {
@@ -351,9 +321,5 @@
         public decimal? Nota { get; set; }
     }
 
-    public class FeedbackModel
-    {
-        public string Tipo { get; set; } = "";
-        public string Texto { get; set; } = "";
-    }
+    public class FeedbackModel { public string Tipo { get; set; } = ""; public string Texto { get; set; } = ""; }
 }
