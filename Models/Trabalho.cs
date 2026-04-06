@@ -1,5 +1,6 @@
 ﻿using gestaopedagogica.Data;
 using gestaopedagogica.Models;
+using System.ComponentModel.DataAnnotations;
 
 namespace gestaopedagogica.Models
 {
@@ -18,6 +19,7 @@ namespace gestaopedagogica.Models
 
         public DateTime DataCriacao { get; set; }
         public DateTime PrazoEntrega { get; set; }
+        public DateTime? DataEntrega { get; set; } // Adicionado
 
         public int? ModuloId { get; set; }
         public Modulo? Modulo { get; set; }
@@ -29,10 +31,14 @@ namespace gestaopedagogica.Models
         public Turma? Turma { get; set; }
 
         public string ConteudoTexto { get; set; } = "";
-
-        // ✅ Adicionado para resolver erro em EnviarTrabalho.razor e TrabalhoService linha 127
         public string? ConteudoTextoAluno { get; set; }
 
+        // ✅ Propriedades de Arquivo no Trabalho (Cenário sem Vertentes)
+        public byte[]? FicheiroBytes { get; set; }
+        public string? FicheiroNome { get; set; }
+        public string? FicheiroContentType { get; set; }
+
+        public decimal? Nota { get; set; } // Adicionado
         public DateTime DataEnvio { get; set; } = DateTime.UtcNow;
         public bool VistoPeloProfessor { get; set; } = false;
 
