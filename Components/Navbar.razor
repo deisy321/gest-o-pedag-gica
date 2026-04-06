@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Antiforgery
 @using gestaopedagogica.Services
 @inject NavigationManager Nav
+@* Injetamos o PushService, mas não o usaremos no OnInitialized *@
 @inject PushService PushService 
 
 <nav class="navbar navbar-expand-lg navbar-dark custom-navbar fixed-top">
@@ -23,10 +24,13 @@
                         <div class="dropdown me-3">
                             <button class="btn btn-link text-white position-relative p-0" id="notificacoesDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-bell-fill fs-5"></i>
-                                @* O distintivo (badge) pode ser dinâmico no futuro usando o PushService *@
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" style="font-size: 0.6rem;">
-                                    3
-                                </span>
+                                
+                                @if (notificacoesCount > 0)
+                                {
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" style="font-size: 0.6rem;">
+                                        @notificacoesCount
+                                    </span>
+                                }
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow-lg p-2" aria-labelledby="notificacoesDropdown" style="min-width: 280px; border-radius: 12px;">
                                 <li class="dropdown-header border-bottom mb-2 pb-2">
@@ -71,3 +75,26 @@
         </div>
     </div>
 </nav>
+
+@code {
+    private int notificacoesCount = 0;
+
+    // O segredo está aqui: NUNCA usar OnInitialized para serviços que tocam no JS ou Push
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // Aqui o circuito já está conectado e o login não vai travar
+                // notificacoesCount = await PushService.ObterTotalNotificacoes();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                // Loga o erro internamente sem quebrar a UI
+                Console.WriteLine("Erro ao carregar notificações na Navbar: " + ex.Message);
+            }
+        }
+    }
+}
