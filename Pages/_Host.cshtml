@@ -18,8 +18,10 @@
 </head>
 <body>
     <app>
-        <component type="typeof(App)" render-mode="Server" />
-        <div class="loading-screen">
+        @* Alterado para ServerPrerendered para evitar a tela branca inicial *@
+        <component type="typeof(App)" render-mode="ServerPrerendered" />
+
+        <div class="loading-screen" id="blazor-error-ui" style="display:none;">
             <div class="spinner-border text-primary mb-2" role="status"></div>
             <h3>A carregar...</h3>
             <p>Aguarde um momento</p>
@@ -30,21 +32,24 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <script src="_framework/blazor.server.js"></script>
+
     <script src="js/site.js"></script>
     <script src="js/notifications.js"></script>
+
     <script>
-        // Registo do Service Worker
+        // Registo do Service Worker melhorado
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {
-                navigator.serviceWorker.register('service-worker.js').then(function (reg) {
-                    console.log('ServiceWorker ativo no escopo:', reg.scope);
-                }).catch(function (error) {
-                    console.error('Erro ao registar SW:', error);
-                });
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(function (reg) {
+                        console.log('ServiceWorker ativo:', reg.scope);
+                    })
+                    .catch(function (error) {
+                        console.error('Erro ao registar SW:', error);
+                    });
             });
         }
     </script>
-
-    <script src="_framework/blazor.server.js"></script>
 </body>
 </html>
