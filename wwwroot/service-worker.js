@@ -1,6 +1,10 @@
 ﻿// Este código corre em segundo plano, mesmo com a aba fechada
 self.addEventListener('push', function (event) {
-    let payload = { title: 'Nova Notificação', body: 'Tens uma nova atualização no TriadeLearn', url: '/' };
+    let payload = {
+        title: 'Nova Notificação',
+        body: 'Tens uma nova atualização no TriadeLearn',
+        url: '/'
+    };
 
     if (event.data) {
         try {
@@ -12,7 +16,7 @@ self.addEventListener('push', function (event) {
 
     const options = {
         body: payload.body,
-        icon: '/images/logo_triadelearn.png', // Garante que este caminho existe
+        icon: '/images/logo_triadelearn.png',
         badge: '/images/logo_triadelearn.png',
         vibrate: [100, 50, 100],
         data: { url: payload.url }
@@ -23,10 +27,10 @@ self.addEventListener('push', function (event) {
     );
 });
 
-// Ao clicar na notificação, abre a app
+// Ao clicar na notificação, abre a aplicação
 self.addEventListener('notificationclick', function (event) {
     event.notification.close();
     event.waitUntil(
-        clients.openWindow(event.notification.data.url)
+        clients.openWindow(event.notification.data.url || '/')
     );
 });
