@@ -271,6 +271,7 @@
                 }
                 else if (Trabalho != null)
                 {
+                    // AQUI ESTAVA O ERRO: Precisamos garantir que as propriedades do Trabalho sejam atualizadas
                     Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
                     Trabalho.DataEntrega = dataAtualUtc;
                     if (vert.ArquivoBytes != null)
@@ -279,17 +280,19 @@
                         Trabalho.FicheiroBytes = vert.ArquivoBytes;
                         Trabalho.FicheiroContentType = vert.ArquivoContentType;
                     }
+                    // Chamada ao service para salvar no banco
                     await TrabalhoService.AtualizarTrabalhoAsync(Trabalho);
                 }
             }
 
+            // Notificação Push para o Professor
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
                 try
                 {
                     var push = await TrabalhoService.GetProfessorPushSubscriptionAsync(Trabalho.ProfessorId);
                     if (!string.IsNullOrEmpty(push))
-                        await PushService.EnviarNotificacaoAsync(push, $"Nova entrega: {Trabalho.Titulo}");
+                        await PushService.EnviarNotificacaoAsync(push, $"Nova entrega de {Trabalho.Aluno?.UserName}: {Trabalho.Titulo}");
                 }
                 catch { }
             }
@@ -298,7 +301,7 @@
             MostrarModalSucesso = true;
             StateHasChanged();
 
-            await Task.Delay(2500);
+            await Task.Delay(2000);
             Nav.NavigateTo("/aluno/DashboardAluno");
         }
         catch (Exception ex)
@@ -311,7 +314,7 @@
 
     private async Task GerarFeedbackSelecionadoAsync()
     {
-        if (IsSaving) return;
+        if (IsSaving || Trabalho == null) return;
 
         StatusMessage = "";
         FeedbacksGerados.Clear();
@@ -328,7 +331,6 @@
         {
             foreach (var v in selecionadas)
             {
-                // CHAMADA REAL AO SERVIÇO DE IA
                 var feedbackIA = await TrabalhoService.GerarFeedbackIAAsync(
                     Trabalho.AlunoId,
                     v.ConteudoTextoAluno,
@@ -365,6 +367,7 @@
                 vert.ArquivoNome = file.Name;
                 vert.ArquivoContentType = file.ContentType;
                 using var ms = new MemoryStream();
+                // Limite de 10MB
                 await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
                 vert.ArquivoBytes = ms.ToArray();
             }

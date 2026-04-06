@@ -47,12 +47,13 @@ namespace gestaopedagogica.Services
 
         public async Task<List<Trabalho>> GetTrabalhosDoProfessorAsync(string professorUserId)
         {
+            // Removido AsNoTracking para garantir que a UI do professor veja dados frescos se houver cache
             return await _context.Trabalhos
                 .Include(t => t.TrabalhoVertentes)
                 .Include(t => t.Aluno)
                 .Include(t => t.Modulo)
                 .Where(t => t.ProfessorId == professorUserId)
-                .AsNoTracking()
+                .OrderByDescending(t => t.DataEntrega)
                 .ToListAsync();
         }
 
@@ -140,6 +141,10 @@ namespace gestaopedagogica.Services
 
         public async Task AtualizarVertenteAsync(TrabalhoVertente vertente)
         {
+            // Garantir que a data está em UTC
+            if (vertente.DataEnvio.HasValue)
+                vertente.DataEnvio = DateTime.SpecifyKind(vertente.DataEnvio.Value, DateTimeKind.Utc);
+
             _context.Entry(vertente).State = EntityState.Modified;
             await _context.SaveChangesAsync();
 
@@ -151,6 +156,11 @@ namespace gestaopedagogica.Services
 
                 if (trabalho != null)
                 {
+                    // Forçar atualização da data de entrega do trabalho pai para o professor ver
+                    trabalho.DataEntrega = vertente.DataEnvio;
+                    _context.Trabalhos.Update(trabalho);
+                    await _context.SaveChangesAsync();
+
                     await EnviarNotificacaoParaUsuario(trabalho.ProfessorId,
                         $"Trabalho Entregue! O aluno {trabalho.Aluno?.UserName} submeteu uma resposta em: {trabalho.Titulo}");
                 }
@@ -166,6 +176,14 @@ namespace gestaopedagogica.Services
 
                 trabalhoNoBanco.Titulo = trabalho.Titulo;
                 trabalhoNoBanco.Descricao = trabalho.Descricao;
+                trabalhoNoBanco.ConteudoTextoAluno = trabalho.ConteudoTextoAluno;
+                trabalhoNoBanco.FicheiroNome = trabalho.FicheiroNome;
+                trabalhoNoBanco.FicheiroBytes = trabalho.FicheiroBytes;
+                trabalhoNoBanco.FicheiroContentType = trabalho.FicheiroContentType;
+
+                if (trabalho.DataEntrega.HasValue)
+                    trabalhoNoBanco.DataEntrega = DateTime.SpecifyKind(trabalho.DataEntrega.Value, DateTimeKind.Utc);
+
                 trabalhoNoBanco.PrazoEntrega = DateTime.SpecifyKind(trabalho.PrazoEntrega, DateTimeKind.Utc);
 
                 _context.Trabalhos.Update(trabalhoNoBanco);
@@ -183,21 +201,19 @@ namespace gestaopedagogica.Services
         {
             return await _iaService.ObterSugestoes(conteudoAluno, "", vertenteId, alunoUserId, trabalhoId.ToString(), arquivoBytes);
         }
-        // Adicione isto dentro do seu TrabalhoService.cs
+
         public async Task<string?> GetProfessorPushSubscriptionAsync(string professorId)
         {
-            // Procura na tabela de subscrições o registro do professor
             return await _context.PushSubscriptions
                 .Where(s => s.UserId == professorId)
                 .Select(s => s.Payload)
                 .FirstOrDefaultAsync();
         }
-        // --- MÉTODO PRIVADO PARA DISPARAR OS PUSHES ---
+
         private async Task EnviarNotificacaoParaUsuario(string userId, string mensagem)
         {
             try
             {
-                // CORREÇÃO: Alinhado com o nome PushSubscriptions definido no ApplicationDbContext
                 var subs = await _context.PushSubscriptions
                     .Where(s => s.UserId == userId)
                     .ToListAsync();
