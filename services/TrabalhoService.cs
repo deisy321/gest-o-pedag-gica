@@ -183,7 +183,15 @@ namespace gestaopedagogica.Services
         {
             return await _iaService.ObterSugestoes(conteudoAluno, "", vertenteId, alunoUserId, trabalhoId.ToString(), arquivoBytes);
         }
-
+        // Adicione isto dentro do seu TrabalhoService.cs
+        public async Task<string?> GetProfessorPushSubscriptionAsync(string professorId)
+        {
+            // Procura na tabela de subscrições o registro do professor
+            return await _context.PushSubscriptions
+                .Where(s => s.UserId == professorId)
+                .Select(s => s.Payload)
+                .FirstOrDefaultAsync();
+        }
         // --- MÉTODO PRIVADO PARA DISPARAR OS PUSHES ---
         private async Task EnviarNotificacaoParaUsuario(string userId, string mensagem)
         {
