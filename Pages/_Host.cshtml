@@ -11,19 +11,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gestão Pedagógica</title>
-
     <base href="/" />
-
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
     <link href="app.css?v=@(DateTime.Now.Ticks)" rel="stylesheet" />
 </head>
-
 <body>
     <app>
         <component type="typeof(App)" render-mode="Server" />
-
         <div class="loading-screen">
             <div class="spinner-border text-primary mb-2" role="status"></div>
             <h3>A carregar...</h3>
@@ -36,19 +31,19 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script src="js/site.js"></script>
-    <script src="/js/notifications.js"></script>
+    <script src="js/notifications.js"></script>
     <script>
+        // Registo do Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {
-                navigator.serviceWorker.register('/service-worker.js').then(function (registration) {
-                    console.log('ServiceWorker registado com sucesso:', registration.scope);
-                }, function (err) {
-                    console.log('Falha ao registar ServiceWorker:', err);
+                navigator.serviceWorker.register('service-worker.js').then(function (reg) {
+                    console.log('ServiceWorker ativo no escopo:', reg.scope);
+                }).catch(function (error) {
+                    console.error('Erro ao registar SW:', error);
                 });
             });
         }
     </script>
-    @* ------------------------------------------------------ *@
 
     <script src="_framework/blazor.server.js"></script>
 </body>
