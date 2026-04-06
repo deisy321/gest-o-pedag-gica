@@ -32,8 +32,7 @@
 
         @if (!string.IsNullOrEmpty(StatusMessage))
         {
-            @* Lógica para mudar a cor do alerta dependendo do conteúdo da mensagem *@
-            var alertClass = StatusMessage.Contains("sucesso") ? "alert-success" : "alert-danger";
+            var alertClass = StatusMessage.Contains("sucesso") ? "alert-success" : (StatusMessage.Contains("IA") ? "alert-info" : "alert-danger");
             var alertIcon = StatusMessage.Contains("sucesso") ? "fa-check-circle" : "fa-exclamation-triangle";
 
             <div class="alert-custom @alertClass mb-4 animate-slide-up">
@@ -147,20 +146,20 @@
 @* MODAL DE FEEDBACK IA *@
 @if (MostrarModalFeedback)
 {
-    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);">
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5); z-index: 1050;">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title"><i class="fas fa-robot me-2"></i>Feedback da IA</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="FecharModalFeedback"></button>
                 </div>
-                <div class="modal-body p-4">
+                <div class="modal-body p-4" style="max-height: 60vh; overflow-y: auto;">
                     @foreach (var fb in FeedbacksGerados)
                     {
                         <div class="mb-4">
                             <h6 class="fw-bold text-primary">@fb.Tipo</h6>
                             <div class="p-3 bg-light rounded border-start border-4 border-primary">
-                                @fb.Texto
+                                @((MarkupString)fb.Texto.Replace("\n", "<br/>"))
                             </div>
                         </div>
                     }
@@ -174,10 +173,10 @@
     </div>
 }
 
-@* NOVO: MODAL DE SUCESSO *@
+@* MODAL DE SUCESSO *@
 @if (MostrarModalSucesso)
 {
-    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.7);">
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.7); z-index: 1060;">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 text-center p-4">
                 <div class="modal-body">
@@ -202,7 +201,7 @@
     private string StatusMessage = "";
     private bool IsSaving = false;
     private bool MostrarModalFeedback = false;
-    private bool MostrarModalSucesso = false; // Novo controle
+    private bool MostrarModalSucesso = false;
     private List<FeedbackModel> FeedbacksGerados = new();
 
     protected override async Task OnInitializedAsync()
@@ -284,7 +283,6 @@
                 }
             }
 
-            // Notificação ao Professor
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
                 try
@@ -296,12 +294,11 @@
                 catch { }
             }
 
-            // FEEDBACK VISUAL DE SUCESSO
             StatusMessage = "Trabalho submetido com sucesso!";
             MostrarModalSucesso = true;
             StateHasChanged();
 
-            await Task.Delay(2500); // Espera 2.5 segundos para o aluno ver o sucesso
+            await Task.Delay(2500);
             Nav.NavigateTo("/aluno/DashboardAluno");
         }
         catch (Exception ex)
@@ -314,6 +311,8 @@
 
     private async Task GerarFeedbackSelecionadoAsync()
     {
+        if (IsSaving) return;
+
         StatusMessage = "";
         FeedbacksGerados.Clear();
         var selecionadas = Vertentes.Where(x => x.SolicitarFeedback).ToList();
@@ -324,15 +323,36 @@
             return;
         }
 
-        foreach (var v in selecionadas)
+        IsSaving = true;
+        try
         {
-            FeedbacksGerados.Add(new FeedbackModel
+            foreach (var v in selecionadas)
             {
-                Tipo = v.Tipo,
-                Texto = "Análise da IA: O conteúdo parece bem estruturado. Certifique-se de que todos os pontos solicitados pelo professor foram abordados."
-            });
+                // CHAMADA REAL AO SERVIÇO DE IA
+                var feedbackIA = await TrabalhoService.GerarFeedbackIAAsync(
+                    Trabalho.AlunoId,
+                    v.ConteudoTextoAluno,
+                    v.ArquivoBytes,
+                    Trabalho.Id,
+                    v.Id.ToString()
+                );
+
+                FeedbacksGerados.Add(new FeedbackModel
+                {
+                    Tipo = v.Tipo,
+                    Texto = feedbackIA ?? "A IA não conseguiu processar o feedback no momento."
+                });
+            }
+            MostrarModalFeedback = true;
         }
-        MostrarModalFeedback = true;
+        catch (Exception ex)
+        {
+            StatusMessage = "Erro ao contactar IA: " + ex.Message;
+        }
+        finally
+        {
+            IsSaving = false;
+        }
     }
 
     private async Task UploadArquivo(InputFileChangeEventArgs e, AlunoVertenteModel vert)
