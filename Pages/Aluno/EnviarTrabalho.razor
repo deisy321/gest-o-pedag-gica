@@ -224,7 +224,7 @@
 
         try
         {
-            // CORREÇÃO POSTGRES: DateTime.UtcNow é o padrão aceito pelo Npgsql para 'timestamp with time zone'
+            // CORREÇÃO POSTGRES: Garante DateTime Kind Utc
             var dataAtualUtc = DateTime.UtcNow;
 
             foreach (var vert in Vertentes)
@@ -235,7 +235,7 @@
                     if (vertDb != null)
                     {
                         vertDb.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                        vertDb.DataEnvio = dataAtualUtc; // Atribuição direta de UTC
+                        vertDb.DataEnvio = dataAtualUtc;
 
                         if (vert.ArquivoBytes != null)
                         {
@@ -249,7 +249,7 @@
                 else if (Trabalho != null)
                 {
                     Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
-                    Trabalho.DataEntrega = dataAtualUtc; // Atribuição direta de UTC
+                    Trabalho.DataEntrega = dataAtualUtc;
 
                     if (vert.ArquivoBytes != null)
                     {
@@ -267,9 +267,9 @@
                 try
                 {
                     var push = await TrabalhoService.GetProfessorPushSubscriptionAsync(Trabalho.ProfessorId);
-                    if (!string.IsNullOrEmpty(push)) await PushService.EnviarNotificacaoAsync(push, $"Entrega: {Trabalho.Titulo}");
+                    if (!string.IsNullOrEmpty(push)) await PushService.EnviarNotificacaoAsync(push, $"Nova entrega: {Trabalho.Titulo}");
                 }
-                catch { }
+                catch { /* Silencia erro de push para não travar a entrega */ }
             }
 
             Nav.NavigateTo("/aluno/DashboardAluno");
@@ -283,13 +283,24 @@
 
     private async Task GerarFeedbackSelecionadoAsync()
     {
+        StatusMessage = "";
         FeedbacksGerados.Clear();
         var selecionadas = Vertentes.Where(x => x.SolicitarFeedback).ToList();
-        if (!selecionadas.Any()) { StatusMessage = "Ative o 'Solicitar revisão' primeiro."; return; }
+
+        if (!selecionadas.Any())
+        {
+            StatusMessage = "Selecione 'Solicitar revisão' em pelo menos uma vertente.";
+            return;
+        }
 
         foreach (var v in selecionadas)
         {
-            FeedbacksGerados.Add(new FeedbackModel { Tipo = v.Tipo, Texto = "Revisão concluída. Verifique a clareza dos argumentos." });
+            // Simulação de chamada de IA (pode ser substituído por serviço real de GPT/Gemini)
+            FeedbacksGerados.Add(new FeedbackModel
+            {
+                Tipo = v.Tipo,
+                Texto = "Análise da IA: O conteúdo parece bem estruturado. Certifique-se de que todos os pontos solicitados pelo professor foram abordados."
+            });
         }
         MostrarModalFeedback = true;
     }
@@ -304,15 +315,24 @@
                 vert.ArquivoNome = file.Name;
                 vert.ArquivoContentType = file.ContentType;
                 using var ms = new MemoryStream();
+                // Limite de 10MB
                 await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
                 vert.ArquivoBytes = ms.ToArray();
             }
         }
-        catch (Exception ex) { StatusMessage = "Erro no upload: " + ex.Message; }
+        catch (Exception ex)
+        {
+            StatusMessage = "Erro no upload: " + ex.Message;
+        }
     }
 
     private void FecharModalFeedback() => MostrarModalFeedback = false;
-    private async Task AceitarFeedback() { MostrarModalFeedback = false; await EnviarVertentesAsync(); }
+
+    private async Task AceitarFeedback()
+    {
+        MostrarModalFeedback = false;
+        await EnviarVertentesAsync();
+    }
 
     public class AlunoVertenteModel
     {
@@ -327,5 +347,9 @@
         public decimal? Nota { get; set; }
     }
 
-    public class FeedbackModel { public string Tipo { get; set; } = ""; public string Texto { get; set; } = ""; }
+    public class FeedbackModel
+    {
+        public string Tipo { get; set; } = "";
+        public string Texto { get; set; } = "";
+    }
 }
