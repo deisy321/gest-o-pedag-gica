@@ -13,7 +13,6 @@ namespace gestaopedagogica.Models
         [Required]
         public string Payload { get; set; } = string.Empty;
 
-        // Opcional: Data de criação para controle
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

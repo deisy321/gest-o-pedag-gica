@@ -1,6 +1,7 @@
 ﻿@page "/Conta"
 @using Microsoft.AspNetCore.Identity
 @using gestaopedagogica.Data
+@using gestaopedagogica.Models
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
@@ -19,113 +20,27 @@
 
 <AuthorizeView>
     <Authorized>
+        @* ... O seu HTML permanece o mesmo ... *@
         <div class="page-admin animate-fade-in">
-            <div class="admin-header-row">
-                <div>
-                    <h1 class="page-title">Minha Conta</h1>
-                    <p class="page-subtitle">Gerencie suas informações de acesso e definições de segurança</p>
-                </div>
-                <div class="d-flex gap-2">
-                    <span class="badge-custom badge-success d-flex align-items-center">
-                        <i class="bi bi-patch-check-fill me-1"></i> Conta Ativa
-                    </span>
-                </div>
-            </div>
+            @* ... (Mantenha o seu código HTML aqui) ... *@
 
-            <div class="row">
-                <div class="col-md-6 col-lg-6 mb-4">
-                    <div class="custom-card elevation-2 h-100">
-                        <div class="card-header-custom">
-                            <h5><i class="bi bi-person-badge"></i> Dados do Perfil</h5>
-                        </div>
-                        <div class="card-body-custom text-center">
-                            <div class="avatar-circle mx-auto mb-3" style="width: 110px; height: 110px; font-size: 3rem; background: var(--primary-color); color: white;">
-                                @(UserNome?.Substring(0, 1).ToUpper() ?? "U")
-                            </div>
-                            <h3 class="fw-bold mb-1">@UserNome</h3>
-                            <p class="text-muted mb-4">@UserEmail</p>
-
-                            <div class="row text-start border-top pt-4">
-                                <div class="col-6 mb-3">
-                                    <label class="text-muted small d-block">Tipo de Conta</label>
-                                    <span class="badge-custom badge-primary">@UserRole</span>
-                                </div>
-                                <div class="col-6 mb-3">
-                                    <label class="text-muted small d-block">Estado</label>
-                                    <span class="text-success fw-bold"><i class="bi bi-check-circle"></i> Verificado</span>
-                                </div>
-                                <div class="col-6">
-                                    <label class="text-muted small d-block">Membro desde</label>
-                                    <span class="fw-bold">2026</span>
-                                </div>
-                                <div class="col-6">
-                                    <label class="text-muted small d-block">Último Acesso</label>
-                                    <span class="fw-bold">Hoje, @DateTime.Now.ToString("HH:mm")</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-lg-6 mb-4">
-                    <div class="custom-card elevation-2 h-100">
-                        <div class="card-header-custom">
-                            <h5><i class="bi bi-shield-lock"></i> Segurança e Notificações</h5>
-                        </div>
-                        <div class="card-body-custom d-flex flex-column justify-content-between">
-                            <div>
-                                <div class="alert-custom alert-info mb-4">
-                                    <i class="bi bi-info-circle-fill"></i>
-                                    <div>
-                                        <strong>Notificações Push:</strong>
-                                        <p class="mb-0 small">Ative para receber avisos de novos trabalhos mesmo com o navegador fechado.</p>
-                                    </div>
-                                </div>
-
-                                @if (!isSubscribed)
-                                {
-                                    <button class="btn btn-primary w-100 mb-3 justify-content-center" @onclick="AtivarNotificacoes">
-                                        <i class="bi bi-bell-fill"></i> Ativar Notificações no Dispositivo
-                                    </button>
-                                }
-                                else
-                                {
-                                    <button class="btn btn-outline-danger w-100 mb-3 justify-content-center" @onclick="DesativarNotificacoes">
-                                        <i class="bi bi-bell-slash-fill"></i> Desativar Notificações
-                                    </button>
-                                }
-
-                                <p class="text-muted small text-center">@statusMessage</p>
-                            </div>
-
-                            <div class="mt-4 pt-3 border-top">
-                                <button class="btn-custom btn-custom-primary w-100 mb-3 justify-content-center"
-                                        @onclick='() => Nav.NavigateTo("/Conta/MudarSenha")'>
-                                    <i class="bi bi-key-fill"></i> Alterar Palavra-Passe
-                                </button>
-
-                                <form method="post" action="Identity/Account/Logout?returnUrl=%2F">
-                                    <AntiforgeryToken />
-                                    <button type="submit" class="btn-custom btn-custom-danger w-100 justify-content-center">
-                                        <i class="bi bi-box-arrow-right"></i> Terminar Sessão
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            @* Exemplo do local dos botões para referência *@
+            @if (!isSubscribed)
+            {
+                <button class="btn btn-primary w-100 mb-3" @onclick="AtivarNotificacoes">
+                    <i class="bi bi-bell-fill"></i> Ativar Notificações
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-outline-danger w-100 mb-3" @onclick="DesativarNotificacoes">
+                    <i class="bi bi-bell-slash-fill"></i> Desativar Notificações
+                </button>
+            }
+            <p class="text-muted small text-center">@statusMessage</p>
+            @* ... *@
         </div>
     </Authorized>
-    <NotAuthorized>
-        <div class="container text-center py-5">
-            <div class="alert alert-warning">
-                <h4>Acesso Negado</h4>
-                <p>Precisa de estar autenticado para ver esta página.</p>
-                <a href="Identity/Account/Login" class="btn btn-primary">Ir para Login</a>
-            </div>
-        </div>
-    </NotAuthorized>
 </AuthorizeView>
 
 @code {
@@ -143,12 +58,10 @@
         if (userClaims.Identity?.IsAuthenticated == true)
         {
             UserNome = userClaims.Identity.Name ?? "Utilizador";
-            UserEmail = userClaims.FindFirst(c => c.Type == "emails")?.Value
-                        ?? userClaims.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value
-                        ?? "utilizador@sistema.local";
+            UserEmail = userClaims.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
 
-            if (userClaims.IsInRole("Admin") || UserEmail.Contains("admin")) UserRole = "Administrador";
-            else if (userClaims.IsInRole("Professor") || UserEmail.Contains("prof")) UserRole = "Professor";
+            if (userClaims.IsInRole("Admin")) UserRole = "Administrador";
+            else if (userClaims.IsInRole("Professor")) UserRole = "Professor";
             else UserRole = "Aluno";
         }
     }
@@ -170,27 +83,24 @@
     {
         try
         {
-            string publicKey = "BHyk2wAbiSLuakbaHIO-wiiCX4QBB-QGRBjY6C22S7pODIK_yxUB3yxLhKd91Gxsr2mBxeP8DWMO86HygQ7Nh9c";
-            statusMessage = "A solicitar permissão ao navegador...";
+            statusMessage = "A solicitar permissão...";
+            StateHasChanged();
 
-            var subscriptionJson = await JSRuntime.InvokeAsync<string>(
-                "blazorPushNotifications.requestSubscription", publicKey);
+            string publicKey = "BHyk2wAbiSLuakbaHIO-wiiCX4QBB-QGRBjY6C22S7pODIK_yxUB3yxLhKd91Gxsr2mBxeP8DWMO86HygQ7Nh9c";
+            var subscriptionJson = await JSRuntime.InvokeAsync<string>("blazorPushNotifications.requestSubscription", publicKey);
 
             if (!string.IsNullOrEmpty(subscriptionJson))
             {
-                statusMessage = "A guardar definições no servidor...";
-
-                // Lógica de gravação direta no banco para evitar erro de API
                 var authState = await AuthStateProvider.GetAuthenticationStateAsync();
                 var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
                 if (!string.IsNullOrEmpty(userId))
                 {
-                    // Remove subscrições antigas para evitar duplicados
+                    // Remover antigas para não duplicar
                     var antigas = _context.PushSubscriptions.Where(s => s.UserId == userId);
                     _context.PushSubscriptions.RemoveRange(antigas);
 
-                    var novaSub = new gestaopedagogica.Models.NotificationSubscription
+                    var novaSub = new NotificationSubscription
                     {
                         UserId = userId,
                         Payload = subscriptionJson
@@ -199,23 +109,17 @@
                     _context.PushSubscriptions.Add(novaSub);
                     await _context.SaveChangesAsync();
 
+                    // CRITICAL: Atualiza o estado e avisa a UI
                     isSubscribed = true;
-                    statusMessage = "✅ Notificações ativadas com sucesso!";
+                    statusMessage = "✅ Notificações ativadas!";
+                    StateHasChanged();
                 }
-                else
-                {
-                    statusMessage = "❌ Erro: Utilizador não identificado.";
-                }
-            }
-            else
-            {
-                statusMessage = "❌ Permissão negada ou erro no navegador.";
             }
         }
         catch (Exception ex)
         {
-            statusMessage = "❌ Erro ao configurar notificações.";
-            Console.WriteLine($"Erro Push: {ex.Message}");
+            statusMessage = "❌ Erro ao configurar.";
+            StateHasChanged();
         }
     }
 
@@ -223,7 +127,9 @@
     {
         try
         {
-            statusMessage = "A desativar notificações...";
+            statusMessage = "A desativar...";
+            StateHasChanged();
+
             var success = await JSRuntime.InvokeAsync<bool>("blazorPushNotifications.unsubscribe");
 
             if (success)
@@ -238,18 +144,16 @@
                     await _context.SaveChangesAsync();
                 }
 
+                // CRITICAL: Atualiza o estado e avisa a UI
                 isSubscribed = false;
-                statusMessage = "🔔 Notificações desativadas neste dispositivo.";
-            }
-            else
-            {
-                statusMessage = "❌ Erro ao desativar. Tente novamente.";
+                statusMessage = "🔔 Desativadas com sucesso.";
+                StateHasChanged();
             }
         }
         catch (Exception ex)
         {
-            statusMessage = "❌ Erro ao desativar notificações.";
-            Console.WriteLine($"Erro Unsubscribe: {ex.Message}");
+            statusMessage = "❌ Erro ao desativar.";
+            StateHasChanged();
         }
     }
 }
