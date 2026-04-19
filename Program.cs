@@ -27,12 +27,10 @@ builder.Services.AddAntiforgery(options => {
 });
 
 // --- 4. CONFIGURAÇÃO DA BASE DE DADOS ---
-// Prioriza a variável de ambiente do Render, depois o appsettings.json
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 if (string.IsNullOrEmpty(connectionString))
 {
-    // Fallback manual caso a configuração automática do .NET falhe no Render
     connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
 }
 
@@ -50,7 +48,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// --- 6. CONFIGURAÇÃO DE COOKIES (CORREÇÃO PARA REDIRECIONAMENTO 404) ---
+// --- 6. CONFIGURAÇÃO DE COOKIES ---
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/identity/account/login";
@@ -59,11 +57,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 
     options.Cookie.Name = "GestaopedagogicaAuth";
     options.Cookie.HttpOnly = true;
-
-    // CRUCIAL: Sem 'IsEssential', o login é perdido no redirecionamento do Render
     options.Cookie.IsEssential = true;
-
-    // CRUCIAL: 'Always' porque o Render é HTTPS. 'Lax' permite o redirecionamento.
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.Lax;
 
@@ -82,7 +76,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<ApplicationUser>>();
 builder.Services.AddSingleton<UserState>();
 
-// --- 8. SERVIÇOS DA APLICAÇÃO (TODOS OS SERVIÇOS) ---
+// --- 8. SERVIÇOS DA APLICAÇÃO ---
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ModuloService>();
 builder.Services.AddScoped<TurmaService>();
@@ -92,16 +86,17 @@ builder.Services.AddScoped<ProfessorService>();
 builder.Services.AddScoped<AlunoService>();
 builder.Services.AddScoped<DisciplinaService>();
 builder.Services.AddScoped<CursoService>();
-// Garante que o sistema lê as chaves do appsettings.json
+
 builder.Services.Configure<VapidSettings>(builder.Configuration.GetSection("VAPID"));
 
-// Regista o serviço de envio de notificações
+// REGISTO DO PUSH SERVICE (RESTAURADO PARA FIXAR ERRO 500)
+builder.Services.AddScoped<PushService>();
+
+// CONFIGURAÇÃO DO CLIENTE DE IA (APONTANDO PARA O RENDER)
 builder.Services.AddHttpClient<IAService>(client =>
 {
-    // Tenta obter o URL da IA das variáveis de ambiente do Render
     var ollamaUrl = Environment.GetEnvironmentVariable("OllamaConfig__BaseUrl");
 
-    // Se a variável não estiver definida, usa o teu link da IA do Render por defeito
     if (string.IsNullOrWhiteSpace(ollamaUrl))
     {
         ollamaUrl = "https://ia-service-gv6i.onrender.com/";
@@ -113,7 +108,7 @@ builder.Services.AddHttpClient<IAService>(client =>
 
 var app = builder.Build();
 
-// --- 9. CONFIGURAÇÃO PARA PROXY RENDER (DEVE SER A PRIMEIRA COISA) ---
+// --- 9. CONFIGURAÇÃO PARA PROXY RENDER ---
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
@@ -140,7 +135,6 @@ using (var scope = app.Services.CreateScope())
             }
         }
 
-        // Chamada assíncrona do Seed
         CriarUser(userManager, "admin@local", "Admin123!", "Admin").GetAwaiter().GetResult();
         Console.WriteLine("Seed executado com sucesso.");
     }
@@ -157,21 +151,16 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-// Em produção (Render), o proxy já trata o HTTPS
-// app.UseHttpsRedirection(); 
-
 app.UseStaticFiles();
-
 app.UseRouting();
 
-// ORDEM OBRIGATÓRIA: Authentication antes de Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
 // --- 12. MAPEAMENTO DE ENDPOINTS ---
 app.MapControllers();
 app.MapBlazorHub();
-app.MapRazorPages(); // Importante estar aqui para as rotas do Identity
+app.MapRazorPages();
 app.MapFallbackToPage("/_host");
 
 app.Run();
