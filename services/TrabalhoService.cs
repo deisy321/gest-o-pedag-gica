@@ -203,7 +203,7 @@ namespace gestaopedagogica.Services
             }
             else
             {
-                var trabalho = await _context.Trabalhos.AsNoTracking().FirstOrDefaultAsync(t => t.Id == trabajoId);
+                var trabalho = await _context.Trabalhos.AsNoTracking().FirstOrDefaultAsync(t => t.Id == trabalhoId);
                 if (trabalho != null && !string.IsNullOrWhiteSpace(trabalho.Descricao))
                 {
                     descricaoParaIA = trabalho.Descricao;
