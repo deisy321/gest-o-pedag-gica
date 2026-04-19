@@ -96,11 +96,17 @@ builder.Services.AddScoped<CursoService>();
 builder.Services.Configure<VapidSettings>(builder.Configuration.GetSection("VAPID"));
 
 // Regista o serviço de envio de notificações
-builder.Services.AddScoped<PushService>();
 builder.Services.AddHttpClient<IAService>(client =>
-
 {
-    var ollamaUrl = Environment.GetEnvironmentVariable("OllamaConfig__BaseUrl") ?? "http://127.0.0.1:11434/";
+    // Tenta obter o URL da IA das variáveis de ambiente do Render
+    var ollamaUrl = Environment.GetEnvironmentVariable("OllamaConfig__BaseUrl");
+
+    // Se a variável não estiver definida, usa o teu link da IA do Render por defeito
+    if (string.IsNullOrWhiteSpace(ollamaUrl))
+    {
+        ollamaUrl = "https://ia-service-gv6i.onrender.com/";
+    }
+
     client.BaseAddress = new Uri(ollamaUrl);
     client.Timeout = TimeSpan.FromMinutes(5);
 });
