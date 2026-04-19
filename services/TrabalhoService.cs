@@ -1,6 +1,10 @@
 ﻿using gestaopedagogica.Data;
 using gestaopedagogica.Models;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace gestaopedagogica.Services
 {
@@ -183,10 +187,40 @@ namespace gestaopedagogica.Services
             }
         }
 
+        // --- MÉTODO CORRIGIDO: ENVIANDO DESCRIÇÃO, TEXTO DO ALUNO E PDF ---
         public async Task<string> GerarFeedbackIAAsync(string alunoUserId, string conteudoAluno, byte[]? arquivoBytes, int trabalhoId, string vertenteId)
         {
-            // Ajustado para bater com os parâmetros enviados pela Razor Page
-            return await _iaService.ObterSugestoes(conteudoAluno, "", vertenteId, alunoUserId, trabalhoId.ToString(), arquivoBytes);
+            string descricaoParaIA = "Instrução geral do trabalho.";
+
+            // 1. Obtemos a instrução do Professor (Vertente ou Trabalho)
+            if (int.TryParse(vertenteId, out int vId) && vId > 0)
+            {
+                var vertente = await _context.TrabalhoVertentes.AsNoTracking().FirstOrDefaultAsync(v => v.Id == vId);
+                if (vertente != null && !string.IsNullOrWhiteSpace(vertente.ConteudoTexto))
+                {
+                    descricaoParaIA = vertente.ConteudoTexto;
+                }
+            }
+            else
+            {
+                var trabalho = await _context.Trabalhos.AsNoTracking().FirstOrDefaultAsync(t => t.Id == trabajoId);
+                if (trabalho != null && !string.IsNullOrWhiteSpace(trabalho.Descricao))
+                {
+                    descricaoParaIA = trabalho.Descricao;
+                }
+            }
+
+            // 2. Chamamos o IAService passando TUDO:
+            // conteudoAluno -> Texto escrito na textarea
+            // arquivoBytes -> O conteúdo binário do PDF anexado
+            return await _iaService.ObterSugestoes(
+                textoAluno: conteudoAluno,
+                descricaoVertente: descricaoParaIA,
+                vertenteId: vertenteId,
+                alunoId: alunoUserId,
+                trabalhoId: trabalhoId.ToString(),
+                arquivoBytes: arquivoBytes
+            );
         }
 
         public async Task<string?> GetProfessorPushSubscriptionAsync(string professorId)
