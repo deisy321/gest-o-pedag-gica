@@ -150,9 +150,10 @@ FORMATO OBRIGATÓRIO DE RESPOSTA:
     {
         try
         {
+            // Alterado para phi3:mini para suportar o limite de RAM do plano Starter
             var requestBody = new
             {
-                model = "llama3",
+                model = "phi3:mini",
                 prompt = prompt,
                 stream = false
             };
@@ -163,7 +164,6 @@ FORMATO OBRIGATÓRIO DE RESPOSTA:
                 "application/json"
             );
 
-            // AJUSTE: Adicionada a barra inicial para garantir a rota correta no Render
             var response = await _httpClient.PostAsync("/api/generate", content);
 
             if (!response.IsSuccessStatusCode)
