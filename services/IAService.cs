@@ -15,6 +15,9 @@ public class IAService
     private readonly HttpClient _httpClient;
     private readonly ConcurrentDictionary<string, string> _cache = new();
 
+    // A tua chave que geraste
+    private const string GroqApiKey = "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";
+
     public IAService(HttpClient httpClient)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
@@ -34,38 +37,31 @@ public class IAService
             if (string.IsNullOrWhiteSpace(textoAluno) && (arquivoBytes == null || arquivoBytes.Length == 0))
                 return "Tu não enviaste conteúdo. Por favor, escreve algo ou anexa um PDF.";
 
-            // Extração de texto
             string textoArquivo = LerPdfComSeguranca(arquivoBytes);
             string textoCompleto = (textoAluno ?? "") + "\n" + textoArquivo;
 
-            // Cache
             var cacheKey = $"{alunoId}_{trabalhoId}_{vertenteId}";
             if (useCache && _cache.TryGetValue(cacheKey, out var cached))
                 return cached;
 
-            // PROMPT REFORÇADO PARA EVITAR CÓDIGO INVENTADO
-            string promptSistema = @"Age como um Professor avaliador. 
-O teu único trabalho é escrever um texto de feedback para o teu aluno.
-Regras:
-1. Fala na 2ª pessoa (Tu).
-2. Não escrevas código C#, APIs ou URLs.
-3. Compara o 'Trabalho do Aluno' com a 'Instrução do Professor'.
-4. Se o aluno não seguiu a instrução, diz o que falta.";
+            // PROMPT PARA O LLAMA 3 AGIR COMO PROFESSOR DIRETO
+            string promptSistema = @"És um Professor mentor.
+REGRAS:
+1. Fala DIRETAMENTE com o aluno (usa 'Tu', 'Teu', 'Fizeste').
+2. Se o aluno disser algo falso ou errado, corrige-o imediatamente com a verdade.
+3. Não inventes código nem fales de APIs.";
 
             string promptUsuario = $@"
 INSTRUÇÃO DO PROFESSOR: ""{descricaoVertente}""
 TRABALHO DO ALUNO: ""{textoCompleto}""
 
-Responde apenas com este formato:
-**1. Pontos positivos:** (o que o aluno fez bem)
-**2. Pontos a melhorar:** (o que falta segundo a instrução)
-**3. Dica prática:** (como corrigir agora)";
+Responde neste formato:
+**1. Pontos positivos:**
+**2. O que precisas de corrigir:**
+**3. Dica prática:**";
 
-            // Chamada à IA
-            string resultadoFinal = await EnviarParaOllama($"{promptSistema}\n\n{promptUsuario}");
-
-            if (string.IsNullOrWhiteSpace(resultadoFinal) || resultadoFinal.Contains("using "))
-                resultadoFinal = "Ocorreu um erro ao gerar o feedback. Por favor, tenta simplificar o teu texto.";
+            // Chamada para o LLAMA 3 via Groq
+            string resultadoFinal = await EnviarParaGroq(promptSistema, promptUsuario);
 
             if (useCache) _cache[cacheKey] = resultadoFinal.Trim();
 
@@ -74,8 +70,35 @@ Responde apenas com este formato:
         catch (Exception ex)
         {
             Console.WriteLine($"💥 Erro: {ex.Message}");
-            return "Erro técnico ao processar sugestões.";
+            return "Erro ao processar sugestões com o Llama.";
         }
+    }
+
+    private async Task<string> EnviarParaGroq(string system, string user)
+    {
+        try
+        {
+            var requestBody = new
+            {
+                model = "llama3-8b-8192", // Estamos a usar o motor LLAMA 3 aqui
+                messages = new[] {
+                    new { role = "system", content = system },
+                    new { role = "user", content = user }
+                },
+                temperature = 0.5
+            };
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", GroqApiKey);
+            request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.SendAsync(request);
+            var json = await response.Content.ReadAsStringAsync();
+
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+        }
+        catch { return "Erro de comunicação com o Llama 3."; }
     }
 
     private string LerPdfComSeguranca(byte[]? arquivoBytes)
@@ -88,35 +111,6 @@ Responde apenas com este formato:
             var sb = new StringBuilder();
             foreach (var page in pdf.GetPages()) sb.AppendLine(page.Text);
             return sb.ToString();
-        }
-        catch { return ""; }
-    }
-
-    private async Task<string> EnviarParaOllama(string prompt)
-    {
-        try
-        {
-            var requestBody = new
-            {
-                model = "qwen2:0.5b",
-                prompt = prompt,
-                stream = false,
-                options = new
-                {
-                    temperature = 0.3, // Menor temperatura = menos invenções/alucinações
-                    top_p = 0.9,
-                    num_predict = 400  // Limita o tamanho da resposta
-                }
-            };
-
-            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync("/api/generate", content);
-
-            if (!response.IsSuccessStatusCode) return "";
-
-            var json = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.GetProperty("response").GetString() ?? "";
         }
         catch { return ""; }
     }
