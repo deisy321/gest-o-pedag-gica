@@ -34,38 +34,36 @@ public class IAService
             if (string.IsNullOrWhiteSpace(textoAluno) && (arquivoBytes == null || arquivoBytes.Length == 0))
                 return "Tu não enviaste conteúdo. Por favor, escreve algo ou anexa um PDF.";
 
-            // Extração de texto
             string textoArquivo = LerPdfComSeguranca(arquivoBytes);
             string textoCompleto = (textoAluno ?? "") + "\n" + textoArquivo;
 
-            // Cache
             var cacheKey = $"{alunoId}_{trabalhoId}_{vertenteId}";
             if (useCache && _cache.TryGetValue(cacheKey, out var cached))
                 return cached;
 
-            // PROMPT REFORÇADO PARA EVITAR CÓDIGO INVENTADO
-            string promptSistema = @"Age como um Professor avaliador. 
-O teu único trabalho é escrever um texto de feedback para o teu aluno.
-Regras:
-1. Fala na 2ª pessoa (Tu).
-2. Não escrevas código C#, APIs ou URLs.
-3. Compara o 'Trabalho do Aluno' com a 'Instrução do Professor'.
-4. Se o aluno não seguiu a instrução, diz o que falta.";
+            // PROMPT GENÉRICO E BLINDADO
+            string promptSistema = @"És um Professor avaliador. 
+Regras de escrita:
+1. Fala diretamente com o aluno usando 'Tu' (ex: Tu fizeste, Teu trabalho).
+2. Compara o 'TRABALHO' com a 'INSTRUÇÃO'.
+3. Se houver erros factuais ou falta de conteúdo no TRABALHO, corrige-os.
+4. Sê curto, direto e não inventes informações fora do contexto fornecido.";
 
             string promptUsuario = $@"
 INSTRUÇÃO DO PROFESSOR: ""{descricaoVertente}""
 TRABALHO DO ALUNO: ""{textoCompleto}""
 
-Responde apenas com este formato:
-**1. Pontos positivos:** (o que o aluno fez bem)
-**2. Pontos a melhorar:** (o que falta segundo a instrução)
-**3. Dica prática:** (como corrigir agora)";
+Responde apenas neste formato:
+**1. Pontos positivos:**
+**2. Pontos a melhorar:**
+**3. Dica prática:**";
 
             // Chamada à IA
             string resultadoFinal = await EnviarParaOllama($"{promptSistema}\n\n{promptUsuario}");
 
-            if (string.IsNullOrWhiteSpace(resultadoFinal) || resultadoFinal.Contains("using "))
-                resultadoFinal = "Ocorreu um erro ao gerar o feedback. Por favor, tenta simplificar o teu texto.";
+            // Filtro de segurança para falhas do modelo
+            if (string.IsNullOrWhiteSpace(resultadoFinal) || resultadoFinal.Length < 10)
+                resultadoFinal = "Não consegui gerar um feedback preciso. Tenta reformular o teu texto.";
 
             if (useCache) _cache[cacheKey] = resultadoFinal.Trim();
 
@@ -103,9 +101,11 @@ Responde apenas com este formato:
                 stream = false,
                 options = new
                 {
-                    temperature = 0.3, // Menor temperatura = menos invenções/alucinações
-                    top_p = 0.9,
-                    num_predict = 400  // Limita o tamanho da resposta
+                    // ALTERAÇÃO CRÍTICA: Temperatura mínima para evitar alucinações
+                    temperature = 0.1,
+                    top_p = 0.1,
+                    repeat_penalty = 1.2,
+                    num_predict = 250 // Resposta curta para manter a coesão
                 }
             };
 
