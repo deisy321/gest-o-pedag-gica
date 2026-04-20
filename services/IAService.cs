@@ -31,160 +31,93 @@ public class IAService
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(textoAluno) && arquivoBytes == null)
-                return "Conteúdo do aluno vazio, impossível gerar feedback.";
+            if (string.IsNullOrWhiteSpace(textoAluno) && (arquivoBytes == null || arquivoBytes.Length == 0))
+                return "Tu não enviaste conteúdo. Por favor, escreve algo ou anexa um PDF.";
 
-            if (string.IsNullOrWhiteSpace(descricaoVertente))
-                descricaoVertente = "Instrução geral do trabalho.";
-
-            // Extração de texto do PDF (se houver)
+            // Extração de texto
             string textoArquivo = LerPdfComSeguranca(arquivoBytes);
             string textoCompleto = (textoAluno ?? "") + "\n" + textoArquivo;
 
-            // Sistema de Cache
+            // Cache
             var cacheKey = $"{alunoId}_{trabalhoId}_{vertenteId}";
             if (useCache && _cache.TryGetValue(cacheKey, out var cached))
                 return cached;
 
-            // --- PROMPT DE SISTEMA: FOCO NO ALUNO E ISOLAMENTO ---
-            string promptSistema = @"
-És um Professor que está a falar DIRETAMENTE com o seu aluno para o ajudar a melhorar.
-Usa SEMPRE a 2ª pessoa do singular (Tu, Teu, Fizeste). O tom deve ser encorajador mas rigoroso.
+            // PROMPT REFORÇADO PARA EVITAR CÓDIGO INVENTADO
+            string promptSistema = @"Age como um Professor avaliador. 
+O teu único trabalho é escrever um texto de feedback para o teu aluno.
+Regras:
+1. Fala na 2ª pessoa (Tu).
+2. Não escrevas código C#, APIs ou URLs.
+3. Compara o 'Trabalho do Aluno' com a 'Instrução do Professor'.
+4. Se o aluno não seguiu a instrução, diz o que falta.";
 
-REGRAS DE OURO:
-1. FOCO EXCLUSIVO: Avalia APENAS se o aluno cumpriu o que está na 'INSTRUÇÃO ESPECÍFICA'.
-2. ISOLAMENTO TOTAL: Se a instrução pede 'Orçamento', ignora se falta 'Transporte' ou 'Monumentos'. Não critiques a falta de algo que não foi pedido NESTA instrução.
-3. TRATAMENTO DIRETO: Não fales na terceira pessoa (ex: Não digas 'O aluno esqueceu'). Diz: 'Tu esqueceste-te' ou 'Fizeste um bom trabalho'.
-4. NÃO INVENTES: Se o aluno cumpriu o pedido, não peças detalhes extras que o professor não solicitou.";
+            string promptUsuario = $@"
+INSTRUÇÃO DO PROFESSOR: ""{descricaoVertente}""
+TRABALHO DO ALUNO: ""{textoCompleto}""
 
-            string templateTarefa = $@"
-### INSTRUÇÃO ESPECÍFICA DO PROFESSOR (Avalia APENAS isto):
-""{descricaoVertente}""
+Responde apenas com este formato:
+**1. Pontos positivos:** (o que o aluno fez bem)
+**2. Pontos a melhorar:** (o que falta segundo a instrução)
+**3. Dica prática:** (como corrigir agora)";
 
-### RESPOSTA/TRABALHO DO ALUNO:
-""{textoCompleto}""
+            // Chamada à IA
+            string resultadoFinal = await EnviarParaOllama($"{promptSistema}\n\n{promptUsuario}");
 
-### TAREFA:
-Analisa a resposta do aluno face à instrução. Se ele cumpriu tudo o que foi pedido NESTA INSTRUÇÃO, elogia-o. 
-Se falta algo que o professor pediu especificamente aqui, explica como ele pode corrigir.
+            if (string.IsNullOrWhiteSpace(resultadoFinal) || resultadoFinal.Contains("using "))
+                resultadoFinal = "Ocorreu um erro ao gerar o feedback. Por favor, tenta simplificar o teu texto.";
 
-FORMATO OBRIGATÓRIO DE RESPOSTA:
-**1. Pontos positivos:** (O que fizeste bem nesta vertente)
-**2. Pontos a melhorar:** (O que falta ou pode ser melhorado especificamente aqui)
-**3. Sugestões concretas:** (Dicas para corrigires o trabalho agora)";
-
-            string resultadoFinal;
-
-            // Lógica para textos muito longos
-            if (textoCompleto.Length > 4000)
-            {
-                var partes = DividirTexto(textoCompleto);
-                var tarefas = partes.Select(parte =>
-                    EnviarParaOllama($"{promptSistema}\nAnalisa esta parte: {parte}\nInstrução: {descricaoVertente}\nFeedback curto na 2ª pessoa.")
-                ).ToList();
-
-                var resultados = await Task.WhenAll(tarefas);
-                var resumoParcial = string.Join("\n", resultados);
-
-                resultadoFinal = await EnviarParaOllama($"{promptSistema}\nResumo dos pontos encontrados: {resumoParcial}\n{templateTarefa}");
-            }
-            else
-            {
-                resultadoFinal = await EnviarParaOllama($"{promptSistema}\n{templateTarefa}");
-            }
-
-            if (string.IsNullOrWhiteSpace(resultadoFinal))
-                resultadoFinal = "Não foi possível gerar feedback automático. Verifica se o texto é suficiente.";
-
-            // Salvar no Cache
-            if (useCache)
-                _cache[cacheKey] = resultadoFinal.Trim();
+            if (useCache) _cache[cacheKey] = resultadoFinal.Trim();
 
             return resultadoFinal.Trim();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"💥 ERRO IAService: {ex.Message}");
-            return "Ocorreu um erro ao processar o feedback com a IA.";
+            Console.WriteLine($"💥 Erro: {ex.Message}");
+            return "Erro técnico ao processar sugestões.";
         }
     }
 
     private string LerPdfComSeguranca(byte[]? arquivoBytes)
     {
         if (arquivoBytes == null || arquivoBytes.Length == 0) return "";
-
         try
         {
             using var ms = new MemoryStream(arquivoBytes);
             using var pdf = PdfDocument.Open(ms);
             var sb = new StringBuilder();
-
-            foreach (Page page in pdf.GetPages())
-            {
-                var text = page.Text?.Trim();
-                if (!string.IsNullOrEmpty(text))
-                    sb.AppendLine(text);
-            }
+            foreach (var page in pdf.GetPages()) sb.AppendLine(page.Text);
             return sb.ToString();
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"⚠️ Erro ao ler PDF: {ex.Message}");
-            return "";
-        }
-    }
-
-    private List<string> DividirTexto(string texto, int tamanhoMax = 3000)
-    {
-        var partes = new List<string>();
-        if (string.IsNullOrEmpty(texto)) return partes;
-
-        for (int i = 0; i < texto.Length; i += tamanhoMax)
-        {
-            partes.Add(texto.Substring(i, Math.Min(tamanhoMax, texto.Length - i)));
-        }
-        return partes;
+        catch { return ""; }
     }
 
     private async Task<string> EnviarParaOllama(string prompt)
     {
         try
         {
-            // Alterado para qwen2:0.5b para garantir funcionamento em 512MB de RAM
             var requestBody = new
             {
                 model = "qwen2:0.5b",
                 prompt = prompt,
-                stream = false
+                stream = false,
+                options = new
+                {
+                    temperature = 0.3, // Menor temperatura = menos invenções/alucinações
+                    top_p = 0.9,
+                    num_predict = 400  // Limita o tamanho da resposta
+                }
             };
 
-            var content = new StringContent(
-                JsonSerializer.Serialize(requestBody),
-                Encoding.UTF8,
-                "application/json"
-            );
-
+            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
             var response = await _httpClient.PostAsync("/api/generate", content);
 
-            if (!response.IsSuccessStatusCode)
-            {
-                return "";
-            }
+            if (!response.IsSuccessStatusCode) return "";
 
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
-
-            if (doc.RootElement.TryGetProperty("response", out var resp))
-            {
-                return resp.GetString() ?? "";
-            }
-
-            return "";
+            return doc.RootElement.GetProperty("response").GetString() ?? "";
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"💥 Erro comunicação Ollama: {ex.Message}");
-            return "";
-        }
+        catch { return ""; }
     }
 }
