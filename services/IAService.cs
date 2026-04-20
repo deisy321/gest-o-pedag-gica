@@ -150,10 +150,10 @@ FORMATO OBRIGATÓRIO DE RESPOSTA:
     {
         try
         {
-            // Alterado para tinydolphin para caber nos 512MB de RAM do Render
+            // Alterado para qwen2:0.5b para garantir funcionamento em 512MB de RAM
             var requestBody = new
             {
-                model = "tinydolphin",
+                model = "qwen2:0.5b",
                 prompt = prompt,
                 stream = false
             };
