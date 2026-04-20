@@ -150,10 +150,10 @@ FORMATO OBRIGATÓRIO DE RESPOSTA:
     {
         try
         {
-            // Alterado para phi3:mini para suportar o limite de RAM do plano Starter
+            // Alterado para tinydolphin para caber nos 512MB de RAM do Render
             var requestBody = new
             {
-                model = "phi3:mini",
+                model = "tinydolphin",
                 prompt = prompt,
                 stream = false
             };
