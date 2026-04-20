@@ -4,23 +4,28 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Linq;
 
 public class IAService
 {
     private readonly HttpClient _httpClient;
     private readonly ConcurrentDictionary<string, string> _cache = new();
 
-    // A tua chave Groq atualizada
+    // Chave API da Groq
     private const string GroqApiKey = "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";
 
     public IAService(HttpClient httpClient)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        // Configuração de User-Agent para evitar bloqueios de API
+        if (_httpClient.DefaultRequestHeaders.UserAgent.Count == 0)
+        {
+            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("TriadeLearn/1.0");
+        }
     }
 
     public async Task<string> ObterSugestoes(
@@ -34,22 +39,24 @@ public class IAService
     {
         try
         {
+            // Verificação de conteúdo vazio
             if (string.IsNullOrWhiteSpace(textoAluno) && (arquivoBytes == null || arquivoBytes.Length == 0))
                 return "Tu não enviaste conteúdo. Por favor, escreve algo ou anexa um PDF.";
 
             string textoArquivo = LerPdfComSeguranca(arquivoBytes);
             string textoCompleto = (textoAluno ?? "") + "\n" + textoArquivo;
 
+            // Lógica de Cache
             var cacheKey = $"{alunoId}_{trabalhoId}_{vertenteId}";
             if (useCache && _cache.TryGetValue(cacheKey, out var cached))
                 return cached;
 
-            // PROMPT PROFISSIONAL PARA LLAMA 3
+            // Definição dos Prompts
             string promptSistema = @"És um Professor avaliador rigoroso. 
 Regras:
 1. Fala diretamente com o aluno usando 'Tu' (ex: Tu fizeste, Teu erro).
 2. Compara o TRABALHO com a INSTRUÇÃO.
-3. Se o aluno cometeu erros factuais (como trocar conceitos científicos), corrige-os com a verdade.
+3. Se o aluno cometeu erros factuais, corrige-os com a verdade científica.
 4. Sê pedagógico, direto e não inventes informações.";
 
             string promptUsuario = $@"
@@ -61,15 +68,13 @@ Responde apenas neste formato:
 **2. Pontos a melhorar:**
 **3. Dica prática:**";
 
-            // Chamada à API da Groq (Llama 3 8B)
+            // Chamada à API da Groq
             string resultadoFinal = await EnviarParaGroq(promptSistema, promptUsuario);
 
-            if (string.IsNullOrWhiteSpace(resultadoFinal))
-                resultadoFinal = "Tive um problema ao contactar o meu cérebro (IA). Tenta novamente.";
+            if (useCache && !string.IsNullOrEmpty(resultadoFinal))
+                _cache[cacheKey] = resultadoFinal.Trim();
 
-            if (useCache) _cache[cacheKey] = resultadoFinal.Trim();
-
-            return resultadoFinal.Trim();
+            return string.IsNullOrEmpty(resultadoFinal) ? "Erro ao gerar feedback." : resultadoFinal.Trim();
         }
         catch (Exception ex)
         {
@@ -84,33 +89,33 @@ Responde apenas neste formato:
         {
             var requestBody = new
             {
-                model = "llama3-8b-8192", // Modelo potente que não falha em Química
+                // Modelo atualizado para Llama 3.1 70B (Versátil e Inteligente)
+                model = "llama-3.1-70b-versatile",
                 messages = new[] {
                     new { role = "system", content = systemPrompt },
                     new { role = "user", content = userPrompt }
                 },
-                temperature = 0.5 // Equilíbrio perfeito entre foco e fluidez
+                temperature = 0.3
             };
 
+            var jsonContent = JsonSerializer.Serialize(requestBody);
             using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
 
-            // Configuração dos Headers de Segurança
-            request.Headers.Add("Authorization", $"Bearer {GroqApiKey}");
-            request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+            // Autenticação Bearer Token
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", GroqApiKey.Trim());
+            request.Content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.SendAsync(request);
+            var responseString = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
             {
-                var erro = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"💥 Erro API Groq: {erro}");
-                return "Ocorreu um erro na ligação à IA.";
+                // Log de erro visível na consola do Render
+                Console.WriteLine($"💥 Erro API Groq: {responseString}");
+                return "Ocorreu um erro na ligação à IA. O modelo pode estar em manutenção.";
             }
 
-            var json = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
-
-            // Navega no JSON da Groq para extrair a resposta
+            using var doc = JsonDocument.Parse(responseString);
             return doc.RootElement
                 .GetProperty("choices")[0]
                 .GetProperty("message")
@@ -119,8 +124,8 @@ Responde apenas neste formato:
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"💥 Erro Conexão: {ex.Message}");
-            return "";
+            Console.WriteLine($"💥 Erro de Conexão: {ex.Message}");
+            return "Erro de comunicação com o Llama 3.";
         }
     }
 
