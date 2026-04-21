@@ -6,6 +6,7 @@
 @using gestaopedagogica.Services
 
 @inject TrabalhoService TrabalhoService
+@inject PushService PushService
 @inject NavigationManager Nav
 
 <div class="container-fluid mt-4">
@@ -97,7 +98,6 @@
                                         <i class="bi bi-file-earmark-check me-2 fs-4"></i>
                                         <strong>Ficheiro Enviado:</strong> @Vertente.FicheiroNome
                                     </div>
-                                    @* LINK CORRIGIDO PARA ACESSAR O CONTROLLER *@
                                     <a href="/ficheiro/vertente/@Vertente.Id" target="_blank" class="btn btn-success shadow-sm">
                                         <i class="bi bi-download me-1"></i> Descarregar Ficheiro
                                     </a>
@@ -230,6 +230,7 @@
             if (Nota < 0 || Nota > 20)
             {
                 StatusMessage = "❌ A nota deve estar entre 0 e 20.";
+                IsSaving = false;
                 return;
             }
 
@@ -239,8 +240,27 @@
             Vertente.Feedback = Feedback;
             await TrabalhoService.AtualizarVertenteAsync(Vertente);
 
-            StatusMessage = "✅ Avaliação guardada com sucesso!";
-            await Task.Delay(1000);
+            // --- LÓGICA DE NOTIFICAÇÃO PARA O ALUNO (ADICIONADA) ---
+            if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.AlunoId.ToString()))
+            {
+                // Busca as subscrições de push associadas ao ID do aluno
+                var subs = await TrabalhoService.GetSubscriptionsByUserIdAsync(Trabalho.AlunoId.ToString());
+
+                foreach (var sub in subs)
+                {
+                    try
+                    {
+                        await PushService.EnviarNotificacaoAsync(sub.Payload,
+                            $"Nova Avaliação: O teu trabalho '{Trabalho.Titulo}' (Vertente: {Tipo}) foi avaliado com a nota {Nota}.");
+                    }
+                    catch { /* Silencia erros de envio individual para não travar o processo */ }
+                }
+            }
+
+            StatusMessage = "✅ Avaliação guardada com sucesso! O aluno foi notificado.";
+            StateHasChanged();
+
+            await Task.Delay(1500);
             Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
         }
         catch (Exception ex)

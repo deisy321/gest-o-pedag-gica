@@ -221,7 +221,6 @@
                     {
                         Id = 0,
                         Tipo = Trabalho.IsPlanoRecuperacao ? "Recuperação de Nota" : "Desenvolvimento",
-                        // ✅ CORREÇÃO: Usando ConteudoTexto em vez de Descricao
                         ConteudoTextoProfessor = Trabalho.ConteudoTexto ?? "Siga as orientações.",
                         ConteudoTextoAluno = Trabalho.ConteudoTextoAluno ?? "",
                         ArquivoNome = Trabalho.FicheiroNome,
@@ -278,7 +277,6 @@
                 {
                     Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
                     Trabalho.DataEntrega = dataAtualUtc;
-                    // ✅ CORREÇÃO: Removida a linha Trabalho.Progresso = 100;
                     if (vert.ArquivoBytes != null)
                     {
                         Trabalho.FicheiroNome = vert.ArquivoNome;
@@ -289,11 +287,19 @@
                 }
             }
 
+            // --- LÓGICA DE NOTIFICAÇÃO PARA O PROFESSOR (ADICIONADA) ---
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
-                var push = await TrabalhoService.GetProfessorPushSubscriptionAsync(Trabalho.ProfessorId);
-                if (!string.IsNullOrEmpty(push))
-                    await PushService.EnviarNotificacaoAsync(push, $"Entrega de {Trabalho.Aluno?.UserName}: {Trabalho.Titulo}");
+                var subs = await TrabalhoService.GetSubscriptionsByUserIdAsync(Trabalho.ProfessorId);
+                foreach (var sub in subs)
+                {
+                    try
+                    {
+                        await PushService.EnviarNotificacaoAsync(sub.Payload,
+                            $"Entrega Recebida: O aluno {Trabalho.Aluno?.UserName ?? "Estudante"} enviou o trabalho '{Trabalho.Titulo}'.");
+                    }
+                    catch { /* Ignora erros de envio individual */ }
+                }
             }
 
             MostrarModalSucesso = true;
