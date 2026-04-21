@@ -194,49 +194,52 @@
             {
                 var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
 
-                TrabalhosAluno = trabalhos?.Select(t => new TrabalhoAlunoCustom
+                if (trabalhos != null)
                 {
-                    TrabalhoId = t.Id,
-                    Titulo = t.Titulo,
-                    DisciplinaId = t.DisciplinaId,
-                    Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatusCustom
+                    TrabalhosAluno = trabalhos.Select(t => new TrabalhoAlunoCustom
                     {
-                        Tipo = v.Tipo,
-                        Enviado = !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null,
-                        Nota = v.Nota
-                    }).ToList() ?? new List<VertenteStatusCustom>()
-                }).ToList() ?? new List<TrabalhoAlunoCustom>();
+                        TrabalhoId = t.Id,
+                        Titulo = t.Titulo,
+                        DisciplinaId = t.DisciplinaId,
+                        Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatusCustom
+                        {
+                            Tipo = v.Tipo,
+                            Enviado = !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null,
+                            Nota = v.Nota
+                        }).ToList() ?? new List<VertenteStatusCustom>()
+                    }).ToList();
 
-                AnalisarVertentesCriticas();
+                    AnalisarVertentesCriticas();
+                }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Erro ao carregar ficha: {ex.Message}");
+            Console.WriteLine($"Erro: {ex.Message}");
         }
         finally
         {
             IsLoading = false;
+            StateHasChanged();
         }
     }
 
-    // LÓGICA DE ANÁLISE REFORMULADA
     private void AnalisarVertentesCriticas()
     {
+        if (TrabalhosAluno == null || !TrabalhosAluno.Any()) return;
+
         VertentesAbaixoDaMedia = TrabalhosAluno
             .SelectMany(t => t.Vertentes)
             .Where(v => v.Nota.HasValue)
-            .GroupBy(v => v.Tipo.Trim().ToUpper()) // Agrupar normalizando o texto
+            .GroupBy(v => v.Tipo.Trim().ToUpper())
             .Select(g => new VertenteAnalise
             {
-                Tipo = g.First().Tipo, // Pega o nome original
+                Tipo = g.First().Tipo,
                 Media = g.Average(v => Convert.ToDouble(v.Nota!.Value))
             })
-            .Where(v => v.Media <= 9.0) // Filtro de nota crítica
+            .Where(v => v.Media <= 9.0)
             .OrderBy(v => v.Media)
             .ToList();
-
-        StateHasChanged(); // Forçar atualização da UI
     }
 
     private void IniciarPlano(VertenteAnalise v)
@@ -272,22 +275,20 @@
 
             var vertenteInicial = new TrabalhoVertente
             {
-                TrabalhoId = trabalhoId,
+                TrabalhoId = trabajoId,
                 Tipo = VertenteEmFoco.Tipo,
                 ConteudoTexto = DescricaoNovoPlano
             };
 
             await TrabalhoService.AddVertenteAsync(vertenteInicial);
-
-            await JS.InvokeVoidAsync("alert", $"Plano de {VertenteEmFoco.Tipo} enviado com sucesso!");
+            await JS.InvokeVoidAsync("alert", "Plano enviado!");
 
             VertenteEmFoco = null;
-            DescricaoNovoPlano = "";
             await CarregarFichaCompleta();
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", "Erro ao criar plano: " + ex.Message);
+            await JS.InvokeVoidAsync("alert", "Erro: " + ex.Message);
         }
         finally
         {
@@ -317,4 +318,4 @@
         public string Tipo { get; set; } = "";
         public double Media { get; set; }
     }
-}
+}S
