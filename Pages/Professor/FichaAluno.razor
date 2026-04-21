@@ -83,7 +83,7 @@
 
             @if (VertentesAbaixoDaMedia != null && VertentesAbaixoDaMedia.Any())
             {
-                <p class="text-muted small">As seguintes vertentes possuem média inferior ou igual a 9.0:</p>
+                <p class="text-muted small">As seguintes categorias apresentam média insuficiente (≤ 9.0):</p>
                 <div class="row g-2">
                     @foreach (var v in VertentesAbaixoDaMedia)
                     {
@@ -104,13 +104,13 @@
                 @if (VertenteEmFoco != null)
                 {
                     <div class="mt-4 p-3 bg-light rounded border-start border-danger border-4">
-                        <h6 class="fw-bold text-danger">Novo Plano de Recuperação: @VertenteEmFoco.Tipo</h6>
-                        <textarea class="form-control mb-3" rows="3" @bind="DescricaoNovoPlano"
-                                  placeholder="Descreva as tarefas de recuperação para esta vertente específica..."></textarea>
+                        <h6 class="fw-bold text-danger">Instruções para Recuperação: @VertenteEmFoco.Tipo</h6>
+                        <textarea class="form-control mb-3" rows="4" @bind="DescricaoNovoPlano"
+                                  placeholder="Escreva aqui as orientações detalhadas para o aluno..."></textarea>
                         <div class="d-flex gap-2">
                             <button class="btn btn-danger btn-sm px-4" @onclick="SubmeterPlanoRecuperacao"
                                     disabled="@(string.IsNullOrEmpty(DescricaoNovoPlano) || IsSaving)">
-                                @(IsSaving ? "A enviar..." : "Enviar para o Aluno")
+                                @(IsSaving ? "A enviar..." : "Enviar Plano ao Aluno")
                             </button>
                             <button class="btn btn-outline-secondary btn-sm" @onclick="() => VertenteEmFoco = null">Cancelar</button>
                         </div>
@@ -197,7 +197,6 @@
 
                 if (trabalhos != null)
                 {
-                    // Filtramos apenas trabalhos normais para o cálculo de médias iniciais
                     TrabalhosAluno = trabalhos.Select(t => new TrabalhoAlunoCustom
                     {
                         TrabalhoId = t.Id,
@@ -231,7 +230,6 @@
     {
         if (TrabalhosAluno == null || !TrabalhosAluno.Any()) return;
 
-        // Importante: Ignoramos os planos de recuperação já existentes para não viciar a média
         VertentesAbaixoDaMedia = TrabalhosAluno
             .Where(t => !t.IsPlanoRecuperacao)
             .SelectMany(t => t.Vertentes)
@@ -246,7 +244,6 @@
                     TemNotas = notasValidas.Any()
                 };
             })
-            // Só mostramos se houver notas e a média for <= 9
             .Where(v => v.TemNotas && v.Media <= 9.0)
             .OrderBy(v => v.Media)
             .ToList();
@@ -287,13 +284,14 @@
             {
                 TrabalhoId = trabalhoId,
                 Tipo = VertenteEmFoco.Tipo,
-                ConteudoTexto = "Plano enviado pelo professor. Aguarda-se resposta ou avaliação.",
-                // Definimos como enviado para o sistema do professor o detetar na Dashboard
+                // CORREÇÃO: Passamos o texto que o prof escreveu para a vertente,
+                // que é o que o aluno visualiza na página de detalhes.
+                ConteudoTexto = DescricaoNovoPlano,
                 ConteudoTextoAluno = "Iniciado por Recuperação"
             };
 
             await TrabalhoService.AddVertenteAsync(vertenteInicial);
-            await JS.InvokeVoidAsync("alert", "Plano enviado com sucesso! Já pode vê-lo na sua Dashboard.");
+            await JS.InvokeVoidAsync("alert", "Plano enviado com sucesso! O aluno já pode ver as suas instruções.");
 
             VertenteEmFoco = null;
             await CarregarFichaCompleta();
