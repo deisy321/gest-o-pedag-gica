@@ -30,14 +30,11 @@
                 <div class="card shadow-sm border-0 p-3 d-flex align-items-center justify-content-center"
                      style="border-radius: 15px; cursor:pointer; text-align:center;"
                      @onclick="ToggleDetalhes">
-
                     <div class="bg-primary text-white d-flex align-items-center justify-content-center mb-2"
                          style="width:50px; height:50px; border-radius:50%; font-size:20px;">
                         @(string.IsNullOrEmpty(AlunoSelecionado.Nome) ? "?" : AlunoSelecionado.Nome.Substring(0, 1).ToUpper())
                     </div>
-
                     <div class="fw-bold">@AlunoSelecionado.Nome</div>
-
                     @if (MostrarDetalhes)
                     {
                         <div class="mt-2 border-top pt-2 text-start w-100">
@@ -190,11 +187,9 @@
         try
         {
             AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
-
             if (AlunoSelecionado != null && !string.IsNullOrEmpty(AlunoSelecionado.UserId))
             {
                 var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
-
                 if (trabalhos != null)
                 {
                     TrabalhosAluno = trabalhos.Select(t => new TrabalhoAlunoCustom
@@ -263,12 +258,14 @@
         try
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var professorUserId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var professorUserId = authState.User.FindFirst(System.Security.Claims.ClaimsIdentity.DefaultNameClaimType)?.Value
+                               ?? authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
+            // 1. Criar o Objeto Trabalho (Pai)
             var plano = new Trabalho
             {
                 Titulo = $"RECUPERAÇÃO: {VertenteEmFoco.Tipo}",
-                ConteudoTexto = DescricaoNovoPlano,
+                ConteudoTexto = DescricaoNovoPlano, // Texto do Professor
                 AlunoId = AlunoSelecionado.UserId,
                 ProfessorId = professorUserId,
                 IsPlanoRecuperacao = true,
@@ -280,20 +277,22 @@
 
             var trabalhoId = await TrabalhoService.AddTrabalhoAsync(plano);
 
+            // 2. Criar a Vertente (Filho) - ONDE O ALUNO LÊ
             var vertenteInicial = new TrabalhoVertente
             {
                 TrabalhoId = trabalhoId,
                 Tipo = VertenteEmFoco.Tipo,
-                // CORREÇÃO: Passamos o texto que o prof escreveu para a vertente,
-                // que é o que o aluno visualiza na página de detalhes.
+                // AQUI ESTÁ A CHAVE: O campo ConteudoTexto da vertente DEVE ser o texto do professor
                 ConteudoTexto = DescricaoNovoPlano,
-                ConteudoTextoAluno = "Iniciado por Recuperação"
+                // E indicamos que o aluno ainda não escreveu nada
+                ConteudoTextoAluno = "A aguardar resposta do aluno..."
             };
 
             await TrabalhoService.AddVertenteAsync(vertenteInicial);
-            await JS.InvokeVoidAsync("alert", "Plano enviado com sucesso! O aluno já pode ver as suas instruções.");
+            await JS.InvokeVoidAsync("alert", "Plano enviado com sucesso!");
 
             VertenteEmFoco = null;
+            DescricaoNovoPlano = "";
             await CarregarFichaCompleta();
         }
         catch (Exception ex)
