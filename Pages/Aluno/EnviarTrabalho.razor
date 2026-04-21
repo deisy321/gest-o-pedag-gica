@@ -32,8 +32,9 @@
 
         @if (!string.IsNullOrEmpty(StatusMessage))
         {
-            var alertClass = StatusMessage.Contains("sucesso") ? "alert-success" : (StatusMessage.Contains("IA") ? "alert-info" : "alert-danger");
-            var alertIcon = StatusMessage.Contains("sucesso") ? "fa-check-circle" : "fa-exclamation-triangle";
+            var alertClass = StatusMessage.Contains("sucesso", StringComparison.OrdinalIgnoreCase) ? "alert-success" :
+            (StatusMessage.Contains("IA", StringComparison.OrdinalIgnoreCase) ? "alert-info" : "alert-danger");
+            var alertIcon = StatusMessage.Contains("sucesso", StringComparison.OrdinalIgnoreCase) ? "fa-check-circle" : "fa-exclamation-triangle";
 
             <div class="alert-custom @alertClass mb-4 animate-slide-up">
                 <i class="fas @alertIcon me-2"></i>
@@ -124,7 +125,7 @@
                         <div class="d-grid gap-3 mt-4">
                             <button class="btn-custom btn-custom-secondary w-100 justify-content-center"
                                     @onclick="GerarFeedbackSelecionadoAsync" disabled="@IsSaving">
-                                @if (IsSaving && !MostrarModalSucesso)
+                                @if (IsSaving && !MostrarModalSucesso && !MostrarModalFeedback)
                                 {
                                     <span class="spinner-border spinner-border-sm me-2"></span>
                                 }
@@ -302,6 +303,7 @@
         {
             StatusMessage = "Erro ao submeter: " + ex.Message;
             IsSaving = false;
+            StateHasChanged();
         }
     }
 
@@ -309,24 +311,46 @@
     {
         if (IsSaving || Trabalho == null) return;
         var selecionadas = Vertentes.Where(x => x.SolicitarFeedback).ToList();
-        if (!selecionadas.Any()) { StatusMessage = "Selecione a opção 'Solicitar revisão da IA'."; return; }
+        if (!selecionadas.Any())
+        {
+            StatusMessage = "Selecione a opção 'Solicitar revisão da IA'.";
+            return;
+        }
 
         IsSaving = true;
         StatusMessage = "Análise da IA em curso...";
         FeedbacksGerados.Clear();
+        StateHasChanged();
 
         try
         {
             foreach (var v in selecionadas)
             {
-                // Passando o AlunoId e os bytes do arquivo para o serviço
-                var feedbackIA = await TrabalhoService.GerarFeedbackIAAsync(Trabalho.AlunoId, v.ConteudoTextoAluno, v.ArquivoBytes, Trabalho.Id, v.Id.ToString());
-                FeedbacksGerados.Add(new FeedbackModel { Tipo = v.Tipo, Texto = feedbackIA ?? "Sem resposta da IA." });
+                var feedbackIA = await TrabalhoService.GerarFeedbackIAAsync(
+                    Trabalho.AlunoId,
+                    v.ConteudoTextoAluno ?? "",
+                    v.ArquivoBytes,
+                    Trabalho.Id,
+                    v.Id.ToString()
+                );
+
+                FeedbacksGerados.Add(new FeedbackModel
+                {
+                    Tipo = v.Tipo,
+                    Texto = feedbackIA ?? "A IA não conseguiu gerar uma resposta no momento."
+                });
             }
             MostrarModalFeedback = true;
         }
-        catch (Exception ex) { StatusMessage = "Erro IA: " + ex.Message; }
-        finally { IsSaving = false; }
+        catch (Exception ex)
+        {
+            StatusMessage = "Erro IA: " + ex.Message;
+        }
+        finally
+        {
+            IsSaving = false;
+            StateHasChanged();
+        }
     }
 
     private async Task UploadArquivo(InputFileChangeEventArgs e, AlunoVertenteModel vert)
@@ -338,16 +362,30 @@
             {
                 vert.ArquivoNome = file.Name;
                 vert.ArquivoContentType = file.ContentType;
+
+                // Limite de 10MB
                 using var ms = new MemoryStream();
                 await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
                 vert.ArquivoBytes = ms.ToArray();
+
+                StatusMessage = $"Arquivo '{file.Name}' carregado com sucesso.";
+                StateHasChanged();
             }
         }
-        catch (Exception ex) { StatusMessage = "Erro no ficheiro: " + ex.Message; }
+        catch (Exception ex)
+        {
+            StatusMessage = "Erro no ficheiro: " + ex.Message;
+            StateHasChanged();
+        }
     }
 
     private void FecharModalFeedback() => MostrarModalFeedback = false;
-    private async Task AceitarFeedback() { MostrarModalFeedback = false; await EnviarVertentesAsync(); }
+
+    private async Task AceitarFeedback()
+    {
+        MostrarModalFeedback = false;
+        await EnviarVertentesAsync();
+    }
 
     public class AlunoVertenteModel
     {
@@ -362,5 +400,9 @@
         public decimal? Nota { get; set; }
     }
 
-    public class FeedbackModel { public string Tipo { get; set; } = ""; public string Texto { get; set; } = ""; }
+    public class FeedbackModel
+    {
+        public string Tipo { get; set; } = "";
+        public string Texto { get; set; } = "";
+    }
 }
