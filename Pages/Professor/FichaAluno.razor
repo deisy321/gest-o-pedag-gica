@@ -85,7 +85,7 @@
 
             @if (VertentesAbaixoDaMedia.Any())
             {
-                <p class="text-muted small">As seguintes vertentes possuem média inferior a 10.0:</p>
+                <p class="text-muted small">As seguintes vertentes possuem média inferior ou igual a 9.0:</p>
                 <div class="row g-2">
                     @foreach (var v in VertentesAbaixoDaMedia)
                     {
@@ -120,7 +120,7 @@
             }
             else
             {
-                <p class="text-muted mb-0 small">O aluno não possui vertentes críticas que necessitem de recuperação no momento.</p>
+                <p class="text-muted mb-0 small">O aluno não possui vertentes críticas (média ≤ 9) no momento.</p>
             }
         </div>
 
@@ -178,9 +178,9 @@
     private double CalcularMediaGeral()
     {
         var notas = TrabalhosAluno.SelectMany(t => t.Vertentes)
-                                 .Where(v => v.Nota.HasValue)
-                                 .Select(v => (double)v.Nota!.Value)
-                                 .ToList();
+                                  .Where(v => v.Nota.HasValue)
+                                  .Select(v => (double)v.Nota!.Value)
+                                  .ToList();
         return notas.Any() ? notas.Average() : 0;
     }
 
@@ -231,7 +231,7 @@
                 Tipo = g.Key,
                 Media = (double)g.Average(v => v.Nota!.Value)
             })
-            .Where(v => v.Media < 10)
+            .Where(v => v.Media <= 9) // CORRIGIDO: Agora menor ou igual a 9
             .OrderBy(v => v.Media)
             .ToList();
     }
@@ -252,7 +252,6 @@
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var professorUserId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            // 1. Criar o Trabalho Principal de Recuperação
             var plano = new Trabalho
             {
                 Titulo = $"RECUPERAÇÃO: {VertenteEmFoco.Tipo}",
@@ -263,18 +262,16 @@
                 DataCriacao = DateTime.UtcNow,
                 PrazoEntrega = DateTime.UtcNow.AddDays(7),
                 DisciplinaId = TrabalhosAluno.FirstOrDefault()?.DisciplinaId,
-                TurmaId = AlunoSelecionado.TurmaId // VÍNCULO ESSENCIAL
+                TurmaId = AlunoSelecionado.TurmaId
             };
 
-            // AddTrabalhoAsync ou CriarTrabalhoAsync conforme o teu Service
             var trabalhoId = await TrabalhoService.AddTrabalhoAsync(plano);
 
-            // 2. Criar a Vertente (Sem isto o Dashboard do prof ignora o trabalho)
             var vertenteInicial = new TrabalhoVertente
             {
                 TrabalhoId = trabalhoId,
                 Tipo = VertenteEmFoco.Tipo,
-                ConteudoTexto = DescricaoNovoPlano // Instruções do professor
+                ConteudoTexto = DescricaoNovoPlano
             };
 
             await TrabalhoService.AddVertenteAsync(vertenteInicial);
