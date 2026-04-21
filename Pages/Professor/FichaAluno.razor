@@ -33,7 +33,7 @@
 
                     <div class="bg-primary text-white d-flex align-items-center justify-content-center mb-2"
                          style="width:50px; height:50px; border-radius:50%; font-size:20px;">
-                        @AlunoSelecionado.Nome.Substring(0, 1).ToUpper()
+                        @(string.IsNullOrEmpty(AlunoSelecionado.Nome) ? "?" : AlunoSelecionado.Nome.Substring(0, 1).ToUpper())
                     </div>
 
                     <div class="fw-bold">@AlunoSelecionado.Nome</div>
@@ -45,49 +45,45 @@
                             <small class="d-block"><strong>Turma:</strong> @(AlunoSelecionado.Turma?.Nome ?? "Sem turma")</small>
                         </div>
                     }
+                </div>
             </div>
-        </div>
 
-        <div class="col-md-9">
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#f0f8ff;">
-                        <h6 class="text-muted">Entregues</h6>
-                        <h4 class="fw-bold mb-0">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Enviado))</h4>
+            <div class="col-md-9">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#f0f8ff;">
+                            <h6 class="text-muted">Entregues</h6>
+                            <h4 class="fw-bold mb-0">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Enviado))</h4>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#fff3cd;">
-                        <h6 class="text-muted">Pendentes</h6>
-                        <h4 class="fw-bold mb-0">@TrabalhosAluno.Count(t => t.Vertentes.All(v => !v.Enviado))</h4>
+                    <div class="col-md-3">
+                        <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#fff3cd;">
+                            <h6 class="text-muted">Pendentes</h6>
+                            <h4 class="fw-bold mb-0">@TrabalhosAluno.Count(t => t.Vertentes.All(v => !v.Enviado))</h4>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#d4edda;">
-                        <h6 class="text-muted">Corrigidos</h6>
-                        <h4 class="fw-bold mb-0">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue))</h4>
+                    <div class="col-md-3">
+                        <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#d4edda;">
+                            <h6 class="text-muted">Corrigidos</h6>
+                            <h4 class="fw-bold mb-0">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue))</h4>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#e2e3e5;">
-                        <h6 class="text-muted">Média Geral</h6>
-                        <h4 class="fw-bold mb-0">
-                            @((TrabalhosAluno.SelectMany(t => t.Vertentes)
-                                                        .Where(v => v.Nota.HasValue)
-                                                        .Select(v => (double)v.Nota!.Value)
-                                                        .DefaultIfEmpty(0)
-                                                        .Average()).ToString("0.##"))
-                        </h4>
+                    <div class="col-md-3">
+                        <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#e2e3e5;">
+                            <h6 class="text-muted">Média Geral</h6>
+                            <h4 class="fw-bold mb-0">
+                                @CalcularMediaGeral().ToString("F1")
+                            </h4>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
         <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 15px; border-left: 5px solid #dc3545;">
             <h5 class="fw-bold text-danger mb-3"><i class="bi bi-exclamation-octagon"></i> Análise de Recuperação</h5>
 
-        @if (VertentesAbaixoDaMedia.Any())
+            @if (VertentesAbaixoDaMedia.Any())
             {
                 <p class="text-muted small">As seguintes vertentes possuem média inferior a 10.0:</p>
                 <div class="row g-2">
@@ -114,8 +110,8 @@
                         <textarea class="form-control mb-3" rows="3" @bind="DescricaoNovoPlano"
                                   placeholder="Descreva as tarefas de recuperação para esta vertente específica..."></textarea>
                         <div class="d-flex gap-2">
-                            <button class="btn btn-danger btn-sm px-4" @onclick="SubmeterPlanoRecuperacao" disabled="@string.IsNullOrEmpty(DescricaoNovoPlano)">
-                                Enviar para o Aluno
+                            <button class="btn btn-danger btn-sm px-4" @onclick="SubmeterPlanoRecuperacao" disabled="@(string.IsNullOrEmpty(DescricaoNovoPlano) || IsSaving)">
+                                @(IsSaving ? "A enviar..." : "Enviar para o Aluno")
                             </button>
                             <button class="btn btn-outline-secondary btn-sm" @onclick="() => VertenteEmFoco = null">Cancelar</button>
                         </div>
@@ -142,11 +138,16 @@
         <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
             <h5 class="fw-bold mb-4">Progresso do Aluno</h5>
             <div class="progress mb-2" style="height:25px; border-radius:12px;">
+                @{
+                    var percentagem = TrabalhosAluno.Count > 0
+                    ? (TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue)) * 100 / TrabalhosAluno.Count)
+                    : 0;
+                }
                 <div class="progress-bar bg-success" role="progressbar"
-                     style="width: @(TrabalhosAluno.Count > 0 ? (TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue)) * 100 / TrabalhosAluno.Count) : 0)%"
-                     aria-valuenow="@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue))"
-                     aria-valuemin="0" aria-valuemax="@TrabalhosAluno.Count">
-                    @((TrabalhosAluno.Count > 0 ? (TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue)) * 100 / TrabalhosAluno.Count) : 0))%
+                     style="width: @(percentagem)%"
+                     aria-valuenow="@percentagem"
+                     aria-valuemin="0" aria-valuemax="100">
+                    @percentagem%
                 </div>
             </div>
             <small class="text-muted">Percentual de trabalhos corrigidos</small>
@@ -160,6 +161,7 @@
     private Aluno? AlunoSelecionado;
     private List<TrabalhoAlunoCustom> TrabalhosAluno = new();
     private bool IsLoading = true;
+    private bool IsSaving = false;
     private bool MostrarDetalhes = false;
 
     private List<VertenteAnalise> VertentesAbaixoDaMedia = new();
@@ -171,6 +173,15 @@
     protected override async Task OnInitializedAsync()
     {
         await CarregarFichaCompleta();
+    }
+
+    private double CalcularMediaGeral()
+    {
+        var notas = TrabalhosAluno.SelectMany(t => t.Vertentes)
+                                 .Where(v => v.Nota.HasValue)
+                                 .Select(v => (double)v.Nota!.Value)
+                                 .ToList();
+        return notas.Any() ? notas.Average() : 0;
     }
 
     private async Task CarregarFichaCompleta()
@@ -202,7 +213,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Erro: {ex.Message}");
+            Console.WriteLine($"❌ Erro ao carregar ficha: {ex.Message}");
         }
         finally
         {
@@ -233,36 +244,37 @@
 
     private async Task SubmeterPlanoRecuperacao()
     {
-        if (VertenteEmFoco == null || AlunoSelecionado == null) return;
+        if (VertenteEmFoco == null || AlunoSelecionado == null || IsSaving) return;
 
+        IsSaving = true;
         try
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var professorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var professorUserId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            // Criando o Trabalho respeitando exatamente o teu modelo Trabalho.cs
+            // 1. Criar o Trabalho Principal de Recuperação
             var plano = new Trabalho
             {
                 Titulo = $"RECUPERAÇÃO: {VertenteEmFoco.Tipo}",
-                ConteudoTexto = DescricaoNovoPlano, // Usando ConteudoTexto (que existe) em vez de Descricao
+                ConteudoTexto = DescricaoNovoPlano,
                 AlunoId = AlunoSelecionado.UserId,
-                ProfessorId = professorId,
+                ProfessorId = professorUserId,
                 IsPlanoRecuperacao = true,
-                DataCriacao = DateTime.Now,
-                PrazoEntrega = DateTime.Now.AddDays(7),
+                DataCriacao = DateTime.UtcNow,
+                PrazoEntrega = DateTime.UtcNow.AddDays(7),
                 DisciplinaId = TrabalhosAluno.FirstOrDefault()?.DisciplinaId,
-                TurmaId = AlunoSelecionado.TurmaId
+                TurmaId = AlunoSelecionado.TurmaId // VÍNCULO ESSENCIAL
             };
 
-            var trabalhoId = await TrabalhoService.CriarTrabalhoAsync(plano);
+            // AddTrabalhoAsync ou CriarTrabalhoAsync conforme o teu Service
+            var trabalhoId = await TrabalhoService.AddTrabalhoAsync(plano);
 
-            // Criando a Vertente respeitando exatamente o teu modelo TrabalhoVertente.cs
+            // 2. Criar a Vertente (Sem isto o Dashboard do prof ignora o trabalho)
             var vertenteInicial = new TrabalhoVertente
             {
                 TrabalhoId = trabalhoId,
                 Tipo = VertenteEmFoco.Tipo,
-                ConteudoTexto = DescricaoNovoPlano
-                // Removido DataCriacao e Progresso pois não existem no teu modelo
+                ConteudoTexto = DescricaoNovoPlano // Instruções do professor
             };
 
             await TrabalhoService.AddVertenteAsync(vertenteInicial);
@@ -275,13 +287,16 @@
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", "Erro: " + ex.Message);
+            await JS.InvokeVoidAsync("alert", "Erro ao criar plano: " + ex.Message);
+        }
+        finally
+        {
+            IsSaving = false;
         }
     }
 
     private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
 
-    // ViewModels locais para evitar conflito com as globais e garantir propriedades corretas
     public class TrabalhoAlunoCustom
     {
         public int TrabalhoId { get; set; }
