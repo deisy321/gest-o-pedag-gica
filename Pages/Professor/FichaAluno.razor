@@ -71,9 +71,7 @@
                     <div class="col-md-3">
                         <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#e2e3e5;">
                             <h6 class="text-muted">Média Geral</h6>
-                            <h4 class="fw-bold mb-0">
-                                @CalcularMediaGeral().ToString("F1")
-                            </h4>
+                            <h4 class="fw-bold mb-0">@CalcularMediaGeral().ToString("F1")</h4>
                         </div>
                     </div>
                 </div>
@@ -83,7 +81,7 @@
         <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 15px; border-left: 5px solid #dc3545;">
             <h5 class="fw-bold text-danger mb-3"><i class="bi bi-exclamation-octagon"></i> Análise de Recuperação</h5>
 
-            @if (VertentesAbaixoDaMedia.Any())
+            @if (VertentesAbaixoDaMedia != null && VertentesAbaixoDaMedia.Any())
             {
                 <p class="text-muted small">As seguintes vertentes possuem média inferior ou igual a 9.0:</p>
                 <div class="row g-2">
@@ -92,7 +90,7 @@
                         <div class="col-md-6">
                             <div class="alert alert-light border d-flex justify-content-between align-items-center p-2 mb-0">
                                 <div>
-                                    <strong>@v.Tipo</strong>
+                                    <strong class="text-uppercase">@v.Tipo</strong>
                                     <span class="badge bg-danger ms-2">@v.Media.ToString("F1")</span>
                                 </div>
                                 <button class="btn btn-danger btn-sm rounded-pill" @onclick="() => IniciarPlano(v)">
@@ -110,7 +108,8 @@
                         <textarea class="form-control mb-3" rows="3" @bind="DescricaoNovoPlano"
                                   placeholder="Descreva as tarefas de recuperação para esta vertente específica..."></textarea>
                         <div class="d-flex gap-2">
-                            <button class="btn btn-danger btn-sm px-4" @onclick="SubmeterPlanoRecuperacao" disabled="@(string.IsNullOrEmpty(DescricaoNovoPlano) || IsSaving)">
+                            <button class="btn btn-danger btn-sm px-4" @onclick="SubmeterPlanoRecuperacao"
+                                    disabled="@(string.IsNullOrEmpty(DescricaoNovoPlano) || IsSaving)">
                                 @(IsSaving ? "A enviar..." : "Enviar para o Aluno")
                             </button>
                             <button class="btn btn-outline-secondary btn-sm" @onclick="() => VertenteEmFoco = null">Cancelar</button>
@@ -179,7 +178,7 @@
     {
         var notas = TrabalhosAluno.SelectMany(t => t.Vertentes)
                                   .Where(v => v.Nota.HasValue)
-                                  .Select(v => (double)v.Nota!.Value)
+                                  .Select(v => Convert.ToDouble(v.Nota!.Value))
                                   .ToList();
         return notas.Any() ? notas.Average() : 0;
     }
@@ -221,19 +220,23 @@
         }
     }
 
+    // LÓGICA DE ANÁLISE REFORMULADA
     private void AnalisarVertentesCriticas()
     {
-        VertentesAbaixoDaMedia = TrabalhosAluno.SelectMany(t => t.Vertentes)
+        VertentesAbaixoDaMedia = TrabalhosAluno
+            .SelectMany(t => t.Vertentes)
             .Where(v => v.Nota.HasValue)
-            .GroupBy(v => v.Tipo)
+            .GroupBy(v => v.Tipo.Trim().ToUpper()) // Agrupar normalizando o texto
             .Select(g => new VertenteAnalise
             {
-                Tipo = g.Key,
-                Media = (double)g.Average(v => v.Nota!.Value)
+                Tipo = g.First().Tipo, // Pega o nome original
+                Media = g.Average(v => Convert.ToDouble(v.Nota!.Value))
             })
-            .Where(v => v.Media <= 9) // CORRIGIDO: Agora menor ou igual a 9
+            .Where(v => v.Media <= 9.0) // Filtro de nota crítica
             .OrderBy(v => v.Media)
             .ToList();
+
+        StateHasChanged(); // Forçar atualização da UI
     }
 
     private void IniciarPlano(VertenteAnalise v)
