@@ -138,9 +138,8 @@
             <h5 class="fw-bold mb-4">Progresso do Aluno</h5>
             <div class="progress mb-2" style="height:25px; border-radius:12px;">
                 @{
-                    var percentagem = TrabalhosAluno.Count > 0
-                    ? (TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue)) * 100 / TrabalhosAluno.Count)
-                    : 0;
+                    var countCorrigidos = TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue));
+                    var percentagem = TrabalhosAluno.Count > 0 ? (countCorrigidos * 100 / TrabalhosAluno.Count) : 0;
                 }
                 <div class="progress-bar bg-success" role="progressbar"
                      style="width: @(percentagem)%"
@@ -199,11 +198,11 @@
                     TrabalhosAluno = trabalhos.Select(t => new TrabalhoAlunoCustom
                     {
                         TrabalhoId = t.Id,
-                        Titulo = t.Titulo,
+                        Titulo = t.Titulo ?? "Sem Título",
                         DisciplinaId = t.DisciplinaId,
                         Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatusCustom
                         {
-                            Tipo = v.Tipo,
+                            Tipo = v.Tipo ?? "Geral",
                             Enviado = !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null,
                             Nota = v.Nota
                         }).ToList() ?? new List<VertenteStatusCustom>()
@@ -226,15 +225,15 @@
 
     private void AnalisarVertentesCriticas()
     {
-        if (TrabalhosAluno == null || !TrabalhosAluno.Any()) return;
+        if (TrabalhosAluno == null) return;
 
         VertentesAbaixoDaMedia = TrabalhosAluno
             .SelectMany(t => t.Vertentes)
             .Where(v => v.Nota.HasValue)
-            .GroupBy(v => v.Tipo.Trim().ToUpper())
+            .GroupBy(v => (v.Tipo ?? "Geral").Trim().ToUpper())
             .Select(g => new VertenteAnalise
             {
-                Tipo = g.First().Tipo,
+                Tipo = g.First().Tipo ?? "Geral",
                 Media = g.Average(v => Convert.ToDouble(v.Nota!.Value))
             })
             .Where(v => v.Media <= 9.0)
@@ -271,11 +270,12 @@
                 TurmaId = AlunoSelecionado.TurmaId
             };
 
+            // CORREÇÃO AQUI: Mudado de trabajoId para trabalhoId
             var trabalhoId = await TrabalhoService.AddTrabalhoAsync(plano);
 
             var vertenteInicial = new TrabalhoVertente
             {
-                TrabalhoId = trabajoId,
+                TrabalhoId = trabalhoId,
                 Tipo = VertenteEmFoco.Tipo,
                 ConteudoTexto = DescricaoNovoPlano
             };
@@ -318,4 +318,4 @@
         public string Tipo { get; set; } = "";
         public double Media { get; set; }
     }
-}S
+}
