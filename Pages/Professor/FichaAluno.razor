@@ -88,7 +88,7 @@
                     @foreach (var v in VertentesAbaixoDaMedia)
                     {
                         <div class="col-md-6">
-                            <div class="alert alert-light border d-flex justify-content-between align-items-center p-2 mb-0">
+                            <div class="alert alert-light border d-flex justify-content-between align-items-center p-2 mb-0 shadow-sm">
                                 <div>
                                     <strong class="text-uppercase">@v.Tipo</strong>
                                     <span class="badge bg-danger ms-2">@v.Media.ToString("F1")</span>
@@ -185,6 +185,8 @@
     private async Task CarregarFichaCompleta()
     {
         IsLoading = true;
+        TrabalhosAluno.Clear(); // Limpa a cache local para forçar refresh
+
         try
         {
             AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
@@ -225,17 +227,22 @@
 
     private void AnalisarVertentesCriticas()
     {
-        if (TrabalhosAluno == null) return;
+        if (TrabalhosAluno == null || !TrabalhosAluno.Any()) return;
 
         VertentesAbaixoDaMedia = TrabalhosAluno
             .SelectMany(t => t.Vertentes)
-            .Where(v => v.Nota.HasValue)
+            // Filtramos apenas as que têm nota para a média, mas o GroupBy garante a união por tipo
             .GroupBy(v => (v.Tipo ?? "Geral").Trim().ToUpper())
-            .Select(g => new VertenteAnalise
+            .Select(g =>
             {
-                Tipo = g.First().Tipo ?? "Geral",
-                Media = g.Average(v => Convert.ToDouble(v.Nota!.Value))
+                var notas = g.Where(v => v.Nota.HasValue).Select(v => (double)v.Nota!.Value).ToList();
+                return new VertenteAnalise
+                {
+                    Tipo = g.First().Tipo ?? "Geral",
+                    Media = notas.Any() ? notas.Average() : 0
+                };
             })
+            // Agora sim, filtramos o que é crítico (<= 9) ou o que está a 0 (sem nota)
             .Where(v => v.Media <= 9.0)
             .OrderBy(v => v.Media)
             .ToList();
@@ -270,7 +277,6 @@
                 TurmaId = AlunoSelecionado.TurmaId
             };
 
-            // CORREÇÃO AQUI: Mudado de trabajoId para trabalhoId
             var trabalhoId = await TrabalhoService.AddTrabalhoAsync(plano);
 
             var vertenteInicial = new TrabalhoVertente
@@ -281,10 +287,10 @@
             };
 
             await TrabalhoService.AddVertenteAsync(vertenteInicial);
-            await JS.InvokeVoidAsync("alert", "Plano enviado!");
+            await JS.InvokeVoidAsync("alert", "Plano enviado com sucesso!");
 
             VertenteEmFoco = null;
-            await CarregarFichaCompleta();
+            await CarregarFichaCompleta(); // Recarrega tudo para atualizar as médias
         }
         catch (Exception ex)
         {
