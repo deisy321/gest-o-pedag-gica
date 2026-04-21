@@ -10,35 +10,45 @@
 @inject IJSRuntime JS
 
 <div class="container-fluid mt-4">
-    <h2 class="fw-bold mb-4">Ficha do Aluno</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold m-0">Ficha do Aluno</h2>
+        <button class="btn btn-outline-secondary rounded-pill" @onclick="VoltarParaDashboard">
+            <i class="bi bi-arrow-left me-2"></i> Voltar ao Painel
+        </button>
+    </div>
 
     @if (IsLoading)
     {
         <div class="text-center p-5">
             <div class="spinner-border text-primary"></div>
-            <p class="mt-2">A analisar dados do aluno...</p>
+            <p class="mt-2 text-muted">A analisar dados do aluno...</p>
         </div>
     }
     else if (AlunoSelecionado == null)
     {
-        <div class="alert alert-warning">Aluno não encontrado.</div>
+        <div class="alert alert-warning shadow-sm">
+            <i class="bi bi-exclamation-triangle me-2"></i> Aluno não encontrado ou sem permissões de acesso.
+        </div>
     }
     else
     {
+        @* Cabeçalho e Stats *@
         <div class="row g-3 mb-4">
             <div class="col-md-3">
-                <div class="card shadow-sm border-0 p-3 d-flex align-items-center justify-content-center"
-                     style="border-radius: 15px; cursor:pointer; text-align:center;"
+                <div class="card shadow-sm border-0 p-3 d-flex align-items-center justify-content-center h-100"
+                     style="border-radius: 15px; cursor:pointer; transition: 0.3s;"
                      @onclick="ToggleDetalhes">
-                    <div class="bg-primary text-white d-flex align-items-center justify-content-center mb-2"
-                         style="width:50px; height:50px; border-radius:50%; font-size:20px;">
+                    <div class="bg-primary text-white d-flex align-items-center justify-content-center mb-2 shadow-sm"
+                         style="width:60px; height:60px; border-radius:50%; font-size:24px; font-weight: bold;">
                         @(string.IsNullOrEmpty(AlunoSelecionado.Nome) ? "?" : AlunoSelecionado.Nome.Substring(0, 1).ToUpper())
                     </div>
-                    <div class="fw-bold">@AlunoSelecionado.Nome</div>
+                    <div class="fw-bold text-center">@AlunoSelecionado.Nome</div>
+                    <small class="text-muted">Clique para mais info</small>
+
                     @if (MostrarDetalhes)
                     {
-                        <div class="mt-2 border-top pt-2 text-start w-100">
-                            <small class="d-block"><strong>Email:</strong> @AlunoSelecionado.Email</small>
+                        <div class="mt-3 border-top pt-2 text-start w-100 animate__animated animate__fadeIn">
+                            <small class="d-block text-truncate"><strong>Email:</strong> @AlunoSelecionado.Email</small>
                             <small class="d-block"><strong>Turma:</strong> @(AlunoSelecionado.Turma?.Nome ?? "Sem turma")</small>
                         </div>
                     }
@@ -46,28 +56,28 @@
             </div>
 
             <div class="col-md-9">
-                <div class="row g-3">
+                <div class="row g-3 h-100">
                     <div class="col-md-3">
-                        <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#f0f8ff;">
-                            <h6 class="text-muted">Entregues</h6>
+                        <div class="card shadow-sm border-0 p-3 h-100 border-bottom border-primary border-4" style="border-radius: 15px; background:#f0f8ff;">
+                            <h6 class="text-muted small text-uppercase">Entregues</h6>
                             <h4 class="fw-bold mb-0">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Enviado))</h4>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#fff3cd;">
-                            <h6 class="text-muted">Pendentes</h6>
+                        <div class="card shadow-sm border-0 p-3 h-100 border-bottom border-warning border-4" style="border-radius: 15px; background:#fff3cd;">
+                            <h6 class="text-muted small text-uppercase">Pendentes</h6>
                             <h4 class="fw-bold mb-0">@TrabalhosAluno.Count(t => t.Vertentes.All(v => !v.Enviado))</h4>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#d4edda;">
-                            <h6 class="text-muted">Corrigidos</h6>
+                        <div class="card shadow-sm border-0 p-3 h-100 border-bottom border-success border-4" style="border-radius: 15px; background:#d4edda;">
+                            <h6 class="text-muted small text-uppercase">Corrigidos</h6>
                             <h4 class="fw-bold mb-0">@TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue))</h4>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px; background:#e2e3e5;">
-                            <h6 class="text-muted">Média Geral</h6>
+                        <div class="card shadow-sm border-0 p-3 h-100 border-bottom border-secondary border-4" style="border-radius: 15px; background:#e2e3e5;">
+                            <h6 class="text-muted small text-uppercase">Média Geral</h6>
                             <h4 class="fw-bold mb-0">@CalcularMediaGeral().ToString("F1")</h4>
                         </div>
                     </div>
@@ -75,22 +85,29 @@
             </div>
         </div>
 
+        @* Secção de Recuperação *@
         <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 15px; border-left: 5px solid #dc3545;">
-            <h5 class="fw-bold text-danger mb-3"><i class="bi bi-exclamation-octagon"></i> Análise de Recuperação</h5>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold text-danger m-0"><i class="bi bi-exclamation-octagon me-2"></i> Análise de Recuperação</h5>
+                @if (VertentesAbaixoDaMedia.Any())
+                {
+                    <span class="badge bg-danger">Ação Necessária</span>
+                }
+            </div>
 
             @if (VertentesAbaixoDaMedia != null && VertentesAbaixoDaMedia.Any())
             {
-                <p class="text-muted small">As seguintes categorias apresentam média insuficiente (≤ 9.0):</p>
+                <p class="text-muted small">As categorias abaixo apresentam desempenho insuficiente (média &le; 9.0):</p>
                 <div class="row g-2">
                     @foreach (var v in VertentesAbaixoDaMedia)
                     {
                         <div class="col-md-6">
-                            <div class="alert alert-light border d-flex justify-content-between align-items-center p-2 mb-0 shadow-sm">
+                            <div class="card border d-flex flex-row justify-content-between align-items-center p-3 shadow-sm">
                                 <div>
-                                    <strong class="text-uppercase">@v.Tipo</strong>
+                                    <strong class="text-uppercase small">@v.Tipo</strong>
                                     <span class="badge bg-danger ms-2">@v.Media.ToString("F1")</span>
                                 </div>
-                                <button class="btn btn-danger btn-sm rounded-pill" @onclick="() => IniciarPlano(v)">
+                                <button class="btn btn-danger btn-sm rounded-pill px-3" @onclick="() => IniciarPlano(v)">
                                     Criar Plano
                                 </button>
                             </div>
@@ -100,14 +117,14 @@
 
                 @if (VertenteEmFoco != null)
                 {
-                    <div class="mt-4 p-3 bg-light rounded border-start border-danger border-4">
-                        <h6 class="fw-bold text-danger">Instruções para Recuperação: @VertenteEmFoco.Tipo</h6>
+                    <div class="mt-4 p-4 bg-light rounded border-start border-danger border-4 shadow-sm animate__animated animate__fadeInUp">
+                        <h6 class="fw-bold text-danger mb-3">Instruções para Recuperação: @VertenteEmFoco.Tipo</h6>
                         <textarea class="form-control mb-3" rows="4" @bind="DescricaoNovoPlano"
-                                  placeholder="Escreva aqui as orientações detalhadas para o aluno..."></textarea>
+                                  placeholder="Descreva as tarefas ou objetivos para o aluno recuperar esta vertente..."></textarea>
                         <div class="d-flex gap-2">
                             <button class="btn btn-danger btn-sm px-4" @onclick="SubmeterPlanoRecuperacao"
-                                    disabled="@(string.IsNullOrEmpty(DescricaoNovoPlano) || IsSaving)">
-                                @(IsSaving ? "A gravar..." : "Enviar Plano ao Aluno")
+                                    disabled="@(string.IsNullOrWhiteSpace(DescricaoNovoPlano) || IsSaving)">
+                                @(IsSaving ? "A processar..." : "Enviar Plano ao Aluno")
                             </button>
                             <button class="btn btn-outline-secondary btn-sm" @onclick="() => VertenteEmFoco = null">Cancelar</button>
                         </div>
@@ -116,36 +133,39 @@
             }
             else
             {
-                <p class="text-muted mb-0 small">O aluno não possui vertentes críticas (média ≤ 9) no momento.</p>
+                <div class="text-muted mb-0 small"><i class="bi bi-check-circle-fill text-success me-1"></i> O aluno mantém médias positivas em todas as vertentes.</div>
             }
         </div>
 
-        <div class="d-flex justify-content-end mb-4 gap-2">
-            <button class="btn btn-success rounded-pill px-4"
-                    @onclick='() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}")'>
-                Avaliar Aluno
-            </button>
-            <button class="btn btn-secondary rounded-pill px-4"
-                    @onclick="VoltarParaDashboard">
-                <i class="bi bi-arrow-left me-2"></i> Voltar
-            </button>
-        </div>
-
-        <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
-            <h5 class="fw-bold mb-4">Progresso do Aluno</h5>
-            <div class="progress mb-2" style="height:25px; border-radius:12px;">
-                @{
-                    var countCorrigidos = TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue));
-                    var percentagem = TrabalhosAluno.Count > 0 ? (countCorrigidos * 100 / TrabalhosAluno.Count) : 0;
-                }
-                <div class="progress-bar bg-success" role="progressbar"
-                     style="width: @(percentagem)%"
-                     aria-valuenow="@percentagem"
-                     aria-valuemin="0" aria-valuemax="100">
-                    @percentagem%
+        @* Barra de Progresso e Ações Finais *@
+        <div class="row g-3">
+            <div class="col-md-8">
+                <div class="card shadow-sm border-0 p-4 h-100" style="border-radius: 15px;">
+                    <h5 class="fw-bold mb-4 small text-uppercase text-muted">Progresso de Avaliação</h5>
+                    @{
+                        var countCorrigidos = TrabalhosAluno.Count(t => t.Vertentes.Any(v => v.Nota.HasValue));
+                        var total = TrabalhosAluno.Count;
+                        var percentagem = total > 0 ? (countCorrigidos * 100 / total) : 0;
+                    }
+                    <div class="progress mb-2" style="height:30px; border-radius:15px; background-color: #e9ecef;">
+                        <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar"
+                             style="width: @(percentagem)%"
+                             aria-valuenow="@percentagem"
+                             aria-valuemin="0" aria-valuemax="100">
+                            @percentagem%
+                        </div>
+                    </div>
+                    <small class="text-muted">@countCorrigidos de @total trabalhos avaliados até ao momento.</small>
                 </div>
             </div>
-            <small class="text-muted">Percentual de trabalhos corrigidos</small>
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 p-4 h-100 d-flex flex-column justify-content-center" style="border-radius: 15px;">
+                    <button class="btn btn-success btn-lg rounded-pill mb-3 shadow-sm"
+                            @onclick='() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}")'>
+                        <i class="bi bi-pencil-square me-2"></i> Avaliar Agora
+                    </button>
+                </div>
+            </div>
         </div>
     }
 </div>
@@ -182,8 +202,6 @@
     private async Task CarregarFichaCompleta()
     {
         IsLoading = true;
-        TrabalhosAluno.Clear();
-
         try
         {
             AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
@@ -212,7 +230,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erro ao carregar: {ex.Message}");
+            Console.WriteLine($"Erro ao carregar ficha: {ex.Message}");
         }
         finally
         {
@@ -223,8 +241,6 @@
 
     private void AnalisarVertentesCriticas()
     {
-        if (TrabalhosAluno == null || !TrabalhosAluno.Any()) return;
-
         VertentesAbaixoDaMedia = TrabalhosAluno
             .Where(t => !t.IsPlanoRecuperacao)
             .SelectMany(t => t.Vertentes)
@@ -258,13 +274,11 @@
         try
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var professorUserId = authState.User.FindFirst(System.Security.Claims.ClaimsIdentity.DefaultNameClaimType)?.Value
-                               ?? authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var professorUserId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                                  ?? authState.User.Identity?.Name;
 
-            // Tenta obter um DisciplinaId válido dos trabalhos anteriores
             var disciplinaIdValido = TrabalhosAluno.FirstOrDefault(t => t.DisciplinaId > 0)?.DisciplinaId;
 
-            // 1. Criar o Objeto Trabalho (Pai)
             var plano = new Trabalho
             {
                 Titulo = $"RECUPERAÇÃO: {VertenteEmFoco.Tipo}",
@@ -274,43 +288,34 @@
                 IsPlanoRecuperacao = true,
                 DataCriacao = DateTime.UtcNow,
                 PrazoEntrega = DateTime.UtcNow.AddDays(7),
-                DisciplinaId = disciplinaIdValido ?? 1, // Fallback para ID 1 se não encontrar
+                DisciplinaId = disciplinaIdValido ?? 1,
                 TurmaId = AlunoSelecionado.TurmaId
             };
 
-            // Guarda o trabalho e recupera o ID
             var trabalhoId = await TrabalhoService.AddTrabalhoAsync(plano);
 
             if (trabalhoId > 0)
             {
-                // 2. Criar a Vertente (Filho) onde o aluno vai interagir
                 var vertenteInicial = new TrabalhoVertente
                 {
                     TrabalhoId = trabalhoId,
                     Tipo = VertenteEmFoco.Tipo,
-                    ConteudoTexto = DescricaoNovoPlano, // O aluno vê isto como instrução
-                    ConteudoTextoAluno = "" // Inicializamos vazio para o aluno escrever
+                    ConteudoTexto = DescricaoNovoPlano,
+                    ConteudoTextoAluno = ""
                 };
 
                 await TrabalhoService.AddVertenteAsync(vertenteInicial);
-
-                await JS.InvokeVoidAsync("alert", "Plano de recuperação guardado com sucesso!");
+                await JS.InvokeVoidAsync("alert", "Plano de recuperação enviado com sucesso!");
 
                 VertenteEmFoco = null;
                 DescricaoNovoPlano = "";
                 await CarregarFichaCompleta();
             }
-            else
-            {
-                await JS.InvokeVoidAsync("alert", "A base de dados não gerou um ID válido.");
-            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"ERRO CRÍTICO: {ex.Message}");
-            if (ex.InnerException != null) Console.WriteLine($"INNER ERRO: {ex.InnerException.Message}");
-
-            await JS.InvokeVoidAsync("alert", "Erro ao guardar trabalho. Verifique se Disciplina/Módulo são obrigatórios na BD.");
+            await JS.InvokeVoidAsync("alert", "Erro ao guardar o plano. Contacte o administrador.");
+            Console.WriteLine($"Erro: {ex.Message}");
         }
         finally
         {
