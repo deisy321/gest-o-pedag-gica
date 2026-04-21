@@ -177,7 +177,7 @@
     {
         var notas = TrabalhosAluno.SelectMany(t => t.Vertentes)
                                   .Where(v => v.Nota.HasValue)
-                                  .Select(v => Convert.ToDouble(v.Nota!.Value))
+                                  .Select(v => (double)v.Nota!.Value)
                                   .ToList();
         return notas.Any() ? notas.Average() : 0;
     }
@@ -185,7 +185,7 @@
     private async Task CarregarFichaCompleta()
     {
         IsLoading = true;
-        TrabalhosAluno.Clear(); // Limpa a cache local para forçar refresh
+        TrabalhosAluno.Clear();
 
         try
         {
@@ -197,11 +197,13 @@
 
                 if (trabalhos != null)
                 {
+                    // Filtramos apenas trabalhos normais para o cálculo de médias iniciais
                     TrabalhosAluno = trabalhos.Select(t => new TrabalhoAlunoCustom
                     {
                         TrabalhoId = t.Id,
                         Titulo = t.Titulo ?? "Sem Título",
                         DisciplinaId = t.DisciplinaId,
+                        IsPlanoRecuperacao = t.IsPlanoRecuperacao,
                         Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatusCustom
                         {
                             Tipo = v.Tipo ?? "Geral",
@@ -229,21 +231,23 @@
     {
         if (TrabalhosAluno == null || !TrabalhosAluno.Any()) return;
 
+        // Importante: Ignoramos os planos de recuperação já existentes para não viciar a média
         VertentesAbaixoDaMedia = TrabalhosAluno
+            .Where(t => !t.IsPlanoRecuperacao)
             .SelectMany(t => t.Vertentes)
-            // Filtramos apenas as que têm nota para a média, mas o GroupBy garante a união por tipo
             .GroupBy(v => (v.Tipo ?? "Geral").Trim().ToUpper())
             .Select(g =>
             {
-                var notas = g.Where(v => v.Nota.HasValue).Select(v => (double)v.Nota!.Value).ToList();
+                var notasValidas = g.Where(v => v.Nota.HasValue).Select(v => (double)v.Nota!.Value).ToList();
                 return new VertenteAnalise
                 {
                     Tipo = g.First().Tipo ?? "Geral",
-                    Media = notas.Any() ? notas.Average() : 0
+                    Media = notasValidas.Any() ? notasValidas.Average() : 0,
+                    TemNotas = notasValidas.Any()
                 };
             })
-            // Agora sim, filtramos o que é crítico (<= 9) ou o que está a 0 (sem nota)
-            .Where(v => v.Media <= 9.0)
+            // Só mostramos se houver notas e a média for <= 9
+            .Where(v => v.TemNotas && v.Media <= 9.0)
             .OrderBy(v => v.Media)
             .ToList();
     }
@@ -273,7 +277,7 @@
                 IsPlanoRecuperacao = true,
                 DataCriacao = DateTime.UtcNow,
                 PrazoEntrega = DateTime.UtcNow.AddDays(7),
-                DisciplinaId = TrabalhosAluno.FirstOrDefault()?.DisciplinaId,
+                DisciplinaId = TrabalhosAluno.FirstOrDefault(t => !t.IsPlanoRecuperacao)?.DisciplinaId,
                 TurmaId = AlunoSelecionado.TurmaId
             };
 
@@ -283,14 +287,16 @@
             {
                 TrabalhoId = trabalhoId,
                 Tipo = VertenteEmFoco.Tipo,
-                ConteudoTexto = DescricaoNovoPlano
+                ConteudoTexto = "Plano enviado pelo professor. Aguarda-se resposta ou avaliação.",
+                // Definimos como enviado para o sistema do professor o detetar na Dashboard
+                ConteudoTextoAluno = "Iniciado por Recuperação"
             };
 
             await TrabalhoService.AddVertenteAsync(vertenteInicial);
-            await JS.InvokeVoidAsync("alert", "Plano enviado com sucesso!");
+            await JS.InvokeVoidAsync("alert", "Plano enviado com sucesso! Já pode vê-lo na sua Dashboard.");
 
             VertenteEmFoco = null;
-            await CarregarFichaCompleta(); // Recarrega tudo para atualizar as médias
+            await CarregarFichaCompleta();
         }
         catch (Exception ex)
         {
@@ -309,6 +315,7 @@
         public int TrabalhoId { get; set; }
         public string Titulo { get; set; } = "";
         public int? DisciplinaId { get; set; }
+        public bool IsPlanoRecuperacao { get; set; }
         public List<VertenteStatusCustom> Vertentes { get; set; } = new();
     }
 
@@ -323,5 +330,6 @@
     {
         public string Tipo { get; set; } = "";
         public double Media { get; set; }
+        public bool TemNotas { get; set; }
     }
 }
