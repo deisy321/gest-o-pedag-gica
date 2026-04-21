@@ -2,8 +2,8 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Antiforgery
 @using gestaopedagogica.Services
+@using System.Security.Claims
 @inject NavigationManager Nav
-@* Injetamos o PushService, mas não o usaremos no OnInitialized *@
 @inject PushService PushService 
 
 <nav class="navbar navbar-expand-lg navbar-dark custom-navbar fixed-top">
@@ -21,6 +21,14 @@
             <div class="ms-auto d-flex align-items-center">
                 <AuthorizeView>
                     <Authorized>
+                        @{
+                            // Lógica para mensagens dinâmicas
+                            var isProfessor = context.User.IsInRole("Professor");
+                            var tituloNotif = isProfessor ? "Nova Entrega Recebida!" : "Novo Trabalho Atribuído!";
+                            var corpoNotif = isProfessor ? "Um aluno submeteu uma nova vertente para avaliação." : "Tens uma nova atividade para realizar no teu dashboard.";
+                            var linkVerTodas = isProfessor ? "/professor/Dashboard" : "/aluno/DashboardAluno";
+                        }
+
                         <div class="dropdown me-3">
                             <button class="btn btn-link text-white position-relative p-0" id="notificacoesDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-bell-fill fs-5"></i>
@@ -34,19 +42,19 @@
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow-lg p-2" aria-labelledby="notificacoesDropdown" style="min-width: 280px; border-radius: 12px;">
                                 <li class="dropdown-header border-bottom mb-2 pb-2">
-                                    <h6 class="mb-0 fw-bold">Notificações</h6>
+                                    <h6 class="mb-0 fw-bold">Notificações Recentes</h6>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item p-2 rounded" href="/notificacoes">
+                                    <a class="dropdown-item p-2 rounded" href="@linkVerTodas">
                                         <div class="d-flex flex-column">
-                                            <span class="small fw-bold">Novo Trabalho!</span>
-                                            <span class="small text-muted text-wrap">O professor enviou uma nova atividade.</span>
+                                            <span class="small fw-bold text-primary">@tituloNotif</span>
+                                            <span class="small text-muted text-wrap" style="font-size: 0.75rem;">@corpoNotif</span>
                                         </div>
                                     </a>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
-                                    <a class="dropdown-item text-center small text-primary fw-bold" href="/notificacoes">Ver todas</a>
+                                    <a class="dropdown-item text-center small text-primary fw-bold" href="@linkVerTodas">Ver todas as atividades</a>
                                 </li>
                             </ul>
                         </div>
@@ -79,21 +87,19 @@
 @code {
     private int notificacoesCount = 0;
 
-    // O segredo está aqui: NUNCA usar OnInitialized para serviços que tocam no JS ou Push
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             try
             {
-                // Aqui o circuito já está conectado e o login não vai travar
+                // Aqui podes chamar o contador real quando o serviço estiver pronto
                 // notificacoesCount = await PushService.ObterTotalNotificacoes();
                 StateHasChanged();
             }
             catch (Exception ex)
             {
-                // Loga o erro internamente sem quebrar a UI
-                Console.WriteLine("Erro ao carregar notificações na Navbar: " + ex.Message);
+                Console.WriteLine("Erro ao carregar notificações: " + ex.Message);
             }
         }
     }
