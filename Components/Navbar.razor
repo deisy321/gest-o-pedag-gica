@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Antiforgery
 @using gestaopedagogica.Services
 @using System.Security.Claims
+@implements IDisposable
 @inject NavigationManager Nav
 @inject PushService PushService 
 
@@ -22,7 +23,6 @@
                 <AuthorizeView>
                     <Authorized>
                         @{
-                            // Lógica para mensagens dinâmicas
                             var isProfessor = context.User.IsInRole("Professor");
                             var tituloNotif = isProfessor ? "Nova Entrega Recebida!" : "Novo Trabalho Atribuído!";
                             var corpoNotif = isProfessor ? "Um aluno submeteu uma nova vertente para avaliação." : "Tens uma nova atividade para realizar no teu dashboard.";
@@ -87,14 +87,29 @@
 @code {
     private int notificacoesCount = 0;
 
+    protected override void OnInitialized()
+    {
+        // Subscreve ao evento do PushService
+        PushService.OnNotificationReceived += NotificarNovaMensagem;
+    }
+
+    private async void NotificarNovaMensagem()
+    {
+        // Incrementa o contador ou busca o valor real do DB aqui
+        notificacoesCount++;
+        
+        // Força a atualização da interface
+        await InvokeAsync(StateHasChanged);
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             try
             {
-                // Aqui podes chamar o contador real quando o serviço estiver pronto
-                // notificacoesCount = await PushService.ObterTotalNotificacoes();
+                // Aqui podes carregar o número inicial do banco de dados
+                // notificacoesCount = await TeuServico.ObterNaoLidas();
                 StateHasChanged();
             }
             catch (Exception ex)
@@ -102,5 +117,11 @@
                 Console.WriteLine("Erro ao carregar notificações: " + ex.Message);
             }
         }
+    }
+
+    public void Dispose()
+    {
+        // Importante para evitar erros de memória ao fechar a página
+        PushService.OnNotificationReceived -= NotificarNovaMensagem;
     }
 }

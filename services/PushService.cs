@@ -1,6 +1,6 @@
 ﻿using WebPush;
 using Microsoft.Extensions.Options;
-using gestaopedagogica.Data; // <--- ISTO resolve o erro "VapidSettings não encontrado"
+using gestaopedagogica.Data;
 using System.Text.Json;
 
 namespace gestaopedagogica.Services
@@ -8,6 +8,9 @@ namespace gestaopedagogica.Services
     public class PushService
     {
         private readonly VapidSettings _settings;
+
+        // EVENTO: Permite que outros componentes saibam que algo mudou
+        public event Action? OnNotificationReceived;
 
         public PushService(IOptions<VapidSettings> settings)
         {
@@ -18,7 +21,6 @@ namespace gestaopedagogica.Services
         {
             try
             {
-                // Extrai os dados do JSON que guardaste na Base de Dados
                 using var doc = JsonDocument.Parse(subscriptionJson);
                 var root = doc.RootElement;
 
@@ -26,7 +28,6 @@ namespace gestaopedagogica.Services
                 var p256dh = root.GetProperty("keys").GetProperty("p256dh").GetString();
                 var auth = root.GetProperty("keys").GetProperty("auth").GetString();
 
-                // ISTO resolve o erro CS7036 (falta de argumentos)
                 var subscription = new PushSubscription(endpoint, p256dh, auth);
 
                 var vapidDetails = new VapidDetails(
@@ -36,6 +37,9 @@ namespace gestaopedagogica.Services
 
                 var webPushClient = new WebPushClient();
                 await webPushClient.SendNotificationAsync(subscription, message, vapidDetails);
+
+                // NOTIFICAR O NAVBAR: Avisa que uma nova notificação foi processada
+                OnNotificationReceived?.Invoke();
             }
             catch (Exception ex)
             {
