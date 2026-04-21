@@ -124,13 +124,13 @@
             }
             else
             {
-                <p class="text-muted mb-0 small italicText">O aluno não possui vertentes críticas que necessitem de recuperação no momento.</p>
+                <p class="text-muted mb-0 small">O aluno não possui vertentes críticas que necessitem de recuperação no momento.</p>
             }
         </div>
 
         <div class="d-flex justify-content-end mb-4 gap-2">
             <button class="btn btn-success rounded-pill px-4"
-                    @onclick='() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoSelecionado.Id}")'>
+                    @onclick='() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}")'>
                 Avaliar Aluno
             </button>
             <button class="btn btn-secondary rounded-pill px-4"
@@ -158,11 +158,10 @@
     [Parameter] public int AlunoId { get; set; }
 
     private Aluno? AlunoSelecionado;
-    private List<TrabalhoAluno> TrabalhosAluno = new();
+    private List<TrabalhoAlunoCustom> TrabalhosAluno = new();
     private bool IsLoading = true;
     private bool MostrarDetalhes = false;
 
-    // Lógica de Planos
     private List<VertenteAnalise> VertentesAbaixoDaMedia = new();
     private VertenteAnalise? VertenteEmFoco;
     private string DescricaoNovoPlano = "";
@@ -185,18 +184,18 @@
             {
                 var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
 
-                TrabalhosAluno = trabalhos?.Select(t => new TrabalhoAluno
+                TrabalhosAluno = trabalhos?.Select(t => new TrabalhoAlunoCustom
                 {
                     TrabalhoId = t.Id,
                     Titulo = t.Titulo,
                     DisciplinaId = t.DisciplinaId,
-                    Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatus
+                    Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatusCustom
                     {
                         Tipo = v.Tipo,
                         Enviado = !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null,
                         Nota = v.Nota
-                    }).ToList() ?? new List<VertenteStatus>()
-                }).ToList() ?? new List<TrabalhoAluno>();
+                    }).ToList() ?? new List<VertenteStatusCustom>()
+                }).ToList() ?? new List<TrabalhoAlunoCustom>();
 
                 AnalisarVertentesCriticas();
             }
@@ -234,31 +233,45 @@
 
     private async Task SubmeterPlanoRecuperacao()
     {
-        if (VertenteEmFoco == null) return;
+        if (VertenteEmFoco == null || AlunoSelecionado == null) return;
 
         try
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var professorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
+            // Criando o Trabalho respeitando exatamente o teu modelo Trabalho.cs
             var plano = new Trabalho
             {
                 Titulo = $"RECUPERAÇÃO: {VertenteEmFoco.Tipo}",
-                ConteudoTexto = DescricaoNovoPlano,
+                ConteudoTexto = DescricaoNovoPlano, // Usando ConteudoTexto (que existe) em vez de Descricao
                 AlunoId = AlunoSelecionado.UserId,
                 ProfessorId = professorId,
                 IsPlanoRecuperacao = true,
                 DataCriacao = DateTime.Now,
                 PrazoEntrega = DateTime.Now.AddDays(7),
-                DisciplinaId = TrabalhosAluno.FirstOrDefault()?.DisciplinaId
+                DisciplinaId = TrabalhosAluno.FirstOrDefault()?.DisciplinaId,
+                TurmaId = AlunoSelecionado.TurmaId
             };
 
-            await TrabalhoService.CriarTrabalhoAsync(plano);
+            var trabalhoId = await TrabalhoService.CriarTrabalhoAsync(plano);
+
+            // Criando a Vertente respeitando exatamente o teu modelo TrabalhoVertente.cs
+            var vertenteInicial = new TrabalhoVertente
+            {
+                TrabalhoId = trabalhoId,
+                Tipo = VertenteEmFoco.Tipo,
+                ConteudoTexto = DescricaoNovoPlano
+                // Removido DataCriacao e Progresso pois não existem no teu modelo
+            };
+
+            await TrabalhoService.AddVertenteAsync(vertenteInicial);
+
             await JS.InvokeVoidAsync("alert", $"Plano de {VertenteEmFoco.Tipo} enviado com sucesso!");
 
             VertenteEmFoco = null;
             DescricaoNovoPlano = "";
-            await CarregarFichaCompleta(); // Recarregar para atualizar status
+            await CarregarFichaCompleta();
         }
         catch (Exception ex)
         {
@@ -268,15 +281,16 @@
 
     private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
 
-    public class TrabalhoAluno
+    // ViewModels locais para evitar conflito com as globais e garantir propriedades corretas
+    public class TrabalhoAlunoCustom
     {
         public int TrabalhoId { get; set; }
         public string Titulo { get; set; } = "";
         public int? DisciplinaId { get; set; }
-        public List<VertenteStatus> Vertentes { get; set; } = new();
+        public List<VertenteStatusCustom> Vertentes { get; set; } = new();
     }
 
-    public class VertenteStatus
+    public class VertenteStatusCustom
     {
         public string Tipo { get; set; } = "";
         public bool Enviado { get; set; }

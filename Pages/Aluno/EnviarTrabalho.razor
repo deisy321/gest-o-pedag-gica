@@ -221,7 +221,8 @@
                     {
                         Id = 0,
                         Tipo = Trabalho.IsPlanoRecuperacao ? "Recuperação de Nota" : "Desenvolvimento",
-                        ConteudoTextoProfessor = Trabalho.Descricao ?? "Siga as orientações.",
+                        // ✅ CORREÇÃO: Usando ConteudoTexto em vez de Descricao
+                        ConteudoTextoProfessor = Trabalho.ConteudoTexto ?? "Siga as orientações.",
                         ConteudoTextoAluno = Trabalho.ConteudoTextoAluno ?? "",
                         ArquivoNome = Trabalho.FicheiroNome,
                         Nota = Trabalho.Nota
@@ -277,6 +278,7 @@
                 {
                     Trabalho.ConteudoTextoAluno = vert.ConteudoTextoAluno;
                     Trabalho.DataEntrega = dataAtualUtc;
+                    // ✅ CORREÇÃO: Removida a linha Trabalho.Progresso = 100;
                     if (vert.ArquivoBytes != null)
                     {
                         Trabalho.FicheiroNome = vert.ArquivoNome;
@@ -363,7 +365,6 @@
                 vert.ArquivoNome = file.Name;
                 vert.ArquivoContentType = file.ContentType;
 
-                // Limite de 10MB
                 using var ms = new MemoryStream();
                 await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
                 vert.ArquivoBytes = ms.ToArray();
