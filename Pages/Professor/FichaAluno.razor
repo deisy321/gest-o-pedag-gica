@@ -107,7 +107,7 @@
                         <div class="d-flex gap-2">
                             <button class="btn btn-danger btn-sm px-4" @onclick="SubmeterPlanoRecuperacao"
                                     disabled="@(string.IsNullOrEmpty(DescricaoNovoPlano) || IsSaving)">
-                                @(IsSaving ? "A enviar..." : "Enviar Plano ao Aluno")
+                                @(IsSaving ? "A gravar..." : "Enviar Plano ao Aluno")
                             </button>
                             <button class="btn btn-outline-secondary btn-sm" @onclick="() => VertenteEmFoco = null">Cancelar</button>
                         </div>
@@ -212,7 +212,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erro: {ex.Message}");
+            Console.WriteLine($"Erro ao carregar: {ex.Message}");
         }
         finally
         {
@@ -261,43 +261,56 @@
             var professorUserId = authState.User.FindFirst(System.Security.Claims.ClaimsIdentity.DefaultNameClaimType)?.Value
                                ?? authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
+            // Tenta obter um DisciplinaId válido dos trabalhos anteriores
+            var disciplinaIdValido = TrabalhosAluno.FirstOrDefault(t => t.DisciplinaId > 0)?.DisciplinaId;
+
             // 1. Criar o Objeto Trabalho (Pai)
             var plano = new Trabalho
             {
                 Titulo = $"RECUPERAÇÃO: {VertenteEmFoco.Tipo}",
-                ConteudoTexto = DescricaoNovoPlano, // Texto do Professor
+                ConteudoTexto = DescricaoNovoPlano,
                 AlunoId = AlunoSelecionado.UserId,
                 ProfessorId = professorUserId,
                 IsPlanoRecuperacao = true,
                 DataCriacao = DateTime.UtcNow,
                 PrazoEntrega = DateTime.UtcNow.AddDays(7),
-                DisciplinaId = TrabalhosAluno.FirstOrDefault(t => !t.IsPlanoRecuperacao)?.DisciplinaId,
+                DisciplinaId = disciplinaIdValido ?? 1, // Fallback para ID 1 se não encontrar
                 TurmaId = AlunoSelecionado.TurmaId
             };
 
+            // Guarda o trabalho e recupera o ID
             var trabalhoId = await TrabalhoService.AddTrabalhoAsync(plano);
 
-            // 2. Criar a Vertente (Filho) - ONDE O ALUNO LÊ
-            var vertenteInicial = new TrabalhoVertente
+            if (trabalhoId > 0)
             {
-                TrabalhoId = trabalhoId,
-                Tipo = VertenteEmFoco.Tipo,
-                // AQUI ESTÁ A CHAVE: O campo ConteudoTexto da vertente DEVE ser o texto do professor
-                ConteudoTexto = DescricaoNovoPlano,
-                // E indicamos que o aluno ainda não escreveu nada
-                ConteudoTextoAluno = "A aguardar resposta do aluno..."
-            };
+                // 2. Criar a Vertente (Filho) onde o aluno vai interagir
+                var vertenteInicial = new TrabalhoVertente
+                {
+                    TrabalhoId = trabalhoId,
+                    Tipo = VertenteEmFoco.Tipo,
+                    ConteudoTexto = DescricaoNovoPlano, // O aluno vê isto como instrução
+                    ConteudoTextoAluno = "" // Inicializamos vazio para o aluno escrever
+                };
 
-            await TrabalhoService.AddVertenteAsync(vertenteInicial);
-            await JS.InvokeVoidAsync("alert", "Plano enviado com sucesso!");
+                await TrabalhoService.AddVertenteAsync(vertenteInicial);
 
-            VertenteEmFoco = null;
-            DescricaoNovoPlano = "";
-            await CarregarFichaCompleta();
+                await JS.InvokeVoidAsync("alert", "Plano de recuperação guardado com sucesso!");
+
+                VertenteEmFoco = null;
+                DescricaoNovoPlano = "";
+                await CarregarFichaCompleta();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "A base de dados não gerou um ID válido.");
+            }
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", "Erro: " + ex.Message);
+            Console.WriteLine($"ERRO CRÍTICO: {ex.Message}");
+            if (ex.InnerException != null) Console.WriteLine($"INNER ERRO: {ex.InnerException.Message}");
+
+            await JS.InvokeVoidAsync("alert", "Erro ao guardar trabalho. Verifique se Disciplina/Módulo são obrigatórios na BD.");
         }
         finally
         {
