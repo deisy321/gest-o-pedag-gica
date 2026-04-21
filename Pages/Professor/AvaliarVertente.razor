@@ -45,7 +45,7 @@
             else
             {
                 <div class="alert alert-info border-0 rounded-3 mb-4">
-                    <h5>?? @(Trabalho?.Titulo ?? "Carregando...")</h5>
+                    <h5>📌 @(Trabalho?.Titulo ?? "Carregando...")</h5>
                     <div class="row mt-2">
                         <div class="col-md-6">
                             <strong>Aluno:</strong> @(Trabalho?.Aluno?.UserName ?? "N/A")<br>
@@ -55,14 +55,14 @@
                         <div class="col-md-6">
                             <strong>Prazo:</strong> @(Trabalho?.PrazoEntrega.ToString("dd/MM/yyyy HH:mm") ?? "N/A")<br>
                             <strong>Data de Envio:</strong> @(Vertente?.DataEnvio?.ToString("dd/MM/yyyy HH:mm") ?? "Não enviado")<br>
-                            <strong>Status:</strong> <span class="badge bg-info">@(Vertente?.DataEnvio.HasValue == true ? "? Enviado" : "? Pendente")</span>
+                            <strong>Status:</strong> <span class="badge bg-info">@(Vertente?.DataEnvio.HasValue == true ? "✔ Enviado" : "⏳ Pendente")</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="card mb-4 shadow-sm" style="border-radius: 12px;">
                     <div class="card-header bg-light" style="border-radius: 12px 12px 0 0;">
-                        <strong>?? Instruções:</strong>
+                        <strong>📝 Instruções:</strong>
                     </div>
                     <div class="card-body">
                         <p>@(Vertente?.ConteudoTexto ?? "Sem instruções definidas.")</p>
@@ -71,10 +71,10 @@
 
                 <div class="card mb-4 shadow-sm" style="border-radius: 12px;">
                     <div class="card-header bg-light" style="border-radius: 12px 12px 0 0;">
-                        <strong>?? Resposta do Aluno:</strong>
+                        <strong>📤 Resposta do Aluno:</strong>
                     </div>
                     <div class="card-body">
-                        @if (string.IsNullOrEmpty(Vertente?.ConteudoTextoAluno) && Vertente?.FicheiroBytes == null)
+                        @if (string.IsNullOrEmpty(Vertente?.ConteudoTextoAluno) && (Vertente?.FicheiroBytes == null || Vertente.FicheiroBytes.Length == 0))
                         {
                             <div class="alert alert-warning">
                                 <i class="bi bi-exclamation-circle me-2"></i>
@@ -92,11 +92,14 @@
 
                             @if (Vertente?.FicheiroBytes != null && Vertente.FicheiroBytes.Length > 0)
                             {
-                                <div class="alert alert-success mb-0">
-                                    <i class="bi bi-file-earmark-check me-2"></i>
-                                    <strong>Ficheiro Enviado:</strong> @Vertente.FicheiroNome
-                                    <a href='@($"/ficheiro/vertente/{Vertente.Id}")' target="_blank" class="ms-2">
-                                        <i class="bi bi-download me-1"></i>Download
+                                <div class="alert alert-success d-flex align-items-center justify-content-between mb-0">
+                                    <div>
+                                        <i class="bi bi-file-earmark-check me-2 fs-4"></i>
+                                        <strong>Ficheiro Enviado:</strong> @Vertente.FicheiroNome
+                                    </div>
+                                    @* LINK CORRIGIDO PARA ACESSAR O CONTROLLER *@
+                                    <a href="/ficheiro/vertente/@Vertente.Id" target="_blank" class="btn btn-success shadow-sm">
+                                        <i class="bi bi-download me-1"></i> Descarregar Ficheiro
                                     </a>
                                 </div>
                             }
@@ -106,7 +109,7 @@
 
                 <div class="card shadow-sm" style="border-radius: 12px;">
                     <div class="card-header bg-light" style="border-radius: 12px 12px 0 0;">
-                        <strong>? Avaliação:</strong>
+                        <strong>⭐ Avaliação:</strong>
                     </div>
                     <div class="card-body">
                         <form @onsubmit="SalvarAvaliacao">
@@ -131,14 +134,6 @@
                                           @bind="Feedback"></textarea>
                             </div>
 
-                            @if (!string.IsNullOrEmpty(Feedback))
-                            {
-                                <div class="alert alert-light border-start border-primary ps-3 mb-3">
-                                    <small><strong>Preview do Feedback:</strong></small>
-                                    <p class="mb-0 mt-1">@Feedback</p>
-                                </div>
-                            }
-
                             <div class="d-flex gap-2 justify-content-end">
                                 <button type="button" class="btn btn-outline-secondary btn-lg rounded-pill px-4"
                                         @onclick='() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}")'>
@@ -158,14 +153,9 @@
 </div>
 
 @code {
-    [Parameter]
-    public string? TrabalhoIdStr { get; set; }
-
-    [Parameter]
-    public string? Tipo { get; set; }
-
-    [Parameter]
-    public int AlunoId { get; set; }
+    [Parameter] public string? TrabalhoIdStr { get; set; }
+    [Parameter] public string? Tipo { get; set; }
+    [Parameter] public int AlunoId { get; set; }
 
     private Trabalho? Trabalho;
     private TrabalhoVertente? Vertente;
@@ -182,17 +172,15 @@
         {
             if (!int.TryParse(TrabalhoIdStr, out TrabalhoId))
             {
-                StatusMessage = "? ID do trabalho inválido.";
+                StatusMessage = "❌ ID do trabalho inválido.";
                 IsLoading = false;
                 return;
             }
-
             await CarregarDados();
         }
         catch (Exception ex)
         {
-            StatusMessage = $"? Erro ao carregar: {ex.Message}";
-            Console.WriteLine($"? Erro: {ex}");
+            StatusMessage = $"❌ Erro ao carregar: {ex.Message}";
         }
         finally
         {
@@ -207,7 +195,7 @@
             Trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(TrabalhoId);
             if (Trabalho == null)
             {
-                StatusMessage = "? Trabalho não encontrado.";
+                StatusMessage = "❌ Trabalho não encontrado.";
                 return;
             }
 
@@ -216,7 +204,7 @@
 
             if (Vertente == null)
             {
-                StatusMessage = "? Vertente não encontrada.";
+                StatusMessage = "❌ Vertente não encontrada.";
                 return;
             }
 
@@ -225,14 +213,10 @@
                 Nota = Vertente.Nota.Value;
                 Feedback = Vertente.Feedback ?? "";
             }
-
-            Console.WriteLine($"? Trabalho carregado: {Trabalho.Titulo}");
-            Console.WriteLine($"? Vertente: {Vertente.Tipo}");
         }
         catch (Exception ex)
         {
-            StatusMessage = $"? Erro ao carregar dados: {ex.Message}";
-            Console.WriteLine($"? Erro: {ex}");
+            StatusMessage = $"❌ Erro ao carregar dados: {ex.Message}";
         }
     }
 
@@ -245,30 +229,23 @@
         {
             if (Nota < 0 || Nota > 20)
             {
-                StatusMessage = "? A nota deve estar entre 0 e 20.";
+                StatusMessage = "❌ A nota deve estar entre 0 e 20.";
                 return;
             }
 
-            if (Vertente == null)
-            {
-                StatusMessage = "? Vertente não encontrada.";
-                return;
-            }
+            if (Vertente == null) return;
 
             Vertente.Nota = Nota;
             Vertente.Feedback = Feedback;
             await TrabalhoService.AtualizarVertenteAsync(Vertente);
 
-            StatusMessage = "? Avaliação guardada com sucesso!";
+            StatusMessage = "✅ Avaliação guardada com sucesso!";
             await Task.Delay(1000);
-
-            // REDIRECIONAMENTO CORRIGIDO PARA VOLTAR AO ALUNO
             Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
         }
         catch (Exception ex)
         {
-            StatusMessage = $"? Erro ao guardar: {ex.Message}";
-            Console.WriteLine($"? Erro: {ex}");
+            StatusMessage = $"❌ Erro ao guardar: {ex.Message}";
         }
         finally
         {
