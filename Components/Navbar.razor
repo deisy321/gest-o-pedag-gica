@@ -22,15 +22,13 @@
             <div class="ms-auto d-flex align-items-center">
                 <AuthorizeView>
                     <Authorized>
-                        @{
-                            var isProfessor = context.User.IsInRole("Professor");
-                            var tituloNotif = isProfessor ? "Nova Entrega Recebida!" : "Novo Trabalho Atribuído!";
-                            var corpoNotif = isProfessor ? "Um aluno submeteu uma nova vertente para avaliação." : "Tens uma nova atividade para realizar no teu dashboard.";
-                            var linkVerTodas = isProfessor ? "/professor/Dashboard" : "/aluno/DashboardAluno";
-                        }
-
                         <div class="dropdown me-3">
-                            <button class="btn btn-link text-white position-relative p-0" id="notificacoesDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            @* O botão agora chama 'LimparNotificacoes' ao ser clicado *@
+                            <button class="btn btn-link text-white position-relative p-0" 
+                                    id="notificacoesDropdown" 
+                                    data-bs-toggle="dropdown" 
+                                    aria-expanded="false"
+                                    @onclick="LimparNotificacoes">
                                 <i class="bi bi-bell-fill fs-5"></i>
                                 
                                 @if (notificacoesCount > 0)
@@ -40,22 +38,31 @@
                                     </span>
                                 }
                             </button>
+
                             <ul class="dropdown-menu dropdown-menu-end shadow-lg p-2" aria-labelledby="notificacoesDropdown" style="min-width: 280px; border-radius: 12px;">
                                 <li class="dropdown-header border-bottom mb-2 pb-2">
-                                    <h6 class="mb-0 fw-bold">Notificações Recentes</h6>
+                                    <h6 class="mb-0 fw-bold">Notificações</h6>
                                 </li>
-                                <li>
-                                    <a class="dropdown-item p-2 rounded" href="@linkVerTodas">
-                                        <div class="d-flex flex-column">
-                                            <span class="small fw-bold text-primary">@tituloNotif</span>
-                                            <span class="small text-muted text-wrap" style="font-size: 0.75rem;">@corpoNotif</span>
+                                
+                                @if (!string.IsNullOrEmpty(ultimaNotificacao))
+                                {
+                                    <li>
+                                        <div class="dropdown-item p-2 rounded">
+                                            <div class="d-flex flex-column">
+                                                <span class="small fw-bold text-primary">Nova Atualização</span>
+                                                <span class="small text-muted text-wrap" style="font-size: 0.75rem;">@ultimaNotificacao</span>
+                                            </div>
                                         </div>
-                                    </a>
-                                </li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <a class="dropdown-item text-center small text-primary fw-bold" href="@linkVerTodas">Ver todas as atividades</a>
-                                </li>
+                                    </li>
+                                }
+                                else
+                                {
+                                    <li>
+                                        <div class="dropdown-item p-2 text-muted small text-center">
+                                            Sem notificações novas
+                                        </div>
+                                    </li>
+                                }
                             </ul>
                         </div>
 
@@ -86,42 +93,30 @@
 
 @code {
     private int notificacoesCount = 0;
+    private string? ultimaNotificacao;
 
     protected override void OnInitialized()
     {
-        // Subscreve ao evento do PushService
-        PushService.OnNotificationReceived += NotificarNovaMensagem;
+        PushService.OnNotificationReceived += TratarNovaNotificacao;
     }
 
-    private async void NotificarNovaMensagem()
+    private async void TratarNovaNotificacao()
     {
-        // Incrementa o contador ou busca o valor real do DB aqui
         notificacoesCount++;
+        // Aqui definimos a mensagem que aparece no dropdown baseada no que recebemos
+        ultimaNotificacao = "Recebeu uma nova atividade ou avaliação.";
         
-        // Força a atualização da interface
         await InvokeAsync(StateHasChanged);
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private void LimparNotificacoes()
     {
-        if (firstRender)
-        {
-            try
-            {
-                // Aqui podes carregar o número inicial do banco de dados
-                // notificacoesCount = await TeuServico.ObterNaoLidas();
-                StateHasChanged();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Erro ao carregar notificações: " + ex.Message);
-            }
-        }
+        // Quando clica no sino, o número desaparece mas a mensagem fica lá para ele ler
+        notificacoesCount = 0;
     }
 
     public void Dispose()
     {
-        // Importante para evitar erros de memória ao fechar a página
-        PushService.OnNotificationReceived -= NotificarNovaMensagem;
+        PushService.OnNotificationReceived -= TratarNovaNotificacao;
     }
 }
