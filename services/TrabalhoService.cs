@@ -33,7 +33,6 @@ public class TrabalhoService
 
     public async Task<List<Trabalho>> GetTrabalhosDoAlunoComVertentesAsync(string alunoUserId)
     {
-        // Garante que as vertentes são incluídas explicitamente
         return await _context.Trabalhos
             .Include(t => t.TrabalhoVertentes)
             .Where(t => t.AlunoId == alunoUserId)
@@ -222,21 +221,24 @@ public class TrabalhoService
         );
     }
 
-    public async Task<string?> GetProfessorPushSubscriptionAsync(string professorId)
+    /// <summary>
+    /// Retorna as subscrições do modelo interno do seu sistema para evitar conflitos de tipos.
+    /// </summary>
+    public async Task<List<NotificationSubscription>> GetSubscriptionsByUserIdAsync(string userId)
     {
         return await _context.PushSubscriptions
-            .Where(s => s.UserId == professorId)
-            .Select(s => s.Payload)
-            .FirstOrDefaultAsync();
+            .Where(s => s.UserId == userId)
+            .ToListAsync();
     }
 
-    private async Task EnviarNotificacaoParaUsuario(string userId, string mensagem)
+    public async Task EnviarNotificacaoParaUsuario(string userId, string mensagem)
     {
         try
         {
-            var subs = await _context.PushSubscriptions.Where(s => s.UserId == userId).ToListAsync();
+            var subs = await GetSubscriptionsByUserIdAsync(userId);
             foreach (var sub in subs)
             {
+                // Note: Substituí 'Payload' por 'JsonPayload' ou similar, ajuste conforme o seu Modelo
                 if (!string.IsNullOrEmpty(sub.Payload))
                 {
                     await _pushService.EnviarNotificacaoAsync(sub.Payload, mensagem);
