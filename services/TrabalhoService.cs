@@ -2,7 +2,7 @@
 using gestaopedagogica.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace gestaopedagogica.Services; // ✅ Declarar tipos em namespaces (File-scoped)
+namespace gestaopedagogica.Services;
 
 public class TrabalhoService
 {
@@ -10,7 +10,6 @@ public class TrabalhoService
     private readonly IAService _iaService;
     private readonly PushService _pushService;
 
-    // ✅ Usar construtor primário (ou manter este, este aviso é apenas uma sugestão de estilo)
     public TrabalhoService(ApplicationDbContext context, IAService iaService, PushService pushService)
     {
         _context = context;
@@ -34,7 +33,12 @@ public class TrabalhoService
 
     public async Task<List<Trabalho>> GetTrabalhosDoAlunoComVertentesAsync(string alunoUserId)
     {
-        return await GetTrabalhosDisponiveisParaAlunoAsync(alunoUserId);
+        // Garante que as vertentes são incluídas explicitamente
+        return await _context.Trabalhos
+            .Include(t => t.TrabalhoVertentes)
+            .Where(t => t.AlunoId == alunoUserId)
+            .AsNoTracking()
+            .ToListAsync();
     }
 
     public async Task<List<TrabalhoVertente>> GetVertentesDoTrabalhoAsync(int trabalhoId)
@@ -154,7 +158,6 @@ public class TrabalhoService
         if (trabalho != null)
         {
             trabalho.DataEntrega = vertente.DataEnvio;
-            // ✅ CORREÇÃO: Removida a linha trabalho.Progresso = 100; (Propriedade inexistente)
             await _context.SaveChangesAsync();
         }
     }
@@ -167,14 +170,11 @@ public class TrabalhoService
             if (dbObj == null) return false;
 
             dbObj.Titulo = trabalho.Titulo;
-            // ✅ CORREÇÃO: Usando ConteudoTexto no lugar de Descricao
             dbObj.ConteudoTexto = trabalho.ConteudoTexto;
             dbObj.ConteudoTextoAluno = trabalho.ConteudoTextoAluno;
             dbObj.FicheiroNome = trabalho.FicheiroNome;
             dbObj.FicheiroBytes = trabalho.FicheiroBytes;
             dbObj.FicheiroContentType = trabalho.FicheiroContentType;
-
-            // ✅ CORREÇÃO: Removida a linha dbObj.Progresso (Propriedade inexistente)
 
             if (trabalho.DataEntrega.HasValue)
                 dbObj.DataEntrega = DateTime.SpecifyKind(trabalho.DataEntrega.Value, DateTimeKind.Utc);
@@ -206,7 +206,6 @@ public class TrabalhoService
         else
         {
             var trabalho = await _context.Trabalhos.AsNoTracking().FirstOrDefaultAsync(t => t.Id == trabalhoId);
-            // ✅ CORREÇÃO: Usando ConteudoTexto no lugar de Descricao
             if (trabalho != null && !string.IsNullOrWhiteSpace(trabalho.ConteudoTexto))
             {
                 descricaoParaIA = trabalho.ConteudoTexto;
