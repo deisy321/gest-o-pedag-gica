@@ -105,8 +105,11 @@
                         <div class="col-md-6">
                             <div class="card border d-flex flex-row justify-content-between align-items-center p-3 shadow-sm">
                                 <div>
-                                    <strong class="text-uppercase small">@v.Tipo</strong>
-                                    <span class="badge bg-danger ms-2">@v.Media.ToString("F1")</span>
+                                    <div class="mb-1">
+                                        <span class="badge bg-secondary me-1">@v.DisciplinaNome</span>
+                                        <strong class="text-uppercase small">@v.Tipo</strong>
+                                    </div>
+                                    <span class="badge bg-danger">@v.Media.ToString("F1")</span>
                                 </div>
                                 <button class="btn btn-danger btn-sm rounded-pill px-3" @onclick="() => IniciarPlano(v)">
                                     Criar Plano
@@ -119,7 +122,9 @@
                 @if (VertenteEmFoco != null)
                 {
                     <div class="mt-4 p-4 bg-light rounded border-start border-danger border-4 shadow-sm animate__animated animate__fadeInUp">
-                        <h6 class="fw-bold text-danger mb-3">Instruções para Recuperação: @VertenteEmFoco.Tipo</h6>
+                        <h6 class="fw-bold text-danger mb-3">
+                            Instruções para Recuperação: @VertenteEmFoco.DisciplinaNome - @VertenteEmFoco.Tipo
+                        </h6>
                         <textarea class="form-control mb-3" rows="4" @bind="DescricaoNovoPlano"
                                   placeholder="Descreva as tarefas ou objetivos para o aluno recuperar esta vertente..."></textarea>
                         <div class="d-flex gap-2">
@@ -138,7 +143,7 @@
             }
         </div>
 
-        @* Barra de Progresso e Ações Finais *@
+        @* Barra de Progresso e Ações *@
         <div class="row g-3">
             <div class="col-md-8">
                 <div class="card shadow-sm border-0 p-4 h-100" style="border-radius: 15px;">
@@ -216,6 +221,7 @@
                         TrabalhoId = t.Id,
                         Titulo = t.Titulo ?? "Sem Título",
                         DisciplinaId = t.DisciplinaId,
+                        DisciplinaNome = t.Disciplina?.Nome ?? "Disciplina N/A",
                         IsPlanoRecuperacao = t.IsPlanoRecuperacao,
                         Vertentes = t.TrabalhoVertentes?.Select(v => new VertenteStatusCustom
                         {
@@ -242,16 +248,20 @@
 
     private void AnalisarVertentesCriticas()
     {
+        // Agrupamos por Disciplina E por Tipo de Vertente para ser preciso
         VertentesAbaixoDaMedia = TrabalhosAluno
             .Where(t => !t.IsPlanoRecuperacao)
-            .SelectMany(t => t.Vertentes)
-            .GroupBy(v => (v.Tipo ?? "Geral").Trim().ToUpper())
+            .SelectMany(t => t.Vertentes.Select(v => new { Vertente = v, t.DisciplinaNome, t.DisciplinaId }))
+            .GroupBy(x => new { Tipo = (x.Vertente.Tipo ?? "Geral").Trim().ToUpper(), x.DisciplinaNome, x.DisciplinaId })
             .Select(g =>
             {
-                var notasValidas = g.Where(v => v.Nota.HasValue).Select(v => (double)v.Nota!.Value).ToList();
+                var notasValidas = g.Where(x => x.Vertente.Nota.HasValue)
+                                    .Select(x => (double)x.Vertente.Nota!.Value).ToList();
                 return new VertenteAnalise
                 {
-                    Tipo = g.First().Tipo ?? "Geral",
+                    Tipo = g.First().Vertente.Tipo ?? "Geral",
+                    DisciplinaNome = g.Key.DisciplinaNome ?? "N/A",
+                    DisciplinaId = g.Key.DisciplinaId ?? 0,
                     Media = notasValidas.Any() ? notasValidas.Average() : 0,
                     TemNotas = notasValidas.Any()
                 };
@@ -278,18 +288,16 @@
             var professorUserId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
                                   ?? authState.User.Identity?.Name;
 
-            var disciplinaIdValido = TrabalhosAluno.FirstOrDefault(t => t.DisciplinaId > 0)?.DisciplinaId;
-
             var plano = new Trabalho
             {
-                Titulo = $"RECUPERAÇÃO: {VertenteEmFoco.Tipo}",
+                Titulo = $"RECUPERAÇÃO: {VertenteEmFoco.DisciplinaNome} - {VertenteEmFoco.Tipo}",
                 ConteudoTexto = DescricaoNovoPlano,
                 AlunoId = AlunoSelecionado.UserId,
                 ProfessorId = professorUserId,
                 IsPlanoRecuperacao = true,
                 DataCriacao = DateTime.UtcNow,
                 PrazoEntrega = DateTime.UtcNow.AddDays(7),
-                DisciplinaId = disciplinaIdValido ?? 1,
+                DisciplinaId = VertenteEmFoco.DisciplinaId > 0 ? VertenteEmFoco.DisciplinaId : 1,
                 TurmaId = AlunoSelecionado.TurmaId
             };
 
@@ -307,29 +315,26 @@
 
                 await TrabalhoService.AddVertenteAsync(vertenteInicial);
 
-                // --- LÓGICA DE NOTIFICAÇÃO PUSH ---
                 try
                 {
                     var subs = await TrabalhoService.GetSubscriptionsByUserIdAsync(AlunoSelecionado.UserId);
                     foreach (var sub in subs)
                     {
                         await PushService.EnviarNotificacaoAsync(sub.Payload,
-                            $"Novo Plano de Recuperação: Foi criado um plano para a vertente {VertenteEmFoco.Tipo}.",
+                            $"Novo Plano: {VertenteEmFoco.DisciplinaNome} ({VertenteEmFoco.Tipo})",
                             AlunoSelecionado.UserId);
                     }
                 }
-                catch { /* Silencia erros de push para não travar a UI */ }
+                catch { }
 
                 await JS.InvokeVoidAsync("alert", "Plano de recuperação enviado com sucesso!");
-
                 VertenteEmFoco = null;
-                DescricaoNovoPlano = "";
                 await CarregarFichaCompleta();
             }
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", "Erro ao guardar o plano. Contacte o administrador.");
+            await JS.InvokeVoidAsync("alert", "Erro ao guardar o plano.");
             Console.WriteLine($"Erro: {ex.Message}");
         }
         finally
@@ -345,6 +350,7 @@
         public int TrabalhoId { get; set; }
         public string Titulo { get; set; } = "";
         public int? DisciplinaId { get; set; }
+        public string? DisciplinaNome { get; set; }
         public bool IsPlanoRecuperacao { get; set; }
         public List<VertenteStatusCustom> Vertentes { get; set; } = new();
     }
@@ -359,6 +365,8 @@
     public class VertenteAnalise
     {
         public string Tipo { get; set; } = "";
+        public string DisciplinaNome { get; set; } = "";
+        public int DisciplinaId { get; set; }
         public double Media { get; set; }
         public bool TemNotas { get; set; }
     }
