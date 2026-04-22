@@ -23,9 +23,8 @@
                 <AuthorizeView>
                     <Authorized>
                         <div class="dropdown me-3">
-                            @* AJUSTE 1: Mudamos para @onmousedown. 
-                                O evento 'mousedown' dispara antes do 'click', garantindo que o Blazor 
-                                limpe o número antes do Bootstrap abrir o menu.
+                            @* Usamos @onmousedown para limpar o badge imediatamente antes 
+                                do Bootstrap abrir o menu dropdown.
                             *@
                             <button class="btn btn-link text-white position-relative p-0" 
                                     id="notificacoesDropdown" 
@@ -36,7 +35,6 @@
                                 
                                 @if (notificacoesCount > 0)
                                 {
-                                    @* AJUSTE 2: pointer-events: none faz o clique "atravessar" o número e chegar ao botão *@
                                     <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" 
                                           style="font-size: 0.6rem; pointer-events: none;">
                                         @notificacoesCount
@@ -110,15 +108,18 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // 1. Subscrever o evento do serviço Singleton
         PushService.OnNotificationReceived += TratarNovaNotificacao;
 
         if (AuthState != null)
         {
             var authState = await AuthState;
+            // Garantir que pegamos o ID correto (NameIdentifier)
             meuId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (!string.IsNullOrEmpty(meuId))
             {
+                // 2. Buscar contagem inicial caso já existam notificações no servidor
                 notificacoesCount = PushService.GetNotificacoesCount(meuId);
             }
         }
@@ -126,12 +127,16 @@
 
     private async void TratarNovaNotificacao(string targetUserId)
     {
+        // O InvokeAsync é CRÍTICO aqui. O evento vem de uma thread de background.
         await InvokeAsync(() =>
         {
             if (!string.IsNullOrEmpty(meuId) && meuId == targetUserId)
             {
+                // Atualizamos a contagem vinda do dicionário do Singleton
                 notificacoesCount = PushService.GetNotificacoesCount(meuId);
                 ultimaNotificacao = "Recebeu uma nova atividade.";
+                
+                // Forçamos o Blazor a renderizar o novo número
                 StateHasChanged();
             }
         });
@@ -141,17 +146,21 @@
     {
         if (!string.IsNullOrEmpty(meuId))
         {
-            notificacoesCount = 0;
-            ultimaNotificacao = null;
+            // Primeiro limpamos no serviço (Singleton)
             PushService.LimparNotificacoes(meuId);
             
-            // AJUSTE 3: InvokeAsync garante que a UI atualiza mesmo se houver lag no SignalR
+            // Depois limpamos as variáveis locais da UI
+            notificacoesCount = 0;
+            ultimaNotificacao = null;
+            
             await InvokeAsync(StateHasChanged);
         }
     }
 
     public void Dispose()
     {
+        // MUITO IMPORTANTE: Desinscrever para evitar que o componente 
+        // tente atualizar uma página que já não existe (Memory Leak).
         PushService.OnNotificationReceived -= TratarNovaNotificacao;
     }
 }
