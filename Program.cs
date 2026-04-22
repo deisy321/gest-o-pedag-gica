@@ -36,6 +36,7 @@ if (string.IsNullOrEmpty(connectionString))
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options => options.UseNpgsql(connectionString));
 
 // --- 5. IDENTITY E ROLES ---
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
