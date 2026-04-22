@@ -23,14 +23,13 @@
                 <AuthorizeView>
                     <Authorized>
                         <div class="dropdown me-3">
-                            @* CORREÇÃO AQUI: Mudamos @onclick para @onmousedown 
-                               e adicionamos StateHasChanged na função.
-                            *@
+                            @* Usamos preventDefault para o clique não bugar com o dropdown do Bootstrap *@
                             <button class="btn btn-link text-white position-relative p-0" 
                                     id="notificacoesDropdown" 
                                     data-bs-toggle="dropdown" 
                                     aria-expanded="false"
-                                    @onmousedown="LimparNotificacoes">
+                                    @onclick="LimparNotificacoes"
+                                    @onclick:preventDefault>
                                 <i class="bi bi-bell-fill fs-5"></i>
                                 
                                 @if (notificacoesCount > 0)
@@ -115,19 +114,22 @@
             if (!string.IsNullOrEmpty(meuId))
             {
                 notificacoesCount = PushService.GetNotificacoesCount(meuId);
-                StateHasChanged();
             }
         }
     }
 
     private async void TratarNovaNotificacao(string targetUserId)
     {
-        if (!string.IsNullOrEmpty(meuId) && meuId == targetUserId)
+        // O InvokeAsync é essencial aqui porque este evento vem de fora da thread da UI
+        await InvokeAsync(() =>
         {
-            notificacoesCount = PushService.GetNotificacoesCount(meuId);
-            ultimaNotificacao = "Recebeu uma nova atividade ou avaliação.";
-            await InvokeAsync(StateHasChanged);
-        }
+            if (!string.IsNullOrEmpty(meuId) && meuId == targetUserId)
+            {
+                notificacoesCount = PushService.GetNotificacoesCount(meuId);
+                ultimaNotificacao = "Recebeu uma nova atividade.";
+                StateHasChanged();
+            }
+        });
     }
 
     private void LimparNotificacoes()
@@ -135,10 +137,10 @@
         if (!string.IsNullOrEmpty(meuId))
         {
             notificacoesCount = 0;
-            ultimaNotificacao = null; // Opcional: limpa o texto também
+            ultimaNotificacao = null;
             PushService.LimparNotificacoes(meuId);
             
-            // CORREÇÃO: Força o Blazor a redesenhar para o número sumir
+            // Forçamos o Blazor a redesenhar para o badge sumir
             StateHasChanged();
         }
     }
