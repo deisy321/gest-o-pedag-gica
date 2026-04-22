@@ -10,7 +10,7 @@
 @inject IJSRuntime JS
 @layout MainLayout
 
-<div class="page-student p-4">
+<div class="page-student">
     @if (IsLoading)
     {
         <div class="text-center mt-5">
@@ -20,28 +20,29 @@
     }
     else
     {
-        <div class="admin-header-row d-flex justify-content-between align-items-center mb-4">
+        <div class="admin-header-row">
             <div>
-                <h1 class="page-title fw-bold">Meu Dashboard</h1>
-                <p class="page-subtitle text-muted">Acompanhe seus trabalhos, notas e progresso</p>
+                <h1 class="page-title">Meu Dashboard</h1>
+                <p class="page-subtitle">Acompanhe seus trabalhos, notas e progresso</p>
             </div>
             <div class="d-flex gap-2" style="flex-wrap: wrap;">
-                <button class="btn btn-outline-secondary rounded-pill px-4" @onclick="IrParaMinhasNotas">
+                <button class="btn btn-custom btn-custom-secondary" @onclick="IrParaMinhasNotas">
                     <i class="bi bi-graph-up"></i> Minhas Notas
                 </button>
-                <button class="btn btn-primary rounded-pill px-4" @onclick="IrParaHistorico">
+                <button class="btn btn-custom btn-custom-primary" @onclick="IrParaHistorico">
                     <i class="bi bi-clock-history"></i> Histórico
                 </button>
             </div>
         </div>
 
-        @* Alerta de Plano de Recuperação *@
+        @* LÓGICA ATUALIZADA: O alerta só aparece se houver Plano de Recuperação com nota nula ou <= 9.0 *@
         @if (TodosTrabalhos != null && TodosTrabalhos.Any(t => t.IsPlanoRecuperacao && (CalcularNotaTrabalho(t.TrabalhoVertentes) == null || CalcularNotaTrabalho(t.TrabalhoVertentes) <= 9.0)))
         {
             <div class="alert alert-danger shadow-sm border-0 mb-4 animate__animated animate__pulse" style="border-radius: 15px; border-left: 8px solid #dc3545 !important;">
                 <h5 class="fw-bold"><i class="bi bi-lightning-charge-fill"></i> Tens Planos de Recuperação Ativos!</h5>
                 <p>O teu professor enviou atividades específicas para melhorar as tuas notas nas vertentes críticas.</p>
                 <div class="d-flex gap-2" style="flex-wrap: wrap;">
+                    @* Filtro aplicado também na listagem dos botões *@
                     @foreach (var plano in TodosTrabalhos.Where(t => t.IsPlanoRecuperacao && (CalcularNotaTrabalho(t.TrabalhoVertentes) == null || CalcularNotaTrabalho(t.TrabalhoVertentes) <= 9.0)))
                     {
                         <button class="btn btn-danger btn-sm rounded-pill px-3 shadow-sm" @onclick="() => ResolverTrabalho(plano.Id)">
@@ -52,57 +53,57 @@
             </div>
         }
 
-        @* Cards de Estatísticas *@
-        <div class="row g-3 mb-4">
+        <div class="row g-3" style="margin-bottom: 2rem;">
             <div class="col-md-6 col-lg-3">
-                <div class="stat-card card-yellow p-3 shadow-sm rounded-4 d-flex align-items-center">
-                    <i class="bi bi-clipboard-check fs-1 me-3 text-warning"></i>
-                    <div>
-                        <h6 class="mb-0 text-muted">Trabalhos Pendentes</h6>
-                        <h3 class="fw-bold mb-0">@TrabalhosPendentes.Count</h3>
+                <div class="stat-card card-yellow">
+                    <i class="bi bi-clipboard-check stat-card-icon"></i>
+                    <div class="stat-card-content">
+                        <h3>Trabalhos Pendentes</h3>
+                        <p>@TrabalhosPendentes.Count</p>
                     </div>
                 </div>
             </div>
 
             <div class="col-md-6 col-lg-3">
-                <div class="stat-card card-blue p-3 shadow-sm rounded-4 d-flex align-items-center">
-                    <i class="bi bi-book fs-1 me-3 text-primary"></i>
-                    <div>
-                        <h6 class="mb-0 text-muted">Disciplinas</h6>
-                        <h3 class="fw-bold mb-0">@DisciplinasUnicas.Count</h3>
+                <div class="stat-card card-blue">
+                    <i class="bi bi-book stat-card-icon"></i>
+                    <div class="stat-card-content">
+                        <h3>Disciplinas</h3>
+                        <p>@DisciplinasUnicas.Count</p>
                     </div>
                 </div>
             </div>
 
             <div class="col-md-6 col-lg-3">
-                <div class="stat-card card-green p-3 shadow-sm rounded-4 d-flex align-items-center">
-                    <i class="bi bi-graph-up fs-1 me-3 text-success"></i>
-                    <div>
-                        <h6 class="mb-0 text-muted">Média Geral</h6>
-                        <h3 class="fw-bold mb-0">@MediaGeral.ToString("F1")</h3>
+                <div class="stat-card card-green">
+                    <i class="bi bi-graph-up stat-card-icon"></i>
+                    <div class="stat-card-content">
+                        <h3>Média Geral</h3>
+                        <p>@MediaGeral.ToString("F1")</p>
                     </div>
                 </div>
             </div>
 
             <div class="col-md-6 col-lg-3">
-                <div class="stat-card bg-white p-3 shadow-sm rounded-4 d-flex align-items-center border">
-                    <i class="bi bi-people-fill fs-1 me-3 text-info"></i>
-                    <div>
-                        <h6 class="mb-0 text-muted">Turma</h6>
-                        <h3 class="fw-bold mb-0 text-dark">@(TurmaAtual?.Nome ?? "N/D")</h3>
+                <div class="stat-card card-white">
+                    <i class="bi bi-people-fill stat-card-icon" style="color: var(--primary-color);"></i>
+                    <div class="stat-card-content" style="color: var(--primary-color);">
+                        <h3 style="color: var(--primary-color);">Turma</h3>
+                        <p style="color: var(--primary-color);">@(TurmaAtual?.Nome ?? "N/D")</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        @* Filtros *@
-        <div class="card border-0 shadow-sm rounded-4 mb-4">
-            <div class="card-body">
-                <h5 class="mb-3 fw-bold"><i class="bi bi-funnel"></i> Filtros</h5>
+        <div class="custom-card elevation-2">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-funnel"></i> Filtros</h5>
+            </div>
+            <div class="card-body-custom">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">Disciplina</label>
-                        <select class="form-select rounded-pill" @onchange="OnDisciplinaChanged">
+                        <label class="form-label">Disciplina</label>
+                        <select class="form-select" @onchange="OnDisciplinaChanged">
                             <option value="">Todas as Disciplinas</option>
                             @foreach (var d in DisciplinasUnicas)
                             {
@@ -111,8 +112,8 @@
                         </select>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">Módulo</label>
-                        <select class="form-select rounded-pill" @bind="ModuloSelecionado" @bind:after="FiltrarTrabalhos">
+                        <label class="form-label">Módulo</label>
+                        <select class="form-select" @bind="ModuloSelecionado" @bind:after="FiltrarTrabalhos">
                             <option value="">Todos os Módulos</option>
                             @foreach (var m in ModulosDisponiveis)
                             {
@@ -124,120 +125,162 @@
             </div>
         </div>
 
-        @* Tabela de Trabalhos *@
-        <div class="card border-0 shadow-sm rounded-4 mb-4">
-            <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <h5 class="fw-bold"><i class="bi bi-list-task"></i> Meus Trabalhos</h5>
+        <div class="custom-card elevation-2" style="margin-top: 2rem;">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-list-task"></i> Meus Trabalhos</h5>
             </div>
-            <div class="card-body p-0">
-                @if (!TrabalhosFiltrados.Any())
+            @if (!TrabalhosFiltrados.Any())
+            {
+                <div class="card-body-custom text-center py-5">
+                    <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                    <p class="mt-3 text-muted">Nenhum trabalho encontrado</p>
+                </div>
+            }
+            else
+            {
+                <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 25%;">Título</th>
+                                <th style="width: 20%;">Disciplina</th>
+                                <th style="width: 15%;">Módulo</th>
+                                <th style="width: 15%;">Progresso</th>
+                                <th style="width: 10%;">Nota</th>
+                                <th style="width: 15%;" class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var t in TrabalhosFiltrados)
+                            {
+                                var perc = CalcularPercentualConclusao(t.TrabalhoVertentes);
+                                var nota = CalcularNotaTrabalho(t.TrabalhoVertentes);
+                                <tr class="@(t.IsPlanoRecuperacao ? "table-danger-light" : "")">
+                                    <td>
+                                        <strong>@t.Titulo</strong>
+                                        @if (t.IsPlanoRecuperacao)
+                                        {
+                                            <span class="badge bg-danger ms-1" style="font-size: 0.6rem;">RECUPERAÇÃO</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary text-white" style="display: inline-block; padding: 0.35em 0.65em; color: #fff !important;">
+                                            @(t.Disciplina?.Nome ?? "N/D")
+                                        </span>
+                                    </td>
+                                    <td>@t.Modulo?.Nome</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress" style="flex: 1; height: 6px;">
+                                                <div class="progress-bar" style="width:@perc%; background: linear-gradient(90deg, var(--success-color), var(--info-color));"></div>
+                                            </div>
+                                            <small>@perc.ToString("F0")%</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (nota.HasValue)
+                                        {
+                                            <strong style="color: @(nota.Value >= 9.5 ? "green" : nota.Value >= 8 ? "orange" : "red");">
+                                                @nota.Value.ToString("F1")
+                                            </strong>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">--</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-custom @(t.IsPlanoRecuperacao ? "btn-danger" : "btn-custom-primary")"
+                                                style="padding: 6px 12px;" @onclick="() => ResolverTrabalho(t.Id)">
+                                            <i class="bi bi-eye"></i> Abrir
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        <div class="custom-card elevation-2" style="margin-top: 2rem;">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-award-fill"></i> Meus Badges <span class="badge badge-custom badge-primary" style="margin-left: 1rem;">@BadgesConquistados.Count / @TodosBadges.Count</span></h5>
+            </div>
+            <div class="card-body-custom">
+                @if (TodosBadges.Count == 0)
                 {
                     <div class="text-center py-5">
-                        <i class="bi bi-inbox fs-1 text-muted"></i>
-                        <p class="mt-3 text-muted">Nenhum trabalho encontrado</p>
+                        <i class="bi bi-star" style="font-size: 3rem; color: #ccc;"></i>
+                        <p class="mt-3 text-muted">Nenhum badge disponível</p>
                     </div>
                 }
                 else
                 {
-                    <div class="table-responsive">
-                        <table class="table align-middle table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="ps-4">Título</th>
-                                    <th>Disciplina</th>
-                                    <th>Módulo</th>
-                                    <th>Progresso</th>
-                                    <th>Nota</th>
-                                    <th class="text-center pe-4">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var t in TrabalhosFiltrados)
-                                {
-                                    var perc = CalcularPercentualConclusao(t.TrabalhoVertentes);
-                                    var nota = CalcularNotaTrabalho(t.TrabalhoVertentes);
-                                    <tr class="@(t.IsPlanoRecuperacao ? "table-danger-light" : "")">
-                                        <td class="ps-4">
-                                            <span class="fw-bold d-block">@t.Titulo</span>
-                                            @if (t.IsPlanoRecuperacao)
-                                            {
-                                                <span class="badge bg-danger" style="font-size: 0.65rem;">RECUPERAÇÃO</span>
-                                            }
-                                        </td>
-                                        <td><span class="badge bg-primary rounded-pill px-3">@(t.Disciplina?.Nome ?? "N/D")</span></td>
-                                        <td><span class="text-muted">@t.Modulo?.Nome</span></td>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2" style="min-width: 120px;">
-                                                <div class="progress w-100" style="height: 6px;">
-                                                    <div class="progress-bar bg-success" style="width:@perc%"></div>
-                                                </div>
-                                                <small class="fw-bold">@perc.ToString("F0")%</small>
+                    <div class="row g-4">
+                        @foreach (var badge in TodosBadges)
+                        {
+                            bool conquistado = BadgesConquistados.Contains(badge.Key);
+                            string imagemBadge = badge.Key switch
+                            {
+                                "Entrega no Prazo" => "/images/EntregaNoPrazo.png",
+                                "Notas Altas" => "/images/NotasAltas.png",
+                                "Envio Consistente" => "/images/EnvioConsistente.png",
+                                "Engajamento Diário" => "/images/EngajamentoDiário.png",
+                                "Top Performer" => "/images/TopPerformer.png",
+                                "Participação Ativa" => "/images/ParticipaçãoAtiva.png",
+                                _ => "/images/TopPerformer.png"
+                            };
+
+                            <div class="col-6 col-md-4 col-lg-2">
+                                <div class="badge-item" style="@(conquistado ? "opacity: 1;" : "opacity: 0.5; filter: grayscale(100%);")">
+                                    <div class="badge-image-container">
+                                        <img src="@imagemBadge" alt="@badge.Key" class="badge-image" style="@(conquistado ? "transform: scale(1); filter: drop-shadow(0 4px 8px rgba(255,215,0,0.6));" : "transform: scale(0.95);")" />
+                                        @if (conquistado)
+                                        {
+                                            <div class="badge-conquered-mark">
+                                                <i class="bi bi-check-circle-fill"></i>
                                             </div>
-                                        </td>
-                                        <td>
-                                            @if (nota.HasValue)
+                                        }
+                                    </div>
+                                    <div class="badge-info text-center mt-3">
+                                        <h6 class="fw-bold" style="font-size: 0.85rem;">@badge.Key</h6>
+                                        <div style="margin-top: 0.5rem;">
+                                            @if (conquistado)
                                             {
-                                                <span class="fw-bold" style="color: @(nota.Value >= 9.5 ? "#198754" : nota.Value >= 8 ? "#fd7e14" : "#dc3545");">
-                                                    @nota.Value.ToString("F1")
-                                                </span>
+                                                <span class="badge badge-custom badge-success" style="font-size: 0.7rem;">✓ Conquistado</span>
                                             }
                                             else
                                             {
-
-                                                <span class="text-muted">--</span>
+                                                <span class="badge badge-custom badge-secondary" style="font-size: 0.7rem;">🔒 Bloqueado</span>
                                             }
-                                        </td>
-                                        <td class="text-center pe-4">
-                                            <button class="btn btn-sm @(t.IsPlanoRecuperacao ? "btn-danger" : "btn-primary") rounded-pill px-3" @onclick="() => ResolverTrabalho(t.Id)">
-                                                <i class="bi bi-eye"></i> Abrir
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
                     </div>
                 }
             </div>
-        </div>
 
-        @* Seção de Badges *@
-        <div class="card border-0 shadow-sm rounded-4 p-4">
-            <h5 class="fw-bold mb-4">
-                <i class="bi bi-award-fill text-warning"></i> Meus Badges
-                <span class="badge bg-light text-primary ms-2">@BadgesConquistados.Count / @TodosBadges.Count</span>
-            </h5>
-
-            <div class="row g-4 justify-content-center">
-                @foreach (var badge in TodosBadges)
-                {
-                    bool conquistado = BadgesConquistados.Contains(badge.Key);
-                    string imagemBadge = badge.Key switch
-                    {
-                        "Entrega no Prazo" => "/images/EntregaNoPrazo.png",
-                        "Notas Altas" => "/images/NotasAltas.png",
-                        "Envio Consistente" => "/images/EnvioConsistente.png",
-                        "Engajamento Diário" => "/images/EngajamentoDiário.png",
-                        "Top Performer" => "/images/TopPerformer.png",
-                        "Participação Ativa" => "/images/ParticipaçãoAtiva.png",
-                        _ => "/images/TopPerformer.png"
-                    };
-
-                    <div class="col-6 col-md-4 col-lg-2 text-center">
-                        <div class="badge-container @(conquistado ? "conquistado" : "bloqueado")">
-                            <img src="@imagemBadge" alt="@badge.Key" class="img-fluid mb-2 badge-img" />
-                            <h6 class="small fw-bold mb-1">@badge.Key</h6>
-                            @if (conquistado)
-                            {
-                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style="font-size: 0.65rem;">✓ Conquistado</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-light text-muted border rounded-pill" style="font-size: 0.65rem;">🔒 Bloqueado</span>
-                            }
-                        </div>
+            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #eee;">
+                <p class="text-muted small mb-2"><strong>Como conquistar badges:</strong></p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-unstyled small text-muted">
+                            <li>⭐ <strong>Entrega no Prazo:</strong> Entregue todos os trabalhos dentro do prazo</li>
+                            <li>🏆 <strong>Notas Altas:</strong> Obtenha média geral acima de 15</li>
+                            <li>✅ <strong>Envio Consistente:</strong> Envie respostas em todos os trabalhos</li>
+                        </ul>
                     </div>
-                }
+                    <div class="col-md-6">
+                        <ul class="list-unstyled small text-muted">
+                            <li>🔥 <strong>Engajamento Diário:</strong> Esteja ativo todos os dias</li>
+                            <li>👑 <strong>Top Performer:</strong> Tenha pelo menos 3 notas acima de 15</li>
+                            <li>❤️ <strong>Participação Ativa:</strong> Participe ativamente nas atividades</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     }
@@ -312,6 +355,7 @@
 
         TodosTrabalhos = await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(AlunoUserId ?? "");
         TrabalhosPendentes = TodosTrabalhos.Where(t => t.TrabalhoVertentes == null || t.TrabalhoVertentes.Any(v => !v.Nota.HasValue)).ToList();
+        TrabalhosFiltrados = TodosTrabalhos;
 
         DisciplinasUnicas = TodosTrabalhos.Select(t => t.Disciplina?.Nome).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
         ModulosDisponiveis = TodosTrabalhos.Select(t => t.Modulo?.Nome).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
@@ -320,19 +364,11 @@
                                  .Where(v => v.Nota.HasValue)
                                  .Select(v => (double)v.Nota!.Value);
         MediaGeral = notas.Any() ? notas.Average() : 0;
-
-        FiltrarTrabalhos();
     }
 
     private void OnDisciplinaChanged(ChangeEventArgs e)
     {
         DisciplinaSelecionada = e.Value?.ToString() ?? "";
-        // Atualiza módulos disponíveis conforme a disciplina para facilitar o filtro
-        ModulosDisponiveis = TodosTrabalhos
-            .Where(t => string.IsNullOrEmpty(DisciplinaSelecionada) || t.Disciplina?.Nome == DisciplinaSelecionada)
-            .Select(t => t.Modulo?.Nome).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
-
-        ModuloSelecionado = "";
         FiltrarTrabalhos();
     }
 
@@ -366,44 +402,6 @@
 
 <style>
     .table-danger-light {
-        background-color: rgba(220, 53, 69, 0.03) !important;
-    }
-
-    .badge-img {
-        width: 60px;
-        height: 60px;
-        object-fit: contain;
-        transition: transform 0.3s ease;
-    }
-
-    .badge-container.bloqueado {
-        opacity: 0.4;
-        filter: grayscale(1);
-    }
-
-    .badge-container.conquistado .badge-img {
-        filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5));
-        transform: scale(1.1);
-    }
-
-    .stat-card {
-        transition: transform 0.2s;
-        border: 1px solid rgba(0,0,0,0.05);
-    }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
-        }
-
-    .card-yellow {
-        background-color: #fffdf0;
-    }
-
-    .card-blue {
-        background-color: #f0f7ff;
-    }
-
-    .card-green {
-        background-color: #f0fff4;
+        background-color: rgba(220, 53, 69, 0.05) !important;
     }
 </style>
