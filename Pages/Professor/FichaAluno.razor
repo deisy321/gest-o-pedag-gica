@@ -98,7 +98,7 @@
 
             @if (VertentesAbaixoDaMedia != null && VertentesAbaixoDaMedia.Any())
             {
-                <p class="text-muted small">As categorias abaixo apresentam desempenho insuficiente (média &le; 9.0):</p>
+                <p class="text-muted small">As categorias abaixo apresentam desempenho insuficiente (média &lt; 9.5):</p>
                 <div class="row g-2">
                     @foreach (var v in VertentesAbaixoDaMedia)
                     {
@@ -249,7 +249,7 @@
     private void AnalisarVertentesCriticas()
     {
         VertentesAbaixoDaMedia = TrabalhosAluno
-            .Where(t => !t.IsPlanoRecuperacao)
+            // Alteração: Removemos o filtro de !IsPlanoRecuperacao para que a nota da recuperação entre no cálculo
             .SelectMany(t => t.Vertentes.Select(v => new { Vertente = v, t.DisciplinaNome, t.DisciplinaId }))
             .GroupBy(x => new { Tipo = (x.Vertente.Tipo ?? "Geral").Trim().ToUpper(), x.DisciplinaNome, x.DisciplinaId })
             .Select(g =>
@@ -257,7 +257,7 @@
                 var notasValidas = g.Where(x => x.Vertente.Nota.HasValue)
                                     .Select(x => (double)x.Vertente.Nota!.Value).ToList();
 
-                // Nova lógica: verifica se existe algum trabalho enviado que o professor ainda não corrigiu
+                // Verifica se existe algum trabalho enviado que ainda não foi corrigido
                 bool aguardandoCorrecao = g.Any(x => x.Vertente.Enviado && !x.Vertente.Nota.HasValue);
 
                 return new VertenteAnalise
@@ -270,8 +270,8 @@
                     AguardandoCorrecao = aguardandoCorrecao
                 };
             })
-            // O aviso só aparece se a média for inferior a 10 E se não houver trabalhos pendentes de correção
-            .Where(v => v.TemNotas && v.Media < 10.0 && !v.AguardandoCorrecao)
+            // Alteração: Média < 9.5 (se tirar 10, o aviso desaparece) E não pode estar à espera de correção
+            .Where(v => v.TemNotas && v.Media < 9.5 && !v.AguardandoCorrecao)
             .OrderBy(v => v.Media)
             .ToList();
     }
@@ -374,6 +374,6 @@
         public int DisciplinaId { get; set; }
         public double Media { get; set; }
         public bool TemNotas { get; set; }
-        public bool AguardandoCorrecao { get; set; } // Propriedade adicionada para controlar o aviso
+        public bool AguardandoCorrecao { get; set; }
     }
 }
