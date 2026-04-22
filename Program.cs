@@ -90,7 +90,7 @@ builder.Services.AddScoped<CursoService>();
 builder.Services.Configure<VapidSettings>(builder.Configuration.GetSection("VAPID"));
 
 // REGISTO DO PUSH SERVICE (RESTAURADO PARA FIXAR ERRO 500)
-builder.Services.AddScoped<PushService>();
+builder.Services.AddSingleton<PushService>();
 
 // CONFIGURAÇÃO DO CLIENTE DE IA (APONTANDO PARA O RENDER)
 builder.Services.AddHttpClient<IAService>(client =>

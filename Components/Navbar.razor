@@ -115,6 +115,9 @@
             {
                 // Busca a contagem que está guardada no PushService
                 notificacoesCount = PushService.GetNotificacoesCount(meuId);
+                
+                // CORREÇÃO: Força o componente a renderizar o ponto vermelho logo no carregamento
+                StateHasChanged();
             }
         }
     }
@@ -142,6 +145,7 @@
 
     public void Dispose()
     {
+        // Unsubscribe para evitar problemas de memória
         PushService.OnNotificationReceived -= TratarNovaNotificacao;
     }
 }
