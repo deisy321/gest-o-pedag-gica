@@ -25,7 +25,7 @@ public class TrabalhoService
             .Include(t => t.TrabalhoVertentes)
             .Include(t => t.Modulo)
             .Include(t => t.Professor)
-            .Include(t => t.Disciplina)
+            .Include(t => t.Disciplina) // Já estava aqui
             .Where(t => t.AlunoId == alunoUserId)
             .AsNoTracking()
             .ToListAsync();
@@ -35,6 +35,7 @@ public class TrabalhoService
     {
         return await _context.Trabalhos
             .Include(t => t.TrabalhoVertentes)
+            .Include(t => t.Disciplina) // ✅ ADICIONADO: Necessário para o filtro na tela de avaliação
             .Where(t => t.AlunoId == alunoUserId)
             .AsNoTracking()
             .ToListAsync();
@@ -55,6 +56,7 @@ public class TrabalhoService
             .Include(t => t.TrabalhoVertentes)
             .Include(t => t.Aluno)
             .Include(t => t.Modulo)
+            .Include(t => t.Disciplina) // ✅ ADICIONADO: Para garantir que o professor veja a disciplina na lista geral
             .Where(t => t.ProfessorId == professorUserId)
             .OrderByDescending(t => t.DataEntrega)
             .ToListAsync();
@@ -140,6 +142,7 @@ public class TrabalhoService
         return await _context.Trabalhos
             .Include(t => t.TrabalhoVertentes)
             .Include(t => t.Aluno)
+            .Include(t => t.Disciplina) // ✅ ADICIONADO: Importante para quando carregar um trabalho individual
             .FirstOrDefaultAsync(t => t.Id == id);
     }
 
@@ -228,7 +231,6 @@ public class TrabalhoService
             .ToListAsync();
     }
 
-    // --- ALTERAÇÃO AQUI: Passamos o userId para o EnviarNotificacaoAsync ---
     public async Task EnviarNotificacaoParaUsuario(string userId, string mensagem)
     {
         try
@@ -238,7 +240,6 @@ public class TrabalhoService
             {
                 if (!string.IsNullOrEmpty(sub.Payload))
                 {
-                    // Passamos o userId para que o PushService saiba quem é o alvo do evento
                     await _pushService.EnviarNotificacaoAsync(sub.Payload, mensagem, userId);
                 }
             }
@@ -254,6 +255,7 @@ public class TrabalhoService
         return await _context.Trabalhos
             .Include(t => t.Aluno)
             .Include(t => t.Modulo)
+            .Include(t => t.Disciplina) // ✅ ADICIONADO: Para relatórios gerais
             .Include(t => t.TrabalhoVertentes)
             .AsNoTracking()
             .ToListAsync();
