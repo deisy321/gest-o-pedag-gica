@@ -23,18 +23,22 @@
                 <AuthorizeView>
                     <Authorized>
                         <div class="dropdown me-3">
-                            @* Usamos preventDefault para o clique não bugar com o dropdown do Bootstrap *@
+                            @* AJUSTE 1: Mudamos para @onmousedown. 
+                                O evento 'mousedown' dispara antes do 'click', garantindo que o Blazor 
+                                limpe o número antes do Bootstrap abrir o menu.
+                            *@
                             <button class="btn btn-link text-white position-relative p-0" 
                                     id="notificacoesDropdown" 
                                     data-bs-toggle="dropdown" 
                                     aria-expanded="false"
-                                    @onclick="LimparNotificacoes"
-                                    @onclick:preventDefault>
+                                    @onmousedown="LimparNotificacoes">
                                 <i class="bi bi-bell-fill fs-5"></i>
                                 
                                 @if (notificacoesCount > 0)
                                 {
-                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" style="font-size: 0.6rem;">
+                                    @* AJUSTE 2: pointer-events: none faz o clique "atravessar" o número e chegar ao botão *@
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" 
+                                          style="font-size: 0.6rem; pointer-events: none;">
                                         @notificacoesCount
                                     </span>
                                 }
@@ -69,6 +73,7 @@
                             </ul>
                         </div>
 
+                        @* Perfil do Usuário *@
                         <a href="/Conta" class="user-profile-btn me-2">
                             <div class="avatar-circle">
                                 <i class="bi bi-person-fill"></i>
@@ -79,6 +84,7 @@
                             </div>
                         </a>
 
+                        @* Logout *@
                         <form method="post" action="Identity/Account/Logout">
                             <AntiforgeryToken />
                             <input type="hidden" name="ReturnUrl" value="/" />
@@ -120,7 +126,6 @@
 
     private async void TratarNovaNotificacao(string targetUserId)
     {
-        // O InvokeAsync é essencial aqui porque este evento vem de fora da thread da UI
         await InvokeAsync(() =>
         {
             if (!string.IsNullOrEmpty(meuId) && meuId == targetUserId)
@@ -132,7 +137,7 @@
         });
     }
 
-    private void LimparNotificacoes()
+    private async Task LimparNotificacoes()
     {
         if (!string.IsNullOrEmpty(meuId))
         {
@@ -140,8 +145,8 @@
             ultimaNotificacao = null;
             PushService.LimparNotificacoes(meuId);
             
-            // Forçamos o Blazor a redesenhar para o badge sumir
-            StateHasChanged();
+            // AJUSTE 3: InvokeAsync garante que a UI atualiza mesmo se houver lag no SignalR
+            await InvokeAsync(StateHasChanged);
         }
     }
 
