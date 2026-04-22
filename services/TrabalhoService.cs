@@ -25,7 +25,7 @@ public class TrabalhoService
             .Include(t => t.TrabalhoVertentes)
             .Include(t => t.Modulo)
             .Include(t => t.Professor)
-            .Include(t => t.Disciplina) // Já estava aqui
+            .Include(t => t.Disciplina)
             .Where(t => t.AlunoId == alunoUserId)
             .AsNoTracking()
             .ToListAsync();
@@ -35,7 +35,7 @@ public class TrabalhoService
     {
         return await _context.Trabalhos
             .Include(t => t.TrabalhoVertentes)
-            .Include(t => t.Disciplina) // ✅ ADICIONADO: Necessário para o filtro na tela de avaliação
+            .Include(t => t.Disciplina)
             .Where(t => t.AlunoId == alunoUserId)
             .AsNoTracking()
             .ToListAsync();
@@ -56,7 +56,7 @@ public class TrabalhoService
             .Include(t => t.TrabalhoVertentes)
             .Include(t => t.Aluno)
             .Include(t => t.Modulo)
-            .Include(t => t.Disciplina) // ✅ ADICIONADO: Para garantir que o professor veja a disciplina na lista geral
+            .Include(t => t.Disciplina)
             .Where(t => t.ProfessorId == professorUserId)
             .OrderByDescending(t => t.DataEntrega)
             .ToListAsync();
@@ -142,7 +142,7 @@ public class TrabalhoService
         return await _context.Trabalhos
             .Include(t => t.TrabalhoVertentes)
             .Include(t => t.Aluno)
-            .Include(t => t.Disciplina) // ✅ ADICIONADO: Importante para quando carregar um trabalho individual
+            .Include(t => t.Disciplina)
             .FirstOrDefaultAsync(t => t.Id == id);
     }
 
@@ -207,7 +207,7 @@ public class TrabalhoService
         }
         else
         {
-            var trabalho = await _context.Trabalhos.AsNoTracking().FirstOrDefaultAsync(t => t.Id == trabalhoId);
+            var trabalho = await _context.Trabalhos.AsNoTracking().FirstOrDefaultAsync(t => t.Id == trabajoId);
             if (trabalho != null && !string.IsNullOrWhiteSpace(trabalho.ConteudoTexto))
             {
                 descricaoParaIA = trabalho.ConteudoTexto;
@@ -252,12 +252,20 @@ public class TrabalhoService
 
     public async Task<List<Trabalho>> GetTodosTrabalhosComNotasAsync()
     {
-        return await _context.Trabalhos
-            .Include(t => t.Aluno)
-            .Include(t => t.Modulo)
-            .Include(t => t.Disciplina) // ✅ ADICIONADO: Para relatórios gerais
-            .Include(t => t.TrabalhoVertentes)
-            .AsNoTracking()
-            .ToListAsync();
+        try
+        {
+            return await _context.Trabalhos
+                .Include(t => t.Aluno)
+                .Include(t => t.Modulo)
+                .Include(t => t.Disciplina)
+                .Include(t => t.TrabalhoVertentes)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao obter trabalhos para relatório: {ex.Message}");
+            return new List<Trabalho>();
+        }
     }
 }

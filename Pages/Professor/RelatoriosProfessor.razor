@@ -1,6 +1,7 @@
 ﻿@page "/professor/RelatoriosProfessor"
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
+@using System.Security.Claims
 @inject ProfessorService ProfessorService
 @inject TrabalhoService TrabalhoService
 @inject AuthenticationStateProvider AuthStateProvider
@@ -10,9 +11,17 @@
 
 <div class="row">
     <div class="col-md-12">
-        <div class="card p-3">
-            <h5>Comparação de Desempenho por Turma</h5>
-            <canvas id="chartTurmas"></canvas>
+        <div class="card p-3 shadow-sm">
+            <h5 class="mb-4">Comparação de Desempenho por Turma</h5>
+
+            @if (Labels == null || !Labels.Any())
+            {
+                <div class="alert alert-info">A carregar dados ou sem avaliações disponíveis...</div>
+            }
+
+            <div style="position: relative; height:400px; width:100%">
+                <canvas id="chartTurmas"></canvas>
+            </div>
         </div>
     </div>
 </div>
@@ -20,18 +29,19 @@
 @code {
     private List<string> Labels = new();
     private List<double> Medias = new();
+    private bool initialized = false;
 
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-        var userId = auth.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var userId = auth.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
 
-        var professor = await ProfessorService.GetProfessorByUserIdAsync(userId!);
+        if (string.IsNullOrEmpty(userId)) return;
 
+        var professor = await ProfessorService.GetProfessorByUserIdAsync(userId);
         if (professor == null) return;
 
         var turmas = await ProfessorService.GetTurmasDoProfessorAsync(professor.Id);
-
         var trabalhos = await TrabalhoService.GetTodosTrabalhosComNotasAsync();
 
         var dados = turmas.Select(turma =>
@@ -46,19 +56,21 @@
             return new
             {
                 Nome = turma.Nome,
-                Media = notas.Any() ? notas.Average() : 0
+                Media = notas.Any() ? Math.Round(notas.Average(), 2) : 0
             };
         })
-        .OrderByDescending(x => x.Media) // ✔ ordena melhor → pior
+        .OrderByDescending(x => x.Media)
         .ToList();
 
         Labels = dados.Select(d => d.Nome).ToList();
         Medias = dados.Select(d => d.Media).ToList();
+        initialized = true;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && Labels.Any())
+        // Só renderiza o gráfico se já tivermos dados e o componente estiver pronto
+        if (initialized && Labels.Any())
         {
             var colors = Labels.Select(_ => "#4e73df").ToArray();
 
@@ -69,6 +81,9 @@
                 Medias.ToArray(),
                 colors
             );
+
+            // Marcamos como falso para não renderizar em loop a cada atualização de UI
+            initialized = false;
         }
     }
 }
