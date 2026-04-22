@@ -9,15 +9,16 @@ namespace gestaopedagogica.Services
     {
         private readonly VapidSettings _settings;
 
-        // EVENTO: Permite que outros componentes saibam que algo mudou
-        public event Action? OnNotificationReceived;
+        // ALTERAÇÃO: O evento agora transporta uma string (o UserId do destino)
+        public event Action<string>? OnNotificationReceived;
 
         public PushService(IOptions<VapidSettings> settings)
         {
             _settings = settings.Value;
         }
 
-        public async Task EnviarNotificacaoAsync(string subscriptionJson, string message)
+        // ALTERAÇÃO: Adicionamos o parâmetro targetUserId
+        public async Task EnviarNotificacaoAsync(string subscriptionJson, string message, string targetUserId)
         {
             try
             {
@@ -38,8 +39,8 @@ namespace gestaopedagogica.Services
                 var webPushClient = new WebPushClient();
                 await webPushClient.SendNotificationAsync(subscription, message, vapidDetails);
 
-                // NOTIFICAR O NAVBAR: Avisa que uma nova notificação foi processada
-                OnNotificationReceived?.Invoke();
+                // NOTIFICAR O NAVBAR: Agora enviamos o ID de quem deve "acender" o sino
+                OnNotificationReceived?.Invoke(targetUserId);
             }
             catch (Exception ex)
             {

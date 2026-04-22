@@ -221,9 +221,6 @@ public class TrabalhoService
         );
     }
 
-    /// <summary>
-    /// Retorna as subscrições do modelo interno do seu sistema para evitar conflitos de tipos.
-    /// </summary>
     public async Task<List<NotificationSubscription>> GetSubscriptionsByUserIdAsync(string userId)
     {
         return await _context.PushSubscriptions
@@ -231,6 +228,7 @@ public class TrabalhoService
             .ToListAsync();
     }
 
+    // --- ALTERAÇÃO AQUI: Passamos o userId para o EnviarNotificacaoAsync ---
     public async Task EnviarNotificacaoParaUsuario(string userId, string mensagem)
     {
         try
@@ -238,10 +236,10 @@ public class TrabalhoService
             var subs = await GetSubscriptionsByUserIdAsync(userId);
             foreach (var sub in subs)
             {
-                // Note: Substituí 'Payload' por 'JsonPayload' ou similar, ajuste conforme o seu Modelo
                 if (!string.IsNullOrEmpty(sub.Payload))
                 {
-                    await _pushService.EnviarNotificacaoAsync(sub.Payload, mensagem);
+                    // Passamos o userId para que o PushService saiba quem é o alvo do evento
+                    await _pushService.EnviarNotificacaoAsync(sub.Payload, mensagem, userId);
                 }
             }
         }

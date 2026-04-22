@@ -23,7 +23,6 @@
                 <AuthorizeView>
                     <Authorized>
                         <div class="dropdown me-3">
-                            @* O botão agora chama 'LimparNotificacoes' ao ser clicado *@
                             <button class="btn btn-link text-white position-relative p-0" 
                                     id="notificacoesDropdown" 
                                     data-bs-toggle="dropdown" 
@@ -95,28 +94,43 @@
     private int notificacoesCount = 0;
     private string? ultimaNotificacao;
 
+    // Obtém o estado de autenticação para identificar o utilizador logado
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     protected override void OnInitialized()
     {
+        // Subscreve ao evento que agora transporta o ID do destinatário
         PushService.OnNotificationReceived += TratarNovaNotificacao;
     }
 
-    private async void TratarNovaNotificacao()
+    // O método agora recebe o targetUserId vindo do PushService
+    private async void TratarNovaNotificacao(string targetUserId)
     {
-        notificacoesCount++;
-        // Aqui definimos a mensagem que aparece no dropdown baseada no que recebemos
-        ultimaNotificacao = "Recebeu uma nova atividade ou avaliação.";
-        
-        await InvokeAsync(StateHasChanged);
+        if (AuthState == null) return;
+
+        var authState = await AuthState;
+        var meuId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        // VALIDAR: Se o ID do destino for igual ao ID de quem está a ver esta Navbar
+        if (!string.IsNullOrEmpty(meuId) && meuId == targetUserId)
+        {
+            notificacoesCount++;
+            ultimaNotificacao = "Recebeu uma nova atividade ou avaliação.";
+            
+            // Força a atualização da interface (UI)
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private void LimparNotificacoes()
     {
-        // Quando clica no sino, o número desaparece mas a mensagem fica lá para ele ler
         notificacoesCount = 0;
     }
 
     public void Dispose()
     {
+        // Unsubscribe para evitar problemas de memória
         PushService.OnNotificationReceived -= TratarNovaNotificacao;
     }
 }
