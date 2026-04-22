@@ -8,6 +8,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject PushService PushService
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -305,6 +306,20 @@
                 };
 
                 await TrabalhoService.AddVertenteAsync(vertenteInicial);
+
+                // --- LÓGICA DE NOTIFICAÇÃO PUSH ---
+                try
+                {
+                    var subs = await TrabalhoService.GetSubscriptionsByUserIdAsync(AlunoSelecionado.UserId);
+                    foreach (var sub in subs)
+                    {
+                        await PushService.EnviarNotificacaoAsync(sub.Payload,
+                            $"Novo Plano de Recuperação: Foi criado um plano para a vertente {VertenteEmFoco.Tipo}.",
+                            AlunoSelecionado.UserId);
+                    }
+                }
+                catch { /* Silencia erros de push para não travar a UI */ }
+
                 await JS.InvokeVoidAsync("alert", "Plano de recuperação enviado com sucesso!");
 
                 VertenteEmFoco = null;

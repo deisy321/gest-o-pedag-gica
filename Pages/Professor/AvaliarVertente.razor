@@ -190,77 +190,60 @@
 
     private async Task CarregarDados()
     {
-        try
+        Trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(TrabalhoId);
+        if (Trabalho == null)
         {
-            Trabalho = await TrabalhoService.GetTrabalhoPorIdAsync(TrabalhoId);
-            if (Trabalho == null)
-            {
-                StatusMessage = "❌ Trabalho não encontrado.";
-                return;
-            }
-
-            var vertentes = await TrabalhoService.GetVertentesDoTrabalhoAsync(TrabalhoId);
-            Vertente = vertentes?.FirstOrDefault(v => v.Tipo == Tipo);
-
-            if (Vertente == null)
-            {
-                StatusMessage = "❌ Vertente não encontrada.";
-                return;
-            }
-
-            if (Vertente.Nota.HasValue)
-            {
-                Nota = Vertente.Nota.Value;
-                Feedback = Vertente.Feedback ?? "";
-            }
+            StatusMessage = "❌ Trabalho não encontrado.";
+            return;
         }
-        catch (Exception ex)
+
+        var vertentes = await TrabalhoService.GetVertentesDoTrabalhoAsync(TrabalhoId);
+        Vertente = vertentes?.FirstOrDefault(v => v.Tipo == Tipo);
+
+        if (Vertente == null)
         {
-            StatusMessage = $"❌ Erro ao carregar dados: {ex.Message}";
+            StatusMessage = "❌ Vertente não encontrada.";
+            return;
+        }
+
+        if (Vertente.Nota.HasValue)
+        {
+            Nota = Vertente.Nota.Value;
+            Feedback = Vertente.Feedback ?? "";
         }
     }
 
     private async Task SalvarAvaliacao()
     {
+        if (Vertente == null || IsSaving) return;
+
         IsSaving = true;
         StatusMessage = "";
 
         try
         {
-            if (Nota < 0 || Nota > 20)
-            {
-                StatusMessage = "❌ A nota deve estar entre 0 e 20.";
-                IsSaving = false;
-                return;
-            }
-
-            if (Vertente == null) return;
-
             Vertente.Nota = Nota;
             Vertente.Feedback = Feedback;
             await TrabalhoService.AtualizarVertenteAsync(Vertente);
 
-            // --- LÓGICA DE NOTIFICAÇÃO PARA O ALUNO (CORRIGIDA) ---
+            // Notificação Push
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.AlunoId))
             {
                 var subs = await TrabalhoService.GetSubscriptionsByUserIdAsync(Trabalho.AlunoId);
-
                 foreach (var sub in subs)
                 {
                     try
                     {
-                        // CORREÇÃO: Adicionado o terceiro parâmetro Trabalho.AlunoId
                         await PushService.EnviarNotificacaoAsync(sub.Payload,
-                            $"Nova Avaliação: O teu trabalho '{Trabalho.Titulo}' (Vertente: {Tipo}) foi avaliado com a nota {Nota}.",
+                            $"Nova Avaliação: O teu trabalho '{Trabalho.Titulo}' ({Tipo}) recebeu a nota {Nota}.",
                             Trabalho.AlunoId);
                     }
-                    catch { /* Silencia erros de envio individual */ }
+                    catch { }
                 }
             }
 
-            StatusMessage = "✅ Avaliação guardada com sucesso! O aluno foi notificado.";
+            StatusMessage = "✅ Avaliação guardada com sucesso!";
             StateHasChanged();
-
             await Task.Delay(1500);
             Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
         }
