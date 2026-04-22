@@ -141,12 +141,12 @@
         {
             isLoading = true;
 
-            // 1. Obter dados base
-            var turmasDoBanco = await TurmaService.GetTurmasAsync();
-            var trabalhosComNotas = await TrabalhoService.GetTodosTrabalhosComNotasAsync();
+            // 1. Obter dados base com proteção contra nulos
+            var turmasDoBanco = await TurmaService.GetTurmasAsync() ?? new List<Turma>();
+            var trabalhosComNotas = await TrabalhoService.GetTodosTrabalhosComNotasAsync() ?? new List<Trabalho>();
 
-            // 2. Usar o DbFactory para estatísticas rápidas
-            using var context = DbFactory.CreateDbContext();
+            // 2. CORREÇÃO: Usar CreateDbContextAsync para evitar quebra do circuito
+            using var context = await DbFactory.CreateDbContextAsync();
             TotalAlunos = await context.Alunos.CountAsync();
             TotalProfessores = await context.Professores.CountAsync();
 
@@ -157,15 +157,16 @@
                 var notasDaTurma = trabalhosComNotas
                     .Where(t => t.TurmaId == turma.Id)
                     .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                    .Where(v => v.Nota.HasValue)
+                    .Where(v => v != null && v.Nota.HasValue)
                     .Select(v => (double)v.Nota!.Value)
                     .ToList();
 
                 return new ViewRelatorioTurma
                 {
                     Nome = turma.Nome ?? "Turma Sem Nome",
-                    // Garantimos que Alunos não é nulo para evitar erro de contagem
+                    // Proteção contra navegação nula
                     QtdAlunos = turma.Alunos?.Count ?? 0,
+                    // Proteção contra Sequence contains no elements
                     MediaNota = notasDaTurma.Any() ? notasDaTurma.Average() : 0
                 };
             })
@@ -178,14 +179,21 @@
             {
                 MediaGlobalGeral = turmasComMedia.Average(x => x.MediaNota);
             }
+            else
+            {
+                MediaGlobalGeral = 0;
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erro ao carregar relatório global: {ex.Message}");
+            // Evita o crash da UI, mas loga o erro para o desenvolvedor
+            Console.WriteLine($"Erro crítico no Relatório Global: {ex.Message}");
         }
         finally
         {
             isLoading = false;
+            // Notifica o Blazor que os dados carregaram
+            StateHasChanged();
         }
     }
 
