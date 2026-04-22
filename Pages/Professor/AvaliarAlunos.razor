@@ -43,6 +43,7 @@
     }
     else
     {
+        @* Informações do Aluno *@
         <div class="custom-card mb-4 p-3 elevation-1 border-start-primary">
             <div class="d-flex align-items-center">
                 <div class="avatar-circle me-3">
@@ -56,11 +57,32 @@
             </div>
         </div>
 
-        @foreach (var trabalho in Trabalhos)
+        @* NOVO: Filtro de Disciplinas *@
+        <div class="custom-card mb-4 p-3 elevation-1">
+            <div class="row align-items-center">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Filtrar por Disciplina</label>
+                    <select class="form-select border-primary shadow-sm" @bind="DisciplinaSelecionada">
+                        <option value="">Todas as Disciplinas</option>
+                        @foreach (var disc in DisciplinasUnicas)
+                        {
+                            <option value="@disc">@disc</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        @* Lista de Trabalhos Filtrada *@
+        @foreach (var trabalho in Trabalhos.Where(t => string.IsNullOrEmpty(DisciplinaSelecionada) || t.Disciplina?.Nome == DisciplinaSelecionada))
         {
             <div class="custom-card mb-4 elevation-2 overflow-hidden">
                 <div class="card-header-custom bg-light d-flex justify-content-between align-items-center">
-                    <span class="fw-bold text-dark"><i class="fas fa-file-signature me-2 text-primary"></i>@trabalho.Titulo</span>
+                    <div>
+                        @* Exibição do nome da Disciplina junto ao Título *@
+                        <span class="badge bg-primary me-2 shadow-sm">@(trabalho.Disciplina?.Nome ?? "Geral")</span>
+                        <span class="fw-bold text-dark"><i class="fas fa-file-signature me-2 text-primary"></i>@trabalho.Titulo</span>
+                    </div>
                     <span class="badge bg-white text-muted border">ID: #@trabalho.Id</span>
                 </div>
 
@@ -181,6 +203,15 @@
     private List<Trabalho> Trabalhos = new();
     private bool IsLoading = true;
 
+    // Variáveis para o Filtro
+    private string DisciplinaSelecionada = "";
+    private List<string> DisciplinasUnicas => Trabalhos
+        .Where(t => t.Disciplina != null)
+        .Select(t => t.Disciplina!.Nome)
+        .Distinct()
+        .OrderBy(n => n)
+        .ToList();
+
     protected override async Task OnInitializedAsync()
     {
         await CarregarDados();
@@ -211,7 +242,6 @@
 
     private void IrAvaliar(int trabalhoId, string tipo)
     {
-        // Passamos o AlunoId na URL para que a página de avaliação saiba para onde voltar
         Nav.NavigateTo($"/professor/AvaliarVertente/{trabalhoId}/{tipo}/{AlunoId}");
     }
 }
