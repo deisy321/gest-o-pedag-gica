@@ -1,6 +1,7 @@
 ﻿@page "/admin/RelatoriosGlobais"
 @using gestaopedagogica.Services
 @using gestaopedagogica.Models
+@using gestaopedagogica.Data
 @using Microsoft.EntityFrameworkCore
 @using System.Linq
 @inject TurmaService TurmaService
@@ -19,6 +20,22 @@
         border: none;
         border-radius: 12px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 </style>
 
@@ -57,8 +74,8 @@
     </div>
 
     @* Tabela Principal *@
-    <div class="card admin-card p-4">
-        <h5 class="fw-bold mb-4 text-primary">Aproveitamento Escolar</h5>
+    <div class="card admin-card p-4 shadow-sm">
+        <h5 class="fw-bold mb-4 text-primary border-bottom pb-2">Aproveitamento Escolar</h5>
         <div class="table-responsive">
             <table class="table table-hover align-middle">
                 <thead class="table-light">
@@ -77,11 +94,11 @@
                             <tr>
                                 <td class="fw-bold">@item.Nome</td>
                                 <td>@item.QtdAlunos Alunos</td>
-                                <td class="fw-bold @(item.MediaNota >= 9.5 ? "text-success" : "text-danger")">
-                                    @item.MediaNota.ToString("F1")
+                                <td class="fw-bold @(item.MediaNota >= 9.5 ? "text-success" : item.MediaNota > 0 ? "text-danger" : "text-muted")">
+                                    @(item.MediaNota > 0 ? item.MediaNota.ToString("F1") : "---")
                                 </td>
                                 <td class="text-center">
-                                    @if (item.MediaNota >= 10)
+                                    @if (item.MediaNota >= 9.5)
                                     {
                                         <span class="badge bg-success rounded-pill px-3">Positiva</span>
                                     }
@@ -97,9 +114,13 @@
                             </tr>
                         }
                     }
-                    else
+                    else if (isLoading)
                     {
                         <tr><td colspan="4" class="text-center py-5 text-muted">A carregar dados do sistema...</td></tr>
+                    }
+                    else
+                    {
+                        <tr><td colspan="4" class="text-center py-5 text-muted">Não foram encontradas turmas registradas.</td></tr>
                     }
                 </tbody>
             </table>
@@ -112,20 +133,27 @@
     private int TotalAlunos;
     private int TotalProfessores;
     private double MediaGlobalGeral;
+    private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
+            isLoading = true;
+
+            // 1. Obter dados base
             var turmasDoBanco = await TurmaService.GetTurmasAsync();
             var trabalhosComNotas = await TrabalhoService.GetTodosTrabalhosComNotasAsync();
 
+            // 2. Usar o DbFactory para estatísticas rápidas
             using var context = DbFactory.CreateDbContext();
             TotalAlunos = await context.Alunos.CountAsync();
             TotalProfessores = await context.Professores.CountAsync();
 
+            // 3. Processar a lista para exibição
             ListaParaExibir = turmasDoBanco.Select(turma =>
             {
+                // Filtramos as notas das vertentes pertencentes a esta turma
                 var notasDaTurma = trabalhosComNotas
                     .Where(t => t.TurmaId == turma.Id)
                     .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
@@ -135,7 +163,8 @@
 
                 return new ViewRelatorioTurma
                 {
-                    Nome = turma.Nome ?? "Turma N/A",
+                    Nome = turma.Nome ?? "Turma Sem Nome",
+                    // Garantimos que Alunos não é nulo para evitar erro de contagem
                     QtdAlunos = turma.Alunos?.Count ?? 0,
                     MediaNota = notasDaTurma.Any() ? notasDaTurma.Average() : 0
                 };
@@ -143,14 +172,20 @@
             .OrderByDescending(x => x.MediaNota)
             .ToList();
 
-            if (ListaParaExibir.Any(x => x.MediaNota > 0))
+            // 4. Calcular média institucional (apenas turmas com notas)
+            var turmasComMedia = ListaParaExibir.Where(x => x.MediaNota > 0).ToList();
+            if (turmasComMedia.Any())
             {
-                MediaGlobalGeral = ListaParaExibir.Where(x => x.MediaNota > 0).Average(x => x.MediaNota);
+                MediaGlobalGeral = turmasComMedia.Average(x => x.MediaNota);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erro ao carregar relatório: {ex.Message}");
+            Console.WriteLine($"Erro ao carregar relatório global: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
 
