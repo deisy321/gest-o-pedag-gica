@@ -98,7 +98,7 @@
 
             @if (VertentesAbaixoDaMedia != null && VertentesAbaixoDaMedia.Any())
             {
-                <p class="text-muted small">As categorias abaixo apresentam desempenho insuficiente (média &lt; 9.5):</p>
+                <p class="text-muted small">As categorias abaixo apresentam desempenho insuficiente (média &lt; 9.0):</p>
                 <div class="row g-2">
                     @foreach (var v in VertentesAbaixoDaMedia)
                     {
@@ -249,16 +249,17 @@
     private void AnalisarVertentesCriticas()
     {
         VertentesAbaixoDaMedia = TrabalhosAluno
-            // Alteração: Removemos o filtro de !IsPlanoRecuperacao para que a nota da recuperação entre no cálculo
-            .SelectMany(t => t.Vertentes.Select(v => new { Vertente = v, t.DisciplinaNome, t.DisciplinaId }))
+            .SelectMany(t => t.Vertentes.Select(v => new { Vertente = v, t.DisciplinaNome, t.DisciplinaId, t.IsPlanoRecuperacao }))
             .GroupBy(x => new { Tipo = (x.Vertente.Tipo ?? "Geral").Trim().ToUpper(), x.DisciplinaNome, x.DisciplinaId })
             .Select(g =>
             {
                 var notasValidas = g.Where(x => x.Vertente.Nota.HasValue)
                                     .Select(x => (double)x.Vertente.Nota!.Value).ToList();
 
-                // Verifica se existe algum trabalho enviado que ainda não foi corrigido
                 bool aguardandoCorrecao = g.Any(x => x.Vertente.Enviado && !x.Vertente.Nota.HasValue);
+
+                // Nova Lógica: Se houver uma nota de recuperação superior a 9.4, consideramos recuperado
+                bool recuperadoPelaNotaFinal = g.Any(x => x.IsPlanoRecuperacao && x.Vertente.Nota.HasValue && x.Vertente.Nota >= 9.5m);
 
                 return new VertenteAnalise
                 {
@@ -267,11 +268,12 @@
                     DisciplinaId = g.Key.DisciplinaId ?? 0,
                     Media = notasValidas.Any() ? notasValidas.Average() : 0,
                     TemNotas = notasValidas.Any(),
-                    AguardandoCorrecao = aguardandoCorrecao
+                    AguardandoCorrecao = aguardandoCorrecao,
+                    RecuperadoComSucesso = recuperadoPelaNotaFinal
                 };
             })
-            // Alteração: Média < 9.5 (se tirar 10, o aviso desaparece) E não pode estar à espera de correção
-            .Where(v => v.TemNotas && v.Media < 9.5 && !v.AguardandoCorrecao)
+            // O aviso só aparece se: Tiver notas, Média < 9.0, Não estiver à espera de correção E não tiver sido recuperado com sucesso
+            .Where(v => v.TemNotas && v.Media < 9.0 && !v.AguardandoCorrecao && !v.RecuperadoComSucesso)
             .OrderBy(v => v.Media)
             .ToList();
     }
@@ -375,5 +377,6 @@
         public double Media { get; set; }
         public bool TemNotas { get; set; }
         public bool AguardandoCorrecao { get; set; }
+        public bool RecuperadoComSucesso { get; set; }
     }
 }
