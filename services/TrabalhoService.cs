@@ -207,7 +207,7 @@ public class TrabalhoService
         }
         else
         {
-            var trabalho = await _context.Trabalhos.AsNoTracking().FirstOrDefaultAsync(t => t.Id == trabajoId);
+            var trabalho = await _context.Trabalhos.AsNoTracking().FirstOrDefaultAsync(t => t.Id == trabalhoId);
             if (trabalho != null && !string.IsNullOrWhiteSpace(trabalho.ConteudoTexto))
             {
                 descricaoParaIA = trabalho.ConteudoTexto;
