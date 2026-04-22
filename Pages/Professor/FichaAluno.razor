@@ -248,7 +248,6 @@
 
     private void AnalisarVertentesCriticas()
     {
-        // Agrupamos por Disciplina E por Tipo de Vertente para ser preciso
         VertentesAbaixoDaMedia = TrabalhosAluno
             .Where(t => !t.IsPlanoRecuperacao)
             .SelectMany(t => t.Vertentes.Select(v => new { Vertente = v, t.DisciplinaNome, t.DisciplinaId }))
@@ -257,16 +256,22 @@
             {
                 var notasValidas = g.Where(x => x.Vertente.Nota.HasValue)
                                     .Select(x => (double)x.Vertente.Nota!.Value).ToList();
+
+                // Nova lógica: verifica se existe algum trabalho enviado que o professor ainda não corrigiu
+                bool aguardandoCorrecao = g.Any(x => x.Vertente.Enviado && !x.Vertente.Nota.HasValue);
+
                 return new VertenteAnalise
                 {
                     Tipo = g.First().Vertente.Tipo ?? "Geral",
                     DisciplinaNome = g.Key.DisciplinaNome ?? "N/A",
                     DisciplinaId = g.Key.DisciplinaId ?? 0,
                     Media = notasValidas.Any() ? notasValidas.Average() : 0,
-                    TemNotas = notasValidas.Any()
+                    TemNotas = notasValidas.Any(),
+                    AguardandoCorrecao = aguardandoCorrecao
                 };
             })
-            .Where(v => v.TemNotas && v.Media <= 9.0)
+            // O aviso só aparece se a média for inferior a 10 E se não houver trabalhos pendentes de correção
+            .Where(v => v.TemNotas && v.Media < 10.0 && !v.AguardandoCorrecao)
             .OrderBy(v => v.Media)
             .ToList();
     }
@@ -369,5 +374,6 @@
         public int DisciplinaId { get; set; }
         public double Media { get; set; }
         public bool TemNotas { get; set; }
+        public bool AguardandoCorrecao { get; set; } // Propriedade adicionada para controlar o aviso
     }
 }

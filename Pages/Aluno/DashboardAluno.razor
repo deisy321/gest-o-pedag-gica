@@ -35,13 +35,15 @@
             </div>
         </div>
 
-        @if (TodosTrabalhos != null && TodosTrabalhos.Any(t => t.IsPlanoRecuperacao))
+        @* LÓGICA ATUALIZADA: O alerta só aparece se houver Plano de Recuperação com nota nula ou <= 9.0 *@
+        @if (TodosTrabalhos != null && TodosTrabalhos.Any(t => t.IsPlanoRecuperacao && (CalcularNotaTrabalho(t.TrabalhoVertentes) == null || CalcularNotaTrabalho(t.TrabalhoVertentes) <= 9.0)))
         {
             <div class="alert alert-danger shadow-sm border-0 mb-4 animate__animated animate__pulse" style="border-radius: 15px; border-left: 8px solid #dc3545 !important;">
                 <h5 class="fw-bold"><i class="bi bi-lightning-charge-fill"></i> Tens Planos de Recuperação Ativos!</h5>
                 <p>O teu professor enviou atividades específicas para melhorar as tuas notas nas vertentes críticas.</p>
                 <div class="d-flex gap-2" style="flex-wrap: wrap;">
-                    @foreach (var plano in TodosTrabalhos.Where(t => t.IsPlanoRecuperacao))
+                    @* Filtro aplicado também na listagem dos botões *@
+                    @foreach (var plano in TodosTrabalhos.Where(t => t.IsPlanoRecuperacao && (CalcularNotaTrabalho(t.TrabalhoVertentes) == null || CalcularNotaTrabalho(t.TrabalhoVertentes) <= 9.0)))
                     {
                         <button class="btn btn-danger btn-sm rounded-pill px-3 shadow-sm" @onclick="() => ResolverTrabalho(plano.Id)">
                             <i class="bi bi-pencil-square"></i> Resolver: @plano.Titulo
@@ -162,7 +164,6 @@
                                         }
                                     </td>
                                     <td>
-                                        @* CORREÇÃO AQUI: bg-primary força o azul e text-white força o branco sempre *@
                                         <span class="badge bg-primary text-white" style="display: inline-block; padding: 0.35em 0.65em; color: #fff !important;">
                                             @(t.Disciplina?.Nome ?? "N/D")
                                         </span>
