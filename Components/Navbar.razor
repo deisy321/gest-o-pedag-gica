@@ -43,13 +43,15 @@
                                     <h6 class="mb-0 fw-bold">Notificações</h6>
                                 </li>
                                 
-                                @if (!string.IsNullOrEmpty(ultimaNotificacao))
+                                @if (notificacoesCount > 0 || !string.IsNullOrEmpty(ultimaNotificacao))
                                 {
                                     <li>
                                         <div class="dropdown-item p-2 rounded">
                                             <div class="d-flex flex-column">
                                                 <span class="small fw-bold text-primary">Nova Atualização</span>
-                                                <span class="small text-muted text-wrap" style="font-size: 0.75rem;">@ultimaNotificacao</span>
+                                                <span class="small text-muted text-wrap" style="font-size: 0.75rem;">
+                                                    @(string.IsNullOrEmpty(ultimaNotificacao) ? "Tem novas notificações pendentes." : ultimaNotificacao)
+                                                </span>
                                             </div>
                                         </div>
                                     </li>
@@ -93,44 +95,53 @@
 @code {
     private int notificacoesCount = 0;
     private string? ultimaNotificacao;
+    private string? meuId;
 
-    // Obtém o estado de autenticação para identificar o utilizador logado
     [CascadingParameter]
     private Task<AuthenticationState>? AuthState { get; set; }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Subscreve ao evento que agora transporta o ID do destinatário
+        // 1. Subscreve ao evento para atualizações em tempo real
         PushService.OnNotificationReceived += TratarNovaNotificacao;
+
+        // 2. Tenta obter o ID do utilizador logado para carregar notificações antigas
+        if (AuthState != null)
+        {
+            var authState = await AuthState;
+            meuId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!string.IsNullOrEmpty(meuId))
+            {
+                // Busca a contagem que está guardada no PushService
+                notificacoesCount = PushService.GetNotificacoesCount(meuId);
+            }
+        }
     }
 
-    // O método agora recebe o targetUserId vindo do PushService
     private async void TratarNovaNotificacao(string targetUserId)
     {
-        if (AuthState == null) return;
-
-        var authState = await AuthState;
-        var meuId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        // VALIDAR: Se o ID do destino for igual ao ID de quem está a ver esta Navbar
+        // Se eu sou o destino da notificação, atualizo o contador
         if (!string.IsNullOrEmpty(meuId) && meuId == targetUserId)
         {
-            notificacoesCount++;
+            notificacoesCount = PushService.GetNotificacoesCount(meuId);
             ultimaNotificacao = "Recebeu uma nova atividade ou avaliação.";
             
-            // Força a atualização da interface (UI)
             await InvokeAsync(StateHasChanged);
         }
     }
 
     private void LimparNotificacoes()
     {
-        notificacoesCount = 0;
+        if (!string.IsNullOrEmpty(meuId))
+        {
+            notificacoesCount = 0;
+            PushService.LimparNotificacoes(meuId); // Zera no serviço também
+        }
     }
 
     public void Dispose()
     {
-        // Unsubscribe para evitar problemas de memória
         PushService.OnNotificationReceived -= TratarNovaNotificacao;
     }
 }
