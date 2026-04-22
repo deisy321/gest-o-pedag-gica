@@ -287,7 +287,7 @@
                 }
             }
 
-            // --- LÓGICA DE NOTIFICAÇÃO PARA O PROFESSOR (ADICIONADA) ---
+            // --- LÓGICA DE NOTIFICAÇÃO PARA O PROFESSOR (CORRIGIDA) ---
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
                 var subs = await TrabalhoService.GetSubscriptionsByUserIdAsync(Trabalho.ProfessorId);
@@ -295,8 +295,10 @@
                 {
                     try
                     {
+                        // CORREÇÃO: Adicionado o terceiro parâmetro ProfessorId
                         await PushService.EnviarNotificacaoAsync(sub.Payload,
-                            $"Entrega Recebida: O aluno {Trabalho.Aluno?.UserName ?? "Estudante"} enviou o trabalho '{Trabalho.Titulo}'.");
+                            $"Entrega Recebida: O aluno {Trabalho.Aluno?.UserName ?? "Estudante"} enviou o trabalho '{Trabalho.Titulo}'.",
+                            Trabalho.ProfessorId);
                     }
                     catch { /* Ignora erros de envio individual */ }
                 }

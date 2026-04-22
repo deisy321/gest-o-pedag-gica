@@ -240,20 +240,21 @@
             Vertente.Feedback = Feedback;
             await TrabalhoService.AtualizarVertenteAsync(Vertente);
 
-            // --- LÓGICA DE NOTIFICAÇÃO PARA O ALUNO (ADICIONADA) ---
-            if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.AlunoId.ToString()))
+            // --- LÓGICA DE NOTIFICAÇÃO PARA O ALUNO (CORRIGIDA) ---
+            if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.AlunoId))
             {
-                // Busca as subscrições de push associadas ao ID do aluno
-                var subs = await TrabalhoService.GetSubscriptionsByUserIdAsync(Trabalho.AlunoId.ToString());
+                var subs = await TrabalhoService.GetSubscriptionsByUserIdAsync(Trabalho.AlunoId);
 
                 foreach (var sub in subs)
                 {
                     try
                     {
+                        // CORREÇÃO: Adicionado o terceiro parâmetro Trabalho.AlunoId
                         await PushService.EnviarNotificacaoAsync(sub.Payload,
-                            $"Nova Avaliação: O teu trabalho '{Trabalho.Titulo}' (Vertente: {Tipo}) foi avaliado com a nota {Nota}.");
+                            $"Nova Avaliação: O teu trabalho '{Trabalho.Titulo}' (Vertente: {Tipo}) foi avaliado com a nota {Nota}.",
+                            Trabalho.AlunoId);
                     }
-                    catch { /* Silencia erros de envio individual para não travar o processo */ }
+                    catch { /* Silencia erros de envio individual */ }
                 }
             }
 
