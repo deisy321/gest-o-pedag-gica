@@ -23,11 +23,14 @@
                 <AuthorizeView>
                     <Authorized>
                         <div class="dropdown me-3">
+                            @* CORREÇÃO AQUI: Mudamos @onclick para @onmousedown 
+                               e adicionamos StateHasChanged na função.
+                            *@
                             <button class="btn btn-link text-white position-relative p-0" 
                                     id="notificacoesDropdown" 
                                     data-bs-toggle="dropdown" 
                                     aria-expanded="false"
-                                    @onclick="LimparNotificacoes">
+                                    @onmousedown="LimparNotificacoes">
                                 <i class="bi bi-bell-fill fs-5"></i>
                                 
                                 @if (notificacoesCount > 0)
@@ -102,10 +105,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // 1. Subscreve ao evento para atualizações em tempo real
         PushService.OnNotificationReceived += TratarNovaNotificacao;
 
-        // 2. Tenta obter o ID do utilizador logado para carregar notificações antigas
         if (AuthState != null)
         {
             var authState = await AuthState;
@@ -113,10 +114,7 @@
 
             if (!string.IsNullOrEmpty(meuId))
             {
-                // Busca a contagem que está guardada no PushService
                 notificacoesCount = PushService.GetNotificacoesCount(meuId);
-                
-                // CORREÇÃO: Força o componente a renderizar o ponto vermelho logo no carregamento
                 StateHasChanged();
             }
         }
@@ -124,12 +122,10 @@
 
     private async void TratarNovaNotificacao(string targetUserId)
     {
-        // Se eu sou o destino da notificação, atualizo o contador
         if (!string.IsNullOrEmpty(meuId) && meuId == targetUserId)
         {
             notificacoesCount = PushService.GetNotificacoesCount(meuId);
             ultimaNotificacao = "Recebeu uma nova atividade ou avaliação.";
-            
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -139,13 +135,16 @@
         if (!string.IsNullOrEmpty(meuId))
         {
             notificacoesCount = 0;
-            PushService.LimparNotificacoes(meuId); // Zera no serviço também
+            ultimaNotificacao = null; // Opcional: limpa o texto também
+            PushService.LimparNotificacoes(meuId);
+            
+            // CORREÇÃO: Força o Blazor a redesenhar para o número sumir
+            StateHasChanged();
         }
     }
 
     public void Dispose()
     {
-        // Unsubscribe para evitar problemas de memória
         PushService.OnNotificationReceived -= TratarNovaNotificacao;
     }
 }
