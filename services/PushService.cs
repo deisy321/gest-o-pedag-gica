@@ -8,8 +8,6 @@ namespace gestaopedagogica.Services
     public class PushService
     {
         private readonly VapidSettings _settings;
-
-        // NOVO: Dicionário para manter a contagem de notificações por Utilizador na memória do servidor
         private readonly Dictionary<string, int> _contagensPendentes = new();
 
         public event Action<string>? OnNotificationReceived;
@@ -23,7 +21,7 @@ namespace gestaopedagogica.Services
         {
             try
             {
-                // 1. Incrementar o contador interno antes de enviar
+                // 1. Controle de contagem (Mantido)
                 lock (_contagensPendentes)
                 {
                     if (!_contagensPendentes.ContainsKey(targetUserId))
@@ -32,6 +30,16 @@ namespace gestaopedagogica.Services
                     _contagensPendentes[targetUserId]++;
                 }
 
+                // 2. CRIAR O PAYLOAD JSON (Essencial para o seu Service Worker)
+                var payload = new
+                {
+                    title = "TriadeLearn",
+                    body = message,
+                    url = "/aluno/dashboardaluno" // Link para onde o aluno vai ao clicar
+                };
+                string jsonPayload = JsonSerializer.Serialize(payload);
+
+                // 3. Extrair dados da subscrição
                 using var doc = JsonDocument.Parse(subscriptionJson);
                 var root = doc.RootElement;
 
@@ -47,9 +55,11 @@ namespace gestaopedagogica.Services
                     _settings.PrivateKey);
 
                 var webPushClient = new WebPushClient();
-                await webPushClient.SendNotificationAsync(subscription, message, vapidDetails);
 
-                // NOTIFICAR O NAVBAR (Evento em tempo real)
+                // 4. ENVIAR O JSON (jsonPayload em vez de message)
+                await webPushClient.SendNotificationAsync(subscription, jsonPayload, vapidDetails);
+
+                // Notifica a Navbar em tempo real
                 OnNotificationReceived?.Invoke(targetUserId);
             }
             catch (Exception ex)
@@ -58,7 +68,6 @@ namespace gestaopedagogica.Services
             }
         }
 
-        // NOVO: Método para a Navbar consultar o estado ao carregar
         public int GetNotificacoesCount(string userId)
         {
             lock (_contagensPendentes)
@@ -67,7 +76,6 @@ namespace gestaopedagogica.Services
             }
         }
 
-        // NOVO: Método para zerar quando o utilizador clica no sino
         public void LimparNotificacoes(string userId)
         {
             lock (_contagensPendentes)
