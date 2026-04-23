@@ -67,7 +67,7 @@
                         <div class="row mt-3">
                             <div class="col-md-6 form-group">
                                 <label class="form-label">Módulo</label>
-                                <select class="form-select" @bind="ModuloSelecionadoId">
+                                <select class="form-select @(string.IsNullOrEmpty(ErroModulo) ? "" : "is-invalid")" @onchange="OnModuloChanged">
                                     <option value="0">-- Selecione o Módulo --</option>
                                     @foreach (var mod in ListaModulos)
                                     {
@@ -78,9 +78,9 @@
                             </div>
                             <div class="col-md-6 form-group">
                                 <label class="form-label">Disciplina</label>
-                                <select class="form-select" @bind="DisciplinaSelecionadaId">
+                                <select class="form-select @(string.IsNullOrEmpty(ErroDisciplina) ? "" : "is-invalid")" @bind="DisciplinaSelecionadaId" disabled="@(ModuloSelecionadoId == 0)">
                                     <option value="0">-- Selecione a Disciplina --</option>
-                                    @foreach (var disc in ListaDisciplinas)
+                                    @foreach (var disc in DisciplinasFiltradas)
                                     {
                                         <option value="@disc.Id">@disc.Nome</option>
                                     }
@@ -144,7 +144,7 @@
                         {
                             <div class="form-group animate-slide-up">
                                 <label class="form-label">Selecionar Aluno</label>
-                                <select class="form-select" @bind="AlunoSelecionadoId">
+                                <select class="form-select @(string.IsNullOrEmpty(ErroAluno) ? "" : "is-invalid")" @bind="AlunoSelecionadoId">
                                     <option value="0">-- Escolha o aluno --</option>
                                     @foreach (var aluno in TurmaSelecionada.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)))
                                     {
@@ -191,6 +191,7 @@
     private Turma? TurmaSelecionada;
     private List<Modulo> ListaModulos = new();
     private List<Disciplina> ListaDisciplinas = new();
+    private List<Disciplina> DisciplinasFiltradas = new();
 
     private string Titulo = "";
     private string Descricao = "";
@@ -249,6 +250,27 @@
         ListaDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new();
     }
 
+    // LÓGICA CORRIGIDA: d.Modulos.Any(m => m.Id == id)
+    private void OnModuloChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            ModuloSelecionadoId = id;
+            DisciplinaSelecionadaId = 0;
+
+            if (id > 0)
+            {
+                DisciplinasFiltradas = ListaDisciplinas
+                    .Where(d => d.Modulos != null && d.Modulos.Any(m => m.Id == id))
+                    .ToList();
+            }
+            else
+            {
+                DisciplinasFiltradas = new();
+            }
+        }
+    }
+
     private bool ValidarFormulario()
     {
         ErroTitulo = string.IsNullOrWhiteSpace(Titulo) ? "O título é obrigatório" : "";
@@ -284,7 +306,6 @@
                 return;
             }
 
-            // --- LÓGICA DE BLOQUEIO DE HORAS ---
             var modulo = ListaModulos.FirstOrDefault(m => m.Id == ModuloSelecionadoId);
             if (modulo != null)
             {
@@ -355,7 +376,7 @@
             TurmaId = TurmaSelecionada!.Id,
             ModuloId = ModuloSelecionadoId,
             DisciplinaId = DisciplinaSelecionadaId,
-            HorasAtribuidas = HorasAtribuidas, // Atribuindo as horas ao modelo
+            HorasAtribuidas = HorasAtribuidas,
             DataCriacao = DateTime.UtcNow,
             PrazoEntrega = PrazoEntrega ?? DateTime.UtcNow.AddDays(7)
         };
