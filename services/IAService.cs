@@ -31,47 +31,74 @@ public class IAService
     {
         try
         {
-            // 1. Extração de texto do PDF
-            string textoArquivo = LerPdfComSeguranca(arquivoBytes);
+            // 1. Extração de texto do PDF (Executa apenas se houver bytes)
+            string textoArquivo = (arquivoBytes != null && arquivoBytes.Length > 0)
+                ? LerPdfComSeguranca(arquivoBytes)
+                : "";
 
-            // Criamos uma estrutura clara para a IA saber o que veio de onde
-            string inputCompleto = $@"
+            // --- LÓGICA DE ADAPTAÇÃO PARA RELATÓRIOS ---
+            // Se o ID indicar um relatório, formatamos como dados estatísticos
+            bool esRelatorio = trabalhoId.Contains("RELATORIO") || trabalhoId.Contains("REPORT");
+
+            string inputCompleto;
+            if (esRelatorio)
+            {
+                inputCompleto = $"[DADOS ESTATÍSTICOS DAS TURMAS]:\n{conteudoParaAnalisar}";
+            }
+            else
+            {
+                inputCompleto = $@"
 [RESPOSTA DIGITADA PELO ALUNO]:
 {conteudoParaAnalisar}
 
 [CONTEÚDO DO FICHEIRO PDF ANEXADO]:
 {(string.IsNullOrEmpty(textoArquivo) ? "Nenhum ficheiro PDF foi enviado." : textoArquivo)}".Trim();
+            }
 
+            // Validação de entrada
             if (string.IsNullOrWhiteSpace(conteudoParaAnalisar) && string.IsNullOrEmpty(textoArquivo))
-                return "Ainda não encontrei conteúdo (texto ou PDF) para analisar. Podes partilhar o teu trabalho comigo?";
+                return "Ainda não encontrei conteúdo (texto ou PDF) para analisar.";
 
             // 2. Gestão de Cache
             var cacheKey = $"{alunoId}_{trabalhoId}_{vertenteId}";
             if (useCache && _cache.TryGetValue(cacheKey, out var cached))
                 return cached;
 
-            // 3. REFINAMENTO DA INTUIÇÃO (Agora com Verificação de Consistência)
-            string promptSistemaIntuitivo = $@"
+            // 3. REFINAMENTO DO PROMPT (Original mantido, mas adaptado se for relatório)
+            string promptSistemaFinal;
+
+            if (esRelatorio)
+            {
+                // Prompt focado em análise de dados para o Professor/Admin
+                promptSistemaFinal = $@"{promptSistemaOriginal}
+Tu és um analista pedagógico. Analisa os números fornecidos, identifica tendências de notas, turmas que precisam de atenção e pontos positivos. Sê objetivo e prático.";
+            }
+            else
+            {
+                // Teu prompt original de Mentor para alunos
+                promptSistemaFinal = $@"
 {promptSistemaOriginal}
 
 Tu és um Mentor atento e sagaz. A tua parceria baseia-se na verdade e na qualidade.
 Para além de ajudares no conteúdo, a tua intuição deve:
 - **Validar a Consistência**: Verifica se o [TEXTO DO ALUNO] e o [CONTEÚDO DO PDF] estão alinhados entre si e com o [OBJETIVO DO PROFESSOR].
-- **Detetar Desconexões**: Se o aluno enviou um PDF que não tem nada a ver com o tema (ou se o texto dele foge completamente ao assunto), aborda isso de forma empática mas direta. Exemplo: 'Reparei que o ficheiro que anexaste fala sobre X, mas o nosso trabalho é sobre Y. Queres verificar se enviaste o documento correto?'.
+- **Detetar Desconexões**: Se o aluno enviou um PDF que não tem nada a ver com o tema, aborda isso de forma empática mas direta.
 - **Unificar Fontes**: Se ambos forem válidos, cruza as informações para dar um feedback muito mais rico.
 
 Não dês ordens; sê o espelho que ajuda o aluno a perceber se a sua entrega faz sentido como um todo.";
+            }
 
             string promptUsuario = $@"
-[OBJETIVO DO PROFESSOR]:
+[OBJETIVO / CONTEXTO]:
 {instrucaoPrincipal}
 
-[FONTES DE DADOS DO ALUNO]:
+[FONTES DE DADOS]:
 {inputCompleto}";
 
             // 4. Chamada à API
-            string resultadoFinal = await EnviarParaGroq(promptSistemaIntuitivo, promptUsuario);
+            string resultadoFinal = await EnviarParaGroq(promptSistemaFinal, promptUsuario);
 
+            // Salvar no cache apenas se houver sucesso
             if (useCache && !string.IsNullOrEmpty(resultadoFinal) && !resultadoFinal.StartsWith("Erro"))
                 _cache[cacheKey] = resultadoFinal.Trim();
 
@@ -79,7 +106,7 @@ Não dês ordens; sê o espelho que ajuda o aluno a perceber se a sua entrega fa
         }
         catch (Exception ex)
         {
-            return $"Tive um pequeno precalço técnico ao analisar o teu trabalho. Podes tentar novamente? (Erro: {ex.Message})";
+            return $"Tive um pequeno precalço técnico ao analisar os dados. (Erro: {ex.Message})";
         }
     }
 
@@ -92,7 +119,8 @@ Não dês ordens; sê o espelho que ajuda o aluno a perceber se a sua entrega fa
                 new { role = "system", content = systemPrompt },
                 new { role = "user", content = userPrompt }
             },
-            temperature = 0.5
+            temperature = 0.5,
+            max_tokens = 1024 // Limite para garantir respostas focadas
         };
 
         var jsonContent = JsonSerializer.Serialize(requestBody);
@@ -100,13 +128,22 @@ Não dês ordens; sê o espelho que ajuda o aluno a perceber se a sua entrega fa
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", GroqApiKey);
         request.Content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.SendAsync(request);
-        var responseString = await response.Content.ReadAsStringAsync();
+        try
+        {
+            var response = await _httpClient.SendAsync(request);
+            var responseString = await response.Content.ReadAsStringAsync();
 
-        if (!response.IsSuccessStatusCode) return $"Erro de ligação com a IA: {response.StatusCode}";
+            if (!response.IsSuccessStatusCode)
+                return $"Erro de ligação com a IA: {response.StatusCode}";
 
-        using var doc = JsonDocument.Parse(responseString);
-        return doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "Não consegui gerar uma resposta.";
+            using var doc = JsonDocument.Parse(responseString);
+            return doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString()
+                   ?? "Não consegui gerar uma resposta.";
+        }
+        catch (Exception ex)
+        {
+            return $"Erro na comunicação com o servidor Groq: {ex.Message}";
+        }
     }
 
     private string LerPdfComSeguranca(byte[]? arquivoBytes)
@@ -125,7 +162,7 @@ Não dês ordens; sê o espelho que ajuda o aluno a perceber se a sua entrega fa
         }
         catch
         {
-            return ""; // Se falhar, tratamos como sem conteúdo no ObterSugestoes
+            return "";
         }
     }
 }
