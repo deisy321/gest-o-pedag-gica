@@ -20,7 +20,7 @@ public class IAService
     }
 
     public async Task<string> ObterSugestoes(
-        string promptSistemaOriginal, // Recebido do TrabalhoService
+        string promptSistemaOriginal,
         string instrucaoPrincipal,
         string conteudoParaAnalisar,
         string alunoId,
@@ -31,38 +31,45 @@ public class IAService
     {
         try
         {
-            // 1. Extração e Preparação
+            // 1. Extração de texto do PDF
             string textoArquivo = LerPdfComSeguranca(arquivoBytes);
-            string inputCompleto = $"[TEXTO DO ALUNO]:\n{conteudoParaAnalisar}\n\n[CONTEÚDO DO PDF]:\n{textoArquivo}".Trim();
 
-            if (string.IsNullOrWhiteSpace(inputCompleto.Replace("\n", "")))
-                return "Ainda não encontrei conteúdo para analisar. Podes escrever algo ou anexar um PDF?";
+            // Criamos uma estrutura clara para a IA saber o que veio de onde
+            string inputCompleto = $@"
+[RESPOSTA DIGITADA PELO ALUNO]:
+{conteudoParaAnalisar}
+
+[CONTEÚDO DO FICHEIRO PDF ANEXADO]:
+{(string.IsNullOrEmpty(textoArquivo) ? "Nenhum ficheiro PDF foi enviado." : textoArquivo)}".Trim();
+
+            if (string.IsNullOrWhiteSpace(conteudoParaAnalisar) && string.IsNullOrEmpty(textoArquivo))
+                return "Ainda não encontrei conteúdo (texto ou PDF) para analisar. Podes partilhar o teu trabalho comigo?";
 
             // 2. Gestão de Cache
             var cacheKey = $"{alunoId}_{trabalhoId}_{vertenteId}";
             if (useCache && _cache.TryGetValue(cacheKey, out var cached))
                 return cached;
 
-            // 3. REFINAMENTO DA INTUIÇÃO (Onde a IA "aprende" a ser Mentor)
-            // Aqui fundimos o prompt do sistema com a alma do Mentor Pedagógico de forma orgânica
+            // 3. REFINAMENTO DA INTUIÇÃO (Agora com Verificação de Consistência)
             string promptSistemaIntuitivo = $@"
 {promptSistemaOriginal}
 
-Como Mentor, a tua essência é a parceria. Tu não dás ordens, tu geras clareza. 
-A tua intuição guia-te para:
-- Perceber onde o aluno hesitou tecnicamente e oferecer a peça que falta no puzzle.
-- Transformar correções frias em sugestões fluidas que elevam o profissionalismo da resposta.
-- Manter o rigor da matéria como base, mas a empatia como voz.
-Sê o suporte que o aluno precisa para que ele próprio sinta orgulho na versão final que vai entregar.";
+Tu és um Mentor atento e sagaz. A tua parceria baseia-se na verdade e na qualidade.
+Para além de ajudares no conteúdo, a tua intuição deve:
+- **Validar a Consistência**: Verifica se o [TEXTO DO ALUNO] e o [CONTEÚDO DO PDF] estão alinhados entre si e com o [OBJETIVO DO PROFESSOR].
+- **Detetar Desconexões**: Se o aluno enviou um PDF que não tem nada a ver com o tema (ou se o texto dele foge completamente ao assunto), aborda isso de forma empática mas direta. Exemplo: 'Reparei que o ficheiro que anexaste fala sobre X, mas o nosso trabalho é sobre Y. Queres verificar se enviaste o documento correto?'.
+- **Unificar Fontes**: Se ambos forem válidos, cruza as informações para dar um feedback muito mais rico.
+
+Não dês ordens; sê o espelho que ajuda o aluno a perceber se a sua entrega faz sentido como um todo.";
 
             string promptUsuario = $@"
-OBJETIVO DO PROFESSOR:
+[OBJETIVO DO PROFESSOR]:
 {instrucaoPrincipal}
 
-O QUE O ALUNO DESENVOLVEU:
+[FONTES DE DADOS DO ALUNO]:
 {inputCompleto}";
 
-            // 4. Comunicação com o Cérebro da IA (Groq/Llama)
+            // 4. Chamada à API
             string resultadoFinal = await EnviarParaGroq(promptSistemaIntuitivo, promptUsuario);
 
             if (useCache && !string.IsNullOrEmpty(resultadoFinal) && !resultadoFinal.StartsWith("Erro"))
@@ -85,7 +92,7 @@ O QUE O ALUNO DESENVOLVEU:
                 new { role = "system", content = systemPrompt },
                 new { role = "user", content = userPrompt }
             },
-            temperature = 0.5 // Aumentado ligeiramente para permitir uma linguagem mais fluida e menos robótica
+            temperature = 0.5
         };
 
         var jsonContent = JsonSerializer.Serialize(requestBody);
@@ -99,7 +106,7 @@ O QUE O ALUNO DESENVOLVEU:
         if (!response.IsSuccessStatusCode) return $"Erro de ligação com a IA: {response.StatusCode}";
 
         using var doc = JsonDocument.Parse(responseString);
-        return doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "Não consegui gerar uma resposta de momento.";
+        return doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "Não consegui gerar uma resposta.";
     }
 
     private string LerPdfComSeguranca(byte[]? arquivoBytes)
@@ -118,7 +125,7 @@ O QUE O ALUNO DESENVOLVEU:
         }
         catch
         {
-            return "[Aviso: O conteúdo do ficheiro PDF não pôde ser lido corretamente]";
+            return ""; // Se falhar, tratamos como sem conteúdo no ObterSugestoes
         }
     }
 }
