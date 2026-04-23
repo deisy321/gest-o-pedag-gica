@@ -20,9 +20,9 @@ public class IAService
     }
 
     public async Task<string> ObterSugestoes(
-        string promptSistema,        // Persona e regras (definido no TrabalhoService)
-        string instrucaoPrincipal,   // O que o professor pediu (Roteiro)
-        string conteudoParaAnalisar, // Texto digitado pelo aluno
+        string promptSistemaOriginal, // Recebido do TrabalhoService
+        string instrucaoPrincipal,
+        string conteudoParaAnalisar,
         string alunoId,
         string trabalhoId,
         string vertenteId,
@@ -31,30 +31,39 @@ public class IAService
     {
         try
         {
-            // 1. Extração de texto do PDF (Visão completa do ficheiro)
+            // 1. Extração e Preparação
             string textoArquivo = LerPdfComSeguranca(arquivoBytes);
-
-            // 2. União de fontes de dados do aluno
             string inputCompleto = $"[TEXTO DO ALUNO]:\n{conteudoParaAnalisar}\n\n[CONTEÚDO DO PDF]:\n{textoArquivo}".Trim();
 
             if (string.IsNullOrWhiteSpace(inputCompleto.Replace("\n", "")))
-                return "Não foi encontrado conteúdo (texto ou PDF) para análise.";
+                return "Ainda não encontrei conteúdo para analisar. Podes escrever algo ou anexar um PDF?";
 
-            // Cache para performance e economia de API
+            // 2. Gestão de Cache
             var cacheKey = $"{alunoId}_{trabalhoId}_{vertenteId}";
             if (useCache && _cache.TryGetValue(cacheKey, out var cached))
                 return cached;
 
-            // 3. Montagem do Prompt de Utilizador (O que a IA deve cruzar)
+            // 3. REFINAMENTO DA INTUIÇÃO (Onde a IA "aprende" a ser Mentor)
+            // Aqui fundimos o prompt do sistema com a alma do Mentor Pedagógico de forma orgânica
+            string promptSistemaIntuitivo = $@"
+{promptSistemaOriginal}
+
+Como Mentor, a tua essência é a parceria. Tu não dás ordens, tu geras clareza. 
+A tua intuição guia-te para:
+- Perceber onde o aluno hesitou tecnicamente e oferecer a peça que falta no puzzle.
+- Transformar correções frias em sugestões fluidas que elevam o profissionalismo da resposta.
+- Manter o rigor da matéria como base, mas a empatia como voz.
+Sê o suporte que o aluno precisa para que ele próprio sinta orgulho na versão final que vai entregar.";
+
             string promptUsuario = $@"
-INSTRUÇÃO DO PROFESSOR (OBJETIVO):
+OBJETIVO DO PROFESSOR:
 {instrucaoPrincipal}
 
-ENTREGA REALIZADA PELO ALUNO:
+O QUE O ALUNO DESENVOLVEU:
 {inputCompleto}";
 
-            // 4. Chamada à Groq
-            string resultadoFinal = await EnviarParaGroq(promptSistema, promptUsuario);
+            // 4. Comunicação com o Cérebro da IA (Groq/Llama)
+            string resultadoFinal = await EnviarParaGroq(promptSistemaIntuitivo, promptUsuario);
 
             if (useCache && !string.IsNullOrEmpty(resultadoFinal) && !resultadoFinal.StartsWith("Erro"))
                 _cache[cacheKey] = resultadoFinal.Trim();
@@ -63,7 +72,7 @@ ENTREGA REALIZADA PELO ALUNO:
         }
         catch (Exception ex)
         {
-            return $"Erro técnico na IA: {ex.Message}";
+            return $"Tive um pequeno precalço técnico ao analisar o teu trabalho. Podes tentar novamente? (Erro: {ex.Message})";
         }
     }
 
@@ -76,7 +85,7 @@ ENTREGA REALIZADA PELO ALUNO:
                 new { role = "system", content = systemPrompt },
                 new { role = "user", content = userPrompt }
             },
-            temperature = 0.4 // Balanço entre criatividade e rigor
+            temperature = 0.5 // Aumentado ligeiramente para permitir uma linguagem mais fluida e menos robótica
         };
 
         var jsonContent = JsonSerializer.Serialize(requestBody);
@@ -87,10 +96,10 @@ ENTREGA REALIZADA PELO ALUNO:
         var response = await _httpClient.SendAsync(request);
         var responseString = await response.Content.ReadAsStringAsync();
 
-        if (!response.IsSuccessStatusCode) return $"Erro Real: {responseString}";
+        if (!response.IsSuccessStatusCode) return $"Erro de ligação com a IA: {response.StatusCode}";
 
         using var doc = JsonDocument.Parse(responseString);
-        return doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "Resposta vazia.";
+        return doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "Não consegui gerar uma resposta de momento.";
     }
 
     private string LerPdfComSeguranca(byte[]? arquivoBytes)
@@ -101,9 +110,15 @@ ENTREGA REALIZADA PELO ALUNO:
             using var ms = new MemoryStream(arquivoBytes);
             using var pdf = PdfDocument.Open(ms);
             var sb = new StringBuilder();
-            foreach (var page in pdf.GetPages()) sb.AppendLine(page.Text);
+            foreach (var page in pdf.GetPages())
+            {
+                sb.AppendLine(page.Text);
+            }
             return sb.ToString();
         }
-        catch { return "[Aviso: Não foi possível ler o conteúdo deste PDF]"; }
+        catch
+        {
+            return "[Aviso: O conteúdo do ficheiro PDF não pôde ser lido corretamente]";
+        }
     }
 }
