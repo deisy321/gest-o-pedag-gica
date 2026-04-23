@@ -239,7 +239,7 @@ Avalia a entrega do aluno com base na instrução do professor.
 Fala diretamente para o aluno de forma construtiva.";
 
         return await _iaService.ObterSugestoes(
-            promptSistema: promptSistema,
+            promptSistemaOriginal: promptSistema,
             instrucaoPrincipal: instrucaoParaIA,
             conteudoParaAnalisar: conteudoAluno,
             alunoId: alunoUserId,
