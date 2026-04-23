@@ -31,7 +31,6 @@
         animation: fadeIn 0.5s ease-in-out;
     }
 
-    /* CORRIGIDO: Usar @@ para que o Blazor ignore como C# */
     @@keyframes fadeIn {
         from {
             opacity: 0;
@@ -44,7 +43,6 @@
         }
     }
 
-    /* CORRIGIDO: Usar @@ para que o Blazor ignore como C# */
     @@media print {
         .btn, .sidebar, .no-print {
             display: none !important;
@@ -87,9 +85,10 @@
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card admin-card p-3 bg-dark text-white">
+            @* ALTERAÇÃO: Mudado para text-warning (Amarelo) para destacar no fundo escuro *@
+            <div class="card admin-card p-3 bg-dark shadow-sm">
                 <h6 class="text-white-50 mb-1 small uppercase">Participação Média</h6>
-                <h2 class="fw-bold mb-0">@MediaParticipacaoGlobal.ToString("F0")%</h2>
+                <h2 class="fw-bold mb-0 text-warning">@MediaParticipacaoGlobal.ToString("F0")%</h2>
             </div>
         </div>
     </div>
@@ -108,7 +107,6 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @* CORRIGIDO: Proteção contra Lista Nula *@
                     @if (ListaParaExibir != null && ListaParaExibir.Any())
                     {
                         @foreach (var item in ListaParaExibir)
