@@ -7,6 +7,7 @@ namespace gestaopedagogica.Models
         public int Id { get; set; }
         public string Numero { get; set; } = "";
         public string Nome { get; set; } = "";
+        public int TotalHoras { get; set; }
 
         // --- A TRÍADE PEDAGÓGICA ---
         public string CriterioConhecimento { get; set; } = "Avaliação teórica e compreensão de conceitos.";

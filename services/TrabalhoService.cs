@@ -17,6 +17,19 @@ public class TrabalhoService
         _pushService = pushService;
     }
 
+    // --- NOVA LÓGICA DE GESTÃO DE CARGA HORÁRIA ---
+
+    public async Task<int> GetHorasConsumidasNoModuloAsync(int? moduloId)
+    {
+        if (moduloId == null) return 0;
+
+        // Soma as HorasAtribuidas de todos os trabalhos vinculados a este módulo
+        // Inclui automaticamente Planos de Recuperação pois estes também consomem horas
+        return await _context.Trabalhos
+            .Where(t => t.ModuloId == moduloId)
+            .SumAsync(t => t.HorasAtribuidas);
+    }
+
     // --- MÉTODOS EXISTENTES (MANTIDOS) ---
 
     public async Task<List<Trabalho>> GetTrabalhosDisponiveisParaAlunoAsync(string alunoUserId)
@@ -172,6 +185,7 @@ public class TrabalhoService
             dbObj.FicheiroNome = trabalho.FicheiroNome;
             dbObj.FicheiroBytes = trabalho.FicheiroBytes;
             dbObj.FicheiroContentType = trabalho.FicheiroContentType;
+            dbObj.HorasAtribuidas = trabalho.HorasAtribuidas; // Adicionado para permitir edição de horas
 
             if (trabalho.DataEntrega.HasValue)
                 dbObj.DataEntrega = DateTime.SpecifyKind(trabalho.DataEntrega.Value, DateTimeKind.Utc);
@@ -202,10 +216,8 @@ public class TrabalhoService
 
         if (trabalho == null) return "Erro: Trabalho não localizado no sistema.";
 
-        // BUSCA DE NOMES VIA TABELA ALUNOS (Para evitar erro de propriedade inexistente no ApplicationUser)
         var dadosAluno = await _context.Set<Aluno>().FirstOrDefaultAsync(a => a.UserId == alunoUserId);
 
-        // Aqui usamos o Nome da tabela Aluno, ou o UserName do Identity se não encontrar
         string nomeExibicaoAluno = dadosAluno?.Nome ?? trabalho.Aluno?.UserName ?? "Estudante";
         string nomeExibicaoProfessor = trabalho.Professor?.UserName ?? "Docente";
 
@@ -228,7 +240,7 @@ CONTEXTO ATUAL:
 - Aluno: {nomeExibicaoAluno}
 - Professor: {nomeExibicaoProfessor}
 - Unidade: {trabalho.Modulo?.Nome ?? "Módulo Técnico"}
-- Disciplina: {trabalho.Disciplina?.Nome ?? "Área Técnica"}
+- Disciplina: {trabalho.Disciplina?.Nome ?? "Área Técnico"}
 - Foco da Tríade: {tipoDeAnalise}
 
 MISSÃO: 

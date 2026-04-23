@@ -71,7 +71,7 @@
                                     <option value="0">-- Selecione o Módulo --</option>
                                     @foreach (var mod in ListaModulos)
                                     {
-                                        <option value="@mod.Id">@mod.Nome</option>
+                                        <option value="@mod.Id">@mod.Nome (@mod.TotalHoras h)</option>
                                     }
                                 </select>
                                 <small class="text-danger">@ErroModulo</small>
@@ -118,6 +118,14 @@
                         <h5><i class="fas fa-cog me-2"></i>Configurações</h5>
                     </div>
                     <div class="card-body-custom">
+                        <div class="form-group">
+                            <label class="form-label">Carga Horária (h)</label>
+                            <input type="number" class="form-control @(string.IsNullOrEmpty(ErroHoras) ? "" : "is-invalid")"
+                                   @bind="HorasAtribuidas" min="1" />
+                            <small class="text-muted">Quanto tempo este trabalho ocupa no módulo.</small>
+                            <br /><small class="text-danger">@ErroHoras</small>
+                        </div>
+
                         <div class="form-group">
                             <label class="form-label">Prazo de Entrega</label>
                             <input type="date" class="form-control" @bind="PrazoEntrega" />
@@ -189,6 +197,7 @@
     private int ModuloSelecionadoId = 0;
     private int DisciplinaSelecionadaId = 0;
     private int AlunoSelecionadoId = 0;
+    private int HorasAtribuidas = 1;
     private string TipoAtribuicao = "turma";
     private DateTime? PrazoEntrega = DateTime.Today.AddDays(7);
     private string StatusMessage = "";
@@ -202,6 +211,7 @@
     private string ErroDisciplina = "";
     private string ErroAluno = "";
     private string ErroPrazo = "";
+    private string ErroHoras = "";
 
     private List<VertenteEditModel> Vertentes = new()
     {
@@ -247,12 +257,14 @@
         ErroDisciplina = (DisciplinaSelecionadaId <= 0) ? "Selecione uma disciplina" : "";
         ErroPrazo = !PrazoEntrega.HasValue ? "Escolha um prazo" : "";
         ErroAluno = (TipoAtribuicao == "aluno" && AlunoSelecionadoId <= 0) ? "Selecione um aluno" : "";
+        ErroHoras = (HorasAtribuidas <= 0) ? "A carga horária deve ser superior a 0" : "";
 
         return string.IsNullOrEmpty(ErroTitulo) &&
                string.IsNullOrEmpty(ErroDescricao) &&
                string.IsNullOrEmpty(ErroModulo) &&
                string.IsNullOrEmpty(ErroDisciplina) &&
                string.IsNullOrEmpty(ErroPrazo) &&
+               string.IsNullOrEmpty(ErroHoras) &&
                string.IsNullOrEmpty(ErroAluno);
     }
 
@@ -260,7 +272,7 @@
     {
         if (IsSaving) return;
         IsSaving = true;
-        StatusMessage = "Processando...";
+        StatusMessage = "A validar carga horária...";
         StateHasChanged();
 
         try
@@ -270,6 +282,19 @@
                 StatusMessage = "❌ Corrija os erros antes de salvar.";
                 IsSaving = false;
                 return;
+            }
+
+            // --- LÓGICA DE BLOQUEIO DE HORAS ---
+            var modulo = ListaModulos.FirstOrDefault(m => m.Id == ModuloSelecionadoId);
+            if (modulo != null)
+            {
+                int horasConsumidas = await TrabalhoService.GetHorasConsumidasNoModuloAsync(ModuloSelecionadoId);
+                if (horasConsumidas + HorasAtribuidas > modulo.TotalHoras)
+                {
+                    StatusMessage = $"❌ Limite excedido! O módulo tem {modulo.TotalHoras}h. Já usou {horasConsumidas}h. Restam apenas {modulo.TotalHoras - horasConsumidas}h.";
+                    IsSaving = false;
+                    return;
+                }
             }
 
             var professor = await ProfessorService.GetProfessorByUserIdAsync(ProfessorUserId!);
@@ -291,7 +316,6 @@
             {
                 try
                 {
-                    // CHAMADA CORRIGIDA: O service já trata o PUSH internamente
                     await CriarTrabalhoCompleto(professor.UserId, aluno.UserId!);
                     sucessos++;
                 }
@@ -331,11 +355,11 @@
             TurmaId = TurmaSelecionada!.Id,
             ModuloId = ModuloSelecionadoId,
             DisciplinaId = DisciplinaSelecionadaId,
+            HorasAtribuidas = HorasAtribuidas, // Atribuindo as horas ao modelo
             DataCriacao = DateTime.UtcNow,
             PrazoEntrega = PrazoEntrega ?? DateTime.UtcNow.AddDays(7)
         };
 
-        // O método AddTrabalhoAsync chama CriarTrabalhoAsync, que já envia o PUSH.
         int trabalhoId = await TrabalhoService.AddTrabalhoAsync(trabalho);
 
         if (trabalhoId <= 0) throw new Exception("Erro ao gerar ID do trabalho.");

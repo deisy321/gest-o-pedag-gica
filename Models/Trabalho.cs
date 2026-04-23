@@ -20,7 +20,7 @@ namespace gestaopedagogica.Models
         public DateTime DataCriacao { get; set; }
         public DateTime PrazoEntrega { get; set; }
         public DateTime? DataEntrega { get; set; } // Adicionado
-
+        public int HorasAtribuidas { get; set; } // Quanto tempo este trabalho consome
         public int? ModuloId { get; set; }
         public Modulo? Modulo { get; set; }
 

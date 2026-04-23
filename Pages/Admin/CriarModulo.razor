@@ -54,9 +54,15 @@
                             <InputText @bind-Value="novoModulo.Nome" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="Ex: Programação C#" />
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-md-3">
                             <label class="form-label small fw-bold text-muted text-uppercase">Número / UFCD</label>
                             <InputText @bind-Value="novoModulo.Numero" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="Ex: 0778" />
+                        </div>
+
+                        @* NOVO CAMPO: CARGA HORÁRIA *@
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Carga Horária (Horas)</label>
+                            <InputNumber @bind-Value="novoModulo.TotalHoras" class="form-control bg-light border-0 py-2" style="border-radius: 10px;" placeholder="Ex: 25, 50" />
                         </div>
 
                         <div class="col-md-6">
@@ -132,7 +138,6 @@
     {
         try
         {
-            // Carregamento resiliente para evitar erro 500.30
             var resP = await ProfessorService.GetProfessoresAsync();
             ListaProfessores = resP ?? new();
 
@@ -141,6 +146,9 @@
 
             var resD = await DisciplinaService.GetDisciplinasAsync();
             ListaDisciplinas = resD ?? new();
+
+            // Definimos um valor padrão inicial (pode ser 0 ou 25)
+            novoModulo.TotalHoras = 25;
         }
         catch (Exception ex)
         {
@@ -160,6 +168,12 @@
             return;
         }
 
+        if (novoModulo.TotalHoras <= 0)
+        {
+            ErrorMessage = "A carga horária deve ser superior a 0.";
+            return;
+        }
+
         try
         {
             IsSaving = true;
@@ -172,7 +186,7 @@
             else
                 novoModulo.ProfessorId = null;
 
-            // 1. Criar o Módulo
+            // 1. Criar o Módulo (já inclui o campo TotalHoras vinculado ao formulário)
             await ModuloService.AddModuloAsync(novoModulo);
 
             // 2. Vincular à Turma se necessário

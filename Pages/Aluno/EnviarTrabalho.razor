@@ -24,6 +24,14 @@
             <div>
                 <h1 class="page-title">Entrega de Trabalho</h1>
                 <p class="page-subtitle">Submissão para: <span class="text-gradient">@Trabalho.Titulo</span></p>
+                @if (PrazoExpirado)
+                {
+                    <span class="badge bg-danger animate-pulse"><i class="fas fa-clock"></i> PRAZO ENCERRADO (@Trabalho.PrazoEntrega.ToShortDateString())</span>
+                }
+                else
+                {
+                    <small class="text-muted">Prazo limite: <strong>@Trabalho.PrazoEntrega.ToShortDateString()</strong></small>
+                }
             </div>
             <button class="btn-custom btn-custom-outline" @onclick='() => Nav.NavigateTo("/aluno/DashboardAluno")'>
                 <i class="fas fa-arrow-left"></i> Voltar
@@ -47,7 +55,7 @@
                 <EditForm Model="Vertentes">
                     @foreach (var vert in Vertentes)
                     {
-                        <div class="custom-card mb-4 elevation-2 border-start-primary">
+                        <div class="custom-card mb-4 elevation-2 border-start-primary @(PrazoExpirado ? "opacity-75" : "")">
                             <div class="card-header-custom d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0 text-primary">@vert.Tipo</h5>
                                 @if (vert.Nota.HasValue)
@@ -71,14 +79,18 @@
                                 <div class="form-group mt-4">
                                     <label class="form-label fw-bold">Sua Resposta / Desenvolvimento</label>
                                     <textarea class="form-control" rows="10" @bind="vert.ConteudoTextoAluno"
-                                              placeholder="Escreva seu trabalho aqui..."></textarea>
+                                              disabled="@PrazoExpirado"
+                                              placeholder="@(PrazoExpirado ? "O prazo para envio terminou." : "Escreva seu trabalho aqui...")"></textarea>
                                 </div>
 
                                 <div class="mt-4 p-3 border rounded-lg bg-light shadow-sm">
                                     <label class="form-label fw-bold">
                                         <i class="fas fa-paperclip me-2 text-primary"></i>Anexar Documento (Opcional)
                                     </label>
-                                    <InputFile OnChange="async e => await UploadArquivo(e, vert)" class="form-control mt-2" />
+                                    @if (!PrazoExpirado)
+                                    {
+                                        <InputFile OnChange="async e => await UploadArquivo(e, vert)" class="form-control mt-2" />
+                                    }
 
                                     @if (!string.IsNullOrEmpty(vert.ArquivoNome))
                                     {
@@ -90,7 +102,7 @@
 
                                 <div class="mt-4 pt-3 border-top">
                                     <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="feedback_@vert.Id" @bind="vert.SolicitarFeedback" />
+                                        <input class="form-check-input" type="checkbox" id="feedback_@vert.Id" @bind="vert.SolicitarFeedback" disabled="@PrazoExpirado" />
                                         <label class="form-check-label fw-600 ms-2" for="feedback_@vert.Id">
                                             Solicitar revisão da IA antes do envio oficial
                                         </label>
@@ -123,23 +135,32 @@
                         </div>
 
                         <div class="d-grid gap-3 mt-4">
-                            <button class="btn-custom btn-custom-secondary w-100 justify-content-center"
-                                    @onclick="GerarFeedbackSelecionadoAsync" disabled="@IsSaving">
-                                @if (IsSaving && !MostrarModalSucesso && !MostrarModalFeedback)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-2"></span>
-                                }
-                                <i class="fas fa-robot me-2"></i> Gerar Feedback IA
-                            </button>
+                            @if (!PrazoExpirado)
+                            {
+                                <button class="btn-custom btn-custom-secondary w-100 justify-content-center"
+                                        @onclick="GerarFeedbackSelecionadoAsync" disabled="@IsSaving">
+                                    @if (IsSaving && !MostrarModalSucesso && !MostrarModalFeedback)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    <i class="fas fa-robot me-2"></i> Gerar Feedback IA
+                                </button>
 
-                            <button class="btn-custom btn-custom-primary w-100 justify-content-center py-3"
-                                    @onclick="EnviarVertentesAsync" disabled="@IsSaving">
-                                @if (IsSaving && MostrarModalSucesso)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-2"></span>
-                                }
-                                <i class="fas fa-paper-plane me-2"></i> Submeter Trabalho
-                            </button>
+                                <button class="btn-custom btn-custom-primary w-100 justify-content-center py-3"
+                                        @onclick="EnviarVertentesAsync" disabled="@IsSaving">
+                                    @if (IsSaving && MostrarModalSucesso)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    <i class="fas fa-paper-plane me-2"></i> Submeter Trabalho
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="alert alert-danger text-center">
+                                    <i class="fas fa-lock me-2"></i> Submissão bloqueada: Prazo expirado.
+                                </div>
+                            }
                         </div>
                     </div>
                 </div>
@@ -207,6 +228,9 @@
     private bool MostrarModalSucesso = false;
     private List<FeedbackModel> FeedbacksGerados = new();
 
+    // Lógica de Prazo: Se a data de hoje for maior que a data do prazo
+    private bool PrazoExpirado => Trabalho != null && DateTime.Today > Trabalho.PrazoEntrega.Date;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -239,6 +263,11 @@
                         Nota = v.Nota
                     }).ToList();
                 }
+
+                if (PrazoExpirado)
+                {
+                    StatusMessage = "⚠️ O prazo para este trabalho expirou em " + Trabalho.PrazoEntrega.ToShortDateString();
+                }
             }
         }
         catch (Exception ex) { StatusMessage = "Erro ao carregar: " + ex.Message; }
@@ -247,6 +276,14 @@
     private async Task EnviarVertentesAsync()
     {
         if (IsSaving) return;
+
+        // Proteção extra no servidor/método
+        if (PrazoExpirado)
+        {
+            StatusMessage = "❌ Erro: O prazo de entrega já terminou.";
+            return;
+        }
+
         IsSaving = true;
         StatusMessage = "A submeter trabalho...";
         StateHasChanged();
@@ -287,7 +324,6 @@
                 }
             }
 
-            // --- LÓGICA DE NOTIFICAÇÃO PARA O PROFESSOR (CORRIGIDA) ---
             if (Trabalho != null && !string.IsNullOrEmpty(Trabalho.ProfessorId))
             {
                 var subs = await TrabalhoService.GetSubscriptionsByUserIdAsync(Trabalho.ProfessorId);
@@ -295,12 +331,11 @@
                 {
                     try
                     {
-                        // CORREÇÃO: Adicionado o terceiro parâmetro ProfessorId
                         await PushService.EnviarNotificacaoAsync(sub.Payload,
                             $"Entrega Recebida: O aluno {Trabalho.Aluno?.UserName ?? "Estudante"} enviou o trabalho '{Trabalho.Titulo}'.",
                             Trabalho.ProfessorId);
                     }
-                    catch { /* Ignora erros de envio individual */ }
+                    catch { }
                 }
             }
 
@@ -319,7 +354,8 @@
 
     private async Task GerarFeedbackSelecionadoAsync()
     {
-        if (IsSaving || Trabalho == null) return;
+        if (IsSaving || Trabalho == null || PrazoExpirado) return;
+
         var selecionadas = Vertentes.Where(x => x.SolicitarFeedback).ToList();
         if (!selecionadas.Any())
         {
@@ -365,6 +401,8 @@
 
     private async Task UploadArquivo(InputFileChangeEventArgs e, AlunoVertenteModel vert)
     {
+        if (PrazoExpirado) return;
+
         try
         {
             var file = e.File;

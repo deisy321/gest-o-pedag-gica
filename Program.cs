@@ -34,9 +34,16 @@ if (string.IsNullOrEmpty(connectionString))
     connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
 }
 
+// SOLUÇÃO DO ERRO: 
+// Registramos primeiro o DbContext.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
-builder.Services.AddDbContextFactory<ApplicationDbContext>(options => options.UseNpgsql(connectionString));
+
+// Depois registramos a Factory garantindo que o lifetime seja SCOPED.
+// Isso impede que o EF tente criar um Singleton que conflita com o DbContextOptions.
+builder.Services.AddDbContextFactory<ApplicationDbContext>(
+    options => options.UseNpgsql(connectionString),
+    ServiceLifetime.Scoped);
 
 // --- 5. IDENTITY E ROLES ---
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -90,10 +97,10 @@ builder.Services.AddScoped<CursoService>();
 
 builder.Services.Configure<VapidSettings>(builder.Configuration.GetSection("VAPID"));
 
-// REGISTO DO PUSH SERVICE (RESTAURADO PARA FIXAR ERRO 500)
+// REGISTO DO PUSH SERVICE
 builder.Services.AddSingleton<PushService>();
 
-// CONFIGURAÇÃO DO CLIENTE DE IA (APONTANDO PARA O RENDER)
+// CONFIGURAÇÃO DO CLIENTE DE IA
 builder.Services.AddHttpClient<IAService>(client =>
 {
     var ollamaUrl = Environment.GetEnvironmentVariable("OllamaConfig__BaseUrl");
