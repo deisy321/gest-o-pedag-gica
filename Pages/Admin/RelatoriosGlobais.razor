@@ -20,68 +20,91 @@
         border: none;
         border-radius: 12px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        transition: transform 0.2s;
     }
+
+        .admin-card:hover {
+            transform: translateY(-5px);
+        }
 
     .animate-fade-in {
         animation: fadeIn 0.5s ease-in-out;
     }
+    @keyframes fadeIn {
+        from
 
-    @@keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
+    {
+        opacity: 0;
+        transform: translateY(10px);
+    }
 
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    }
+    @media print {
+        .btn, .sidebar, .no-print
+
+    {
+        display: none !important;
+    }
+
+    .page-admin {
+        padding: 0;
+    }
+
     }
 </style>
 
 <div class="page-admin animate-fade-in p-4">
-    @* Cabeçalho *@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="text-gradient fw-bold mb-0">Relatórios Globais</h2>
-            <p class="text-muted small">Desempenho consolidado por Turma</p>
+            <p class="text-muted small">Visão Geral de Desempenho e Engajamento</p>
         </div>
-        <button class="btn btn-dark shadow-sm" onclick="window.print()">
-            <i class="bi bi-printer me-2"></i>Imprimir Página
+        <button class="btn btn-dark shadow-sm no-print" onclick="window.print()">
+            <i class="bi bi-printer me-2"></i>Exportar Relatório
         </button>
     </div>
 
-    @* Cards de Resumo *@
     <div class="row g-4 mb-4">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card admin-card p-3 border-start border-primary border-5">
-                <h6 class="text-muted mb-1">Total Alunos</h6>
+                <h6 class="text-muted mb-1 small uppercase">Total Alunos</h6>
                 <h2 class="fw-bold mb-0">@TotalAlunos</h2>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card admin-card p-3 border-start border-warning border-5">
-                <h6 class="text-muted mb-1">Corpo Docente</h6>
+                <h6 class="text-muted mb-1 small uppercase">Corpo Docente</h6>
                 <h2 class="fw-bold mb-0">@TotalProfessores</h2>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card admin-card p-3 bg-primary text-white">
-                <h6 class="text-white-50 mb-1">Média Institucional</h6>
-                <h2 class="fw-bold mb-0">@MediaGlobalGeral.ToString("F1")</h2>
+        <div class="col-md-3">
+            <div class="card admin-card p-3 border-start border-success border-5">
+                <h6 class="text-muted mb-1 small uppercase">Média Institucional</h6>
+                <h2 class="fw-bold mb-0 text-success">@MediaGlobalGeral.ToString("F1")</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card admin-card p-3 bg-dark text-white">
+                <h6 class="text-white-50 mb-1 small uppercase">Participação Média</h6>
+                <h2 class="fw-bold mb-0">@MediaParticipacaoGlobal.ToString("F0")%</h2>
             </div>
         </div>
     </div>
 
-    @* Tabela Principal *@
     <div class="card admin-card p-4 shadow-sm">
-        <h5 class="fw-bold mb-4 text-primary border-bottom pb-2">Aproveitamento Escolar</h5>
+        <h5 class="fw-bold mb-4 text-primary border-bottom pb-2">Aproveitamento por Turma</h5>
         <div class="table-responsive">
             <table class="table table-hover align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>Turma</th>
                         <th>Nº Alunos</th>
+                        <th>Participação</th>
                         <th>Média Atual</th>
                         <th class="text-center">Estado</th>
                     </tr>
@@ -93,34 +116,24 @@
                         {
                             <tr>
                                 <td class="fw-bold">@item.Nome</td>
-                                <td>@item.QtdAlunos Alunos</td>
-                                <td class="fw-bold @(item.MediaNota >= 9.5 ? "text-success" : item.MediaNota > 0 ? "text-danger" : "text-muted")">
+                                <td>@item.QtdAlunos</td>
+                                <td>
+                                    <div class="progress" style="height: 8px; width: 100px;">
+                                        <div class="progress-bar @(item.TaxaParticipacao < 50 ? "bg-danger" : "bg-info")"
+                                             style="width: @item.TaxaParticipacao%"></div>
+                                    </div>
+                                    <small class="text-muted">@item.TaxaParticipacao% entregas</small>
+                                </td>
+                                <td class="fw-bold @(item.MediaNota >= 9.5 ? "text-success" : "text-danger")">
                                     @(item.MediaNota > 0 ? item.MediaNota.ToString("F1") : "---")
                                 </td>
                                 <td class="text-center">
-                                    @if (item.MediaNota >= 9.5)
-                                    {
-                                        <span class="badge bg-success rounded-pill px-3">Positiva</span>
-                                    }
-                                    else if (item.MediaNota > 0)
-                                    {
-                                        <span class="badge bg-danger rounded-pill px-3">Negativa</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary rounded-pill px-3">Sem Notas</span>
-                                    }
+                                    <span class="badge @(item.MediaNota >= 9.5 ? "bg-success" : "bg-danger") rounded-pill px-3">
+                                        @(item.MediaNota >= 9.5 ? "Positiva" : "Negativa")
+                                    </span>
                                 </td>
                             </tr>
                         }
-                    }
-                    else if (isLoading)
-                    {
-                        <tr><td colspan="4" class="text-center py-5 text-muted">A carregar dados do sistema...</td></tr>
-                    }
-                    else
-                    {
-                        <tr><td colspan="4" class="text-center py-5 text-muted">Não foram encontradas turmas registradas.</td></tr>
                     }
                 </tbody>
             </table>
@@ -130,9 +143,8 @@
 
 @code {
     private List<ViewRelatorioTurma> ListaParaExibir = new();
-    private int TotalAlunos;
-    private int TotalProfessores;
-    private double MediaGlobalGeral;
+    private int TotalAlunos, TotalProfessores;
+    private double MediaGlobalGeral, MediaParticipacaoGlobal;
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
@@ -140,67 +152,46 @@
         try
         {
             isLoading = true;
-
-            // 1. Obter dados base com proteção contra nulos
             var turmasDoBanco = await TurmaService.GetTurmasAsync() ?? new List<Turma>();
-            var trabalhosComNotas = await TrabalhoService.GetTodosTrabalhosComNotasAsync() ?? new List<Trabalho>();
+            var trabalhos = await TrabalhoService.GetTodosTrabalhosComNotasAsync() ?? new List<Trabalho>();
 
-            // 2. CORREÇÃO: Usar CreateDbContextAsync para evitar quebra do circuito
             using var context = await DbFactory.CreateDbContextAsync();
             TotalAlunos = await context.Alunos.CountAsync();
             TotalProfessores = await context.Professores.CountAsync();
 
-            // 3. Processar a lista para exibição
             ListaParaExibir = turmasDoBanco.Select(turma =>
             {
-                // Filtramos as notas das vertentes pertencentes a esta turma
-                var notasDaTurma = trabalhosComNotas
-                    .Where(t => t.TurmaId == turma.Id)
-                    .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                    .Where(v => v != null && v.Nota.HasValue)
-                    .Select(v => (double)v.Nota!.Value)
-                    .ToList();
+                var trabTurma = trabalhos.Where(t => t.TurmaId == turma.Id).ToList();
+                var vertentes = trabTurma.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).ToList();
+
+                var notas = vertentes.Where(v => v.Nota.HasValue).Select(v => (double)v.Nota!.Value).ToList();
+
+                // Cálculo de participação: (Entregas com nota / Total de vertentes criadas)
+                double participacao = vertentes.Any() ? (double)notas.Count / vertentes.Count * 100 : 0;
 
                 return new ViewRelatorioTurma
                 {
-                    Nome = turma.Nome ?? "Turma Sem Nome",
-                    // Proteção contra navegação nula
+                    Nome = turma.Nome ?? "Turma",
                     QtdAlunos = turma.Alunos?.Count ?? 0,
-                    // Proteção contra Sequence contains no elements
-                    MediaNota = notasDaTurma.Any() ? notasDaTurma.Average() : 0
+                    MediaNota = notas.Any() ? notas.Average() : 0,
+                    TaxaParticipacao = Math.Round(participacao, 1)
                 };
-            })
-            .OrderByDescending(x => x.MediaNota)
-            .ToList();
+            }).OrderByDescending(x => x.MediaNota).ToList();
 
-            // 4. Calcular média institucional (apenas turmas com notas)
-            var turmasComMedia = ListaParaExibir.Where(x => x.MediaNota > 0).ToList();
-            if (turmasComMedia.Any())
-            {
-                MediaGlobalGeral = turmasComMedia.Average(x => x.MediaNota);
-            }
-            else
-            {
-                MediaGlobalGeral = 0;
-            }
+            if (ListaParaExibir.Any(x => x.MediaNota > 0))
+                MediaGlobalGeral = ListaParaExibir.Where(x => x.MediaNota > 0).Average(x => x.MediaNota);
+
+            MediaParticipacaoGlobal = ListaParaExibir.Any() ? ListaParaExibir.Average(x => x.TaxaParticipacao) : 0;
         }
-        catch (Exception ex)
-        {
-            // Evita o crash da UI, mas loga o erro para o desenvolvedor
-            Console.WriteLine($"Erro crítico no Relatório Global: {ex.Message}");
-        }
-        finally
-        {
-            isLoading = false;
-            // Notifica o Blazor que os dados carregaram
-            StateHasChanged();
-        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
+        finally { isLoading = false; StateHasChanged(); }
     }
 
     public class ViewRelatorioTurma
     {
-        public string Nome { get; set; } = "";
+        public string Nome { get; set; }
         public int QtdAlunos { get; set; }
         public double MediaNota { get; set; }
+        public double TaxaParticipacao { get; set; }
     }
 }
