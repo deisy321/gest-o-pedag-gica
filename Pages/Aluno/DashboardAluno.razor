@@ -35,14 +35,12 @@
             </div>
         </div>
 
-        @* LÓGICA ATUALIZADA: O alerta só aparece se houver Plano de Recuperação com nota nula ou <= 9.0 *@
         @if (TodosTrabalhos != null && TodosTrabalhos.Any(t => t.IsPlanoRecuperacao && (CalcularNotaTrabalho(t.TrabalhoVertentes) == null || CalcularNotaTrabalho(t.TrabalhoVertentes) <= 9.0)))
         {
             <div class="alert alert-danger shadow-sm border-0 mb-4 animate__animated animate__pulse" style="border-radius: 15px; border-left: 8px solid #dc3545 !important;">
                 <h5 class="fw-bold"><i class="bi bi-lightning-charge-fill"></i> Tens Planos de Recuperação Ativos!</h5>
                 <p>O teu professor enviou atividades específicas para melhorar as tuas notas nas vertentes críticas.</p>
                 <div class="d-flex gap-2" style="flex-wrap: wrap;">
-                    @* Filtro aplicado também na listagem dos botões *@
                     @foreach (var plano in TodosTrabalhos.Where(t => t.IsPlanoRecuperacao && (CalcularNotaTrabalho(t.TrabalhoVertentes) == null || CalcularNotaTrabalho(t.TrabalhoVertentes) <= 9.0)))
                     {
                         <button class="btn btn-danger btn-sm rounded-pill px-3 shadow-sm" @onclick="() => ResolverTrabalho(plano.Id)">
@@ -95,6 +93,7 @@
             </div>
         </div>
 
+        @* Filtros *@
         <div class="custom-card elevation-2">
             <div class="card-header-custom">
                 <h5><i class="bi bi-funnel"></i> Filtros</h5>
@@ -125,6 +124,7 @@
             </div>
         </div>
 
+        @* Tabela de Trabalhos *@
         <div class="custom-card elevation-2" style="margin-top: 2rem;">
             <div class="card-header-custom">
                 <h5><i class="bi bi-list-task"></i> Meus Trabalhos</h5>
@@ -203,88 +203,85 @@
             }
         </div>
 
+        @* Seção de Badges *@
         <div class="custom-card elevation-2" style="margin-top: 2rem;">
             <div class="card-header-custom">
                 <h5><i class="bi bi-award-fill"></i> Meus Badges <span class="badge badge-custom badge-primary" style="margin-left: 1rem;">@BadgesConquistados.Count / @TodosBadges.Count</span></h5>
             </div>
             <div class="card-body-custom">
-                @if (TodosBadges.Count == 0)
-                {
-                    <div class="text-center py-5">
-                        <i class="bi bi-star" style="font-size: 3rem; color: #ccc;"></i>
-                        <p class="mt-3 text-muted">Nenhum badge disponível</p>
-                    </div>
-                }
-                else
-                {
-                    <div class="row g-4">
-                        @foreach (var badge in TodosBadges)
+                <div class="row g-4">
+                    @foreach (var badge in TodosBadges)
+                    {
+                        bool conquistado = BadgesConquistados.Contains(badge.Key);
+                        string imagemBadge = badge.Key switch
                         {
-                            bool conquistado = BadgesConquistados.Contains(badge.Key);
-                            string imagemBadge = badge.Key switch
-                            {
-                                "Entrega no Prazo" => "/images/EntregaNoPrazo.png",
-                                "Notas Altas" => "/images/NotasAltas.png",
-                                "Envio Consistente" => "/images/EnvioConsistente.png",
-                                "Engajamento Diário" => "/images/EngajamentoDiário.png",
-                                "Top Performer" => "/images/TopPerformer.png",
-                                "Participação Ativa" => "/images/ParticipaçãoAtiva.png",
-                                _ => "/images/TopPerformer.png"
-                            };
+                            "Entrega no Prazo" => "/images/EntregaNoPrazo.png",
+                            "Notas Altas" => "/images/NotasAltas.png",
+                            "Envio Consistente" => "/images/EnvioConsistente.png",
+                            "Top Performer" => "/images/TopPerformer.png",
+                            "Participação Ativa" => "/images/ParticipaçãoAtiva.png",
+                            _ => "/images/TopPerformer.png"
+                        };
 
-                            <div class="col-6 col-md-4 col-lg-2">
-                                <div class="badge-item" style="@(conquistado ? "opacity: 1;" : "opacity: 0.5; filter: grayscale(100%);")">
-                                    <div class="badge-image-container">
-                                        <img src="@imagemBadge" alt="@badge.Key" class="badge-image" style="@(conquistado ? "transform: scale(1); filter: drop-shadow(0 4px 8px rgba(255,215,0,0.6));" : "transform: scale(0.95);")" />
-                                        @if (conquistado)
-                                        {
-                                            <div class="badge-conquered-mark">
-                                                <i class="bi bi-check-circle-fill"></i>
-                                            </div>
-                                        }
-                                    </div>
-                                    <div class="badge-info text-center mt-3">
-                                        <h6 class="fw-bold" style="font-size: 0.85rem;">@badge.Key</h6>
-                                        <div style="margin-top: 0.5rem;">
-                                            @if (conquistado)
-                                            {
-                                                <span class="badge badge-custom badge-success" style="font-size: 0.7rem;">✓ Conquistado</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge badge-custom badge-secondary" style="font-size: 0.7rem;">🔒 Bloqueado</span>
-                                            }
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <div class="badge-item text-center" @onclick="() => AbrirRequisitos(badge.Key)" style="cursor: pointer;">
+                                <div class="badge-image-container" style="@(conquistado ? "opacity: 1;" : "opacity: 0.4; filter: grayscale(100%);")">
+                                    <img src="@imagemBadge" alt="@badge.Key" class="badge-image" style="transition: all 0.3s ease; width: 80px;" />
+                                    @if (conquistado)
+                                    {
+                                        <div class="badge-conquered-mark">
+                                            <i class="bi bi-check-circle-fill" style="color: #28a745;"></i>
                                         </div>
-                                    </div>
+                                    }
+                                </div>
+                                <div class="badge-info mt-3">
+                                    <h6 class="fw-bold mb-1" style="font-size: 0.85rem;">@badge.Key</h6>
+                                    <span class="badge @(conquistado ? "bg-success" : "bg-secondary")" style="font-size: 0.7rem;">
+                                        @(conquistado ? "✓ Conquistado" : "🔒 Detalhes")
+                                    </span>
                                 </div>
                             </div>
-                        }
-                    </div>
-                }
-            </div>
-
-            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #eee;">
-                <p class="text-muted small mb-2"><strong>Como conquistar badges:</strong></p>
-                <div class="row">
-                    <div class="col-md-6">
-                        <ul class="list-unstyled small text-muted">
-                            <li>⭐ <strong>Entrega no Prazo:</strong> Entregue todos os trabalhos dentro do prazo</li>
-                            <li>🏆 <strong>Notas Altas:</strong> Obtenha média geral acima de 15</li>
-                            <li>✅ <strong>Envio Consistente:</strong> Envie respostas em todos os trabalhos</li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <ul class="list-unstyled small text-muted">
-                            <li>🔥 <strong>Engajamento Diário:</strong> Esteja ativo todos os dias</li>
-                            <li>👑 <strong>Top Performer:</strong> Tenha pelo menos 3 notas acima de 15</li>
-                            <li>❤️ <strong>Participação Ativa:</strong> Participe ativamente nas atividades</li>
-                        </ul>
-                    </div>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
     }
 </div>
+
+@* MODAL DE REQUISITOS *@
+@if (ExibirModalBadge && BadgeSelecionado != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+                <div class="modal-header border-0 pb-0">
+                    <button type="button" class="btn-close" @onclick="() => ExibirModalBadge = false"></button>
+                </div>
+                <div class="modal-body text-center pt-0">
+                    <img src="@(ObterCaminhoImagem(BadgeSelecionado))" style="width: 120px; margin-bottom: 20px; @(BadgesConquistados.Contains(BadgeSelecionado) ? "" : "filter: grayscale(100%); opacity: 0.5;")" />
+                    <h4 class="fw-bold">@BadgeSelecionado</h4>
+                    <p class="text-muted px-3">@TodosBadges[BadgeSelecionado].Descricao</p>
+
+                    <div class="alert @(BadgesConquistados.Contains(BadgeSelecionado) ? "alert-success" : "alert-light") mx-3" style="border-radius: 12px; border: 1px solid #eee;">
+                        <small class="fw-bold d-block mb-1">REQUISITO PARA GANHAR:</small>
+                        <span>@TodosBadges[BadgeSelecionado].Tooltip</span>
+                    </div>
+
+                    @if (BadgesConquistados.Contains(BadgeSelecionado))
+                    {
+                        <div class="text-success fw-bold animate__animated animate__bounceIn">
+                            <i class="bi bi-patch-check-fill"></i> Parabéns! Já conquistaste este badge.
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer border-0 justify-content-center">
+                    <button class="btn btn-primary px-4 rounded-pill" @onclick="() => ExibirModalBadge = false">Entendi!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private Aluno? AlunoAtual;
@@ -300,14 +297,17 @@
     private string? AlunoUserId;
     private bool IsLoading = true;
 
+    // Variáveis do Modal
+    private bool ExibirModalBadge = false;
+    private string? BadgeSelecionado;
+
     private Dictionary<string, (string Icon, string Descricao, string Tooltip)> TodosBadges = new()
     {
-        { "Entrega no Prazo", ("", "Entregue todos os trabalhos dentro do prazo", "") },
-        { "Notas Altas", ("", "Obtenha notas altas nos módulos", "") },
-        { "Envio Consistente", ("", "Seja consistente nos envios", "") },
-        { "Engajamento Diário", ("", "Envie trabalhos todos os dias", "") },
-        { "Top Performer", ("", "Seja destaque em uma disciplina", "") },
-        { "Participação Ativa", ("", "Participe ativamente", "") }
+        { "Entrega no Prazo", ("", "Comprometimento com as datas", "Não ter mais de 3 trabalhos pendentes ou entregues fora do prazo.") },
+        { "Notas Altas", ("", "Excelência acadêmica", "Manter uma Média Geral igual ou superior a 15.0.") },
+        { "Envio Consistente", ("", "Frequência de participação", "Ter enviado conteúdo em quase todos os trabalhos (máximo 3 falhas).") },
+        { "Top Performer", ("", "Destaque da Turma", "Ter obtido nota igual ou superior a 15.0 em pelo menos 3 trabalhos diferentes.") },
+        { "Participação Ativa", ("", "Engajamento qualitativo", "Ter realizado pelo menos um envio de conteúdo de texto em qualquer trabalho.") }
     };
 
     private List<string> BadgesConquistados = new();
@@ -320,36 +320,51 @@
             var auth = await AuthStateProvider.GetAuthenticationStateAsync();
             AlunoUserId = auth.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             await CarregarDados();
-
-            BadgesConquistados.Clear();
-
-            if (TodosTrabalhos.Any() && TodosTrabalhos.All(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.All(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno))))
-                BadgesConquistados.Add("Entrega no Prazo");
-
-            if (MediaGeral >= 15.0)
-                BadgesConquistados.Add("Notas Altas");
-
-            if (TodosTrabalhos.Any() && TodosTrabalhos.All(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null)))
-                BadgesConquistados.Add("Envio Consistente");
-
-            if (TodosTrabalhos.Count(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => v.Nota.HasValue && v.Nota.Value >= 15)) >= 3)
-                BadgesConquistados.Add("Top Performer");
+            CalcularBadges();
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Erro ao carregar dashboard: {ex.Message}");
-        }
-        finally
-        {
-            IsLoading = false;
-        }
+        catch (Exception ex) { Console.WriteLine($"Erro: {ex.Message}"); }
+        finally { IsLoading = false; }
+    }
+
+    private void CalcularBadges()
+    {
+        BadgesConquistados.Clear();
+        if (!TodosTrabalhos.Any()) return;
+
+        // Lógica de Falhas (Atrasados ou Não Enviados)
+        int falhasCriticas = TodosTrabalhos.Count(t =>
+            // Não enviou texto nem ficheiro
+            (!t.TrabalhoVertentes?.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null) ?? true) ||
+            // Ou enviou, mas a data de submissão passou do prazo
+            (t.TrabalhoVertentes?.Any(v => v.DataSubmissao.HasValue && t.DataLimite.HasValue && v.DataSubmissao > t.DataLimite) ?? false)
+        );
+
+        // 1. Entrega no Prazo (Com tolerância de 3)
+        if (falhasCriticas <= 3)
+            BadgesConquistados.Add("Entrega no Prazo");
+
+        // 2. Envio Consistente (Mesmo critério de tolerância)
+        if (falhasCriticas <= 3)
+            BadgesConquistados.Add("Envio Consistente");
+
+        // 3. Notas Altas
+        if (MediaGeral >= 15.0)
+            BadgesConquistados.Add("Notas Altas");
+
+        // 4. Top Performer (3 Notas 15+)
+        int notasBoas = TodosTrabalhos.Count(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => v.Nota >= 15));
+        if (notasBoas >= 3)
+            BadgesConquistados.Add("Top Performer");
+
+        // 5. Participação Ativa (Pelo menos um texto enviado)
+        if (TodosTrabalhos.Any(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno))))
+            BadgesConquistados.Add("Participação Ativa");
     }
 
     private async Task CarregarDados()
     {
         var alunos = await AlunoService.GetAlunosAsync();
         AlunoAtual = alunos.FirstOrDefault(a => a.UserId == AlunoUserId);
-
         if (AlunoAtual?.TurmaId != null)
             TurmaAtual = await TurmaService.GetTurmaByIdAsync(AlunoAtual.TurmaId.Value);
 
@@ -366,6 +381,22 @@
         MediaGeral = notas.Any() ? notas.Average() : 0;
     }
 
+    private void AbrirRequisitos(string badgeKey)
+    {
+        BadgeSelecionado = badgeKey;
+        ExibirModalBadge = true;
+    }
+
+    private string ObterCaminhoImagem(string key) => key switch
+    {
+        "Entrega no Prazo" => "/images/EntregaNoPrazo.png",
+        "Notas Altas" => "/images/NotasAltas.png",
+        "Envio Consistente" => "/images/EnvioConsistente.png",
+        "Top Performer" => "/images/TopPerformer.png",
+        "Participação Ativa" => "/images/ParticipaçãoAtiva.png",
+        _ => "/images/TopPerformer.png"
+    };
+
     private void OnDisciplinaChanged(ChangeEventArgs e)
     {
         DisciplinaSelecionada = e.Value?.ToString() ?? "";
@@ -374,11 +405,9 @@
 
     private void FiltrarTrabalhos()
     {
-        TrabalhosFiltrados = TodosTrabalhos
-            .Where(t =>
-                (string.IsNullOrEmpty(DisciplinaSelecionada) || t.Disciplina?.Nome == DisciplinaSelecionada) &&
-                (string.IsNullOrEmpty(ModuloSelecionado) || t.Modulo?.Nome == ModuloSelecionado))
-            .ToList();
+        TrabalhosFiltrados = TodosTrabalhos.Where(t =>
+            (string.IsNullOrEmpty(DisciplinaSelecionada) || t.Disciplina?.Nome == DisciplinaSelecionada) &&
+            (string.IsNullOrEmpty(ModuloSelecionado) || t.Modulo?.Nome == ModuloSelecionado)).ToList();
     }
 
     private double CalcularPercentualConclusao(ICollection<TrabalhoVertente>? v)
@@ -403,5 +432,28 @@
 <style>
     .table-danger-light {
         background-color: rgba(220, 53, 69, 0.05) !important;
+    }
+
+    .badge-item:hover .badge-image {
+        transform: translateY(-5px) scale(1.1);
+    }
+
+    .badge-image-container {
+        position: relative;
+        display: inline-block;
+    }
+
+    .badge-conquered-mark {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        background: white;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
 </style>
