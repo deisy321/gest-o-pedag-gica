@@ -335,8 +335,8 @@
         int falhasCriticas = TodosTrabalhos.Count(t =>
             // Não enviou texto nem ficheiro
             (!t.TrabalhoVertentes?.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null) ?? true) ||
-            // Ou enviou, mas a data de submissão passou do prazo
-            (t.TrabalhoVertentes?.Any(v => v.DataSubmissao.HasValue && t.DataLimite.HasValue && v.DataSubmissao > t.DataLimite) ?? false)
+            // Ou enviou, mas a data de envio passou do prazo de entrega
+            (t.TrabalhoVertentes?.Any(v => v.DataEnvio.HasValue && v.DataEnvio > t.PrazoEntrega) ?? false)
         );
 
         // 1. Entrega no Prazo (Com tolerância de 3)
@@ -376,8 +376,8 @@
         ModulosDisponiveis = TodosTrabalhos.Select(t => t.Modulo?.Nome).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
 
         var notas = TodosTrabalhos.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                                 .Where(v => v.Nota.HasValue)
-                                 .Select(v => (double)v.Nota!.Value);
+                                     .Where(v => v.Nota.HasValue)
+                                     .Select(v => (double)v.Nota!.Value);
         MediaGeral = notas.Any() ? notas.Average() : 0;
     }
 
