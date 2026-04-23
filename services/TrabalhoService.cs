@@ -17,7 +17,7 @@ public class TrabalhoService
         _pushService = pushService;
     }
 
-    // --- MÉTODOS PARA O ALUNO ---
+    // --- MÉTODOS EXISTENTES (MANTIDOS) ---
 
     public async Task<List<Trabalho>> GetTrabalhosDisponiveisParaAlunoAsync(string alunoUserId)
     {
@@ -47,8 +47,6 @@ public class TrabalhoService
             .Where(v => v.TrabalhoId == trabalhoId)
             .ToListAsync();
     }
-
-    // --- MÉTODOS PARA O PROFESSOR ---
 
     public async Task<List<Trabalho>> GetTrabalhosDoProfessorAsync(string professorUserId)
     {
@@ -113,10 +111,8 @@ public class TrabalhoService
     public async Task<int> CriarTrabalhoAsync(Trabalho trabalho)
     {
         ArgumentNullException.ThrowIfNull(trabalho);
-
         trabalho.DataCriacao = DateTime.UtcNow;
         trabalho.PrazoEntrega = DateTime.SpecifyKind(trabalho.PrazoEntrega, DateTimeKind.Utc);
-
         _context.Trabalhos.Add(trabalho);
         await _context.SaveChangesAsync();
 
@@ -125,7 +121,6 @@ public class TrabalhoService
             await EnviarNotificacaoParaUsuario(trabalho.AlunoId,
                 $"Novo Trabalho Atribuído: {trabalho.Titulo}. Prazo: {trabalho.PrazoEntrega:dd/MM}");
         }
-
         return trabalho.Id;
     }
 
@@ -135,13 +130,13 @@ public class TrabalhoService
         await _context.SaveChangesAsync();
     }
 
-    // --- MÉTODOS DE APOIO ---
-
     public async Task<Trabalho?> GetTrabalhoPorIdAsync(int id)
     {
         return await _context.Trabalhos
             .Include(t => t.TrabalhoVertentes)
             .Include(t => t.Aluno)
+            .Include(t => t.Professor)
+            .Include(t => t.Modulo)
             .Include(t => t.Disciplina)
             .FirstOrDefaultAsync(t => t.Id == id);
     }
@@ -193,36 +188,68 @@ public class TrabalhoService
         }
     }
 
+    // --- NOVA LÓGICA DE IA TURBINADA (CORRIGIDA) ---
+
     public async Task<string> GerarFeedbackIAAsync(string alunoUserId, string conteudoAluno, byte[]? arquivoBytes, int trabalhoId, string vertenteId)
     {
-        string descricaoParaIA = "Instrução geral do trabalho.";
+        var trabalho = await _context.Trabalhos
+            .Include(t => t.Modulo)
+            .Include(t => t.Disciplina)
+            .Include(t => t.TrabalhoVertentes)
+            .Include(t => t.Aluno) // IdentityUser
+            .Include(t => t.Professor) // IdentityUser
+            .FirstOrDefaultAsync(t => t.Id == trabalhoId);
+
+        if (trabalho == null) return "Erro: Trabalho não localizado no sistema.";
+
+        // BUSCA DE NOMES VIA TABELA ALUNOS (Para evitar erro de propriedade inexistente no ApplicationUser)
+        var dadosAluno = await _context.Set<Aluno>().FirstOrDefaultAsync(a => a.UserId == alunoUserId);
+
+        // Aqui usamos o Nome da tabela Aluno, ou o UserName do Identity se não encontrar
+        string nomeExibicaoAluno = dadosAluno?.Nome ?? trabalho.Aluno?.UserName ?? "Estudante";
+        string nomeExibicaoProfessor = trabalho.Professor?.UserName ?? "Docente";
+
+        string instrucaoParaIA = trabalho.ConteudoTexto ?? "Realizar a tarefa proposta.";
+        string tipoDeAnalise = "Geral";
 
         if (int.TryParse(vertenteId, out int vId) && vId > 0)
         {
-            var vertente = await _context.TrabalhoVertentes.AsNoTracking().FirstOrDefaultAsync(v => v.Id == vId);
-            if (vertente != null && !string.IsNullOrWhiteSpace(vertente.ConteudoTexto))
+            var vertente = trabalho.TrabalhoVertentes.FirstOrDefault(v => v.Id == vId);
+            if (vertente != null)
             {
-                descricaoParaIA = vertente.ConteudoTexto;
-            }
-        }
-        else
-        {
-            var trabalho = await _context.Trabalhos.AsNoTracking().FirstOrDefaultAsync(t => t.Id == trabalhoId);
-            if (trabalho != null && !string.IsNullOrWhiteSpace(trabalho.ConteudoTexto))
-            {
-                descricaoParaIA = trabalho.ConteudoTexto;
+                instrucaoParaIA = vertente.ConteudoTexto ?? instrucaoParaIA;
+                tipoDeAnalise = vertente.Tipo ?? "Tríade";
             }
         }
 
+        string promptSistema = $@"
+Tu és o Core Pedagógico da TriadeLearn. 
+CONTEXTO ATUAL:
+- Aluno: {nomeExibicaoAluno}
+- Professor: {nomeExibicaoProfessor}
+- Unidade: {trabalho.Modulo?.Nome ?? "Módulo Técnico"}
+- Disciplina: {trabalho.Disciplina?.Nome ?? "Área Técnica"}
+- Foco da Tríade: {tipoDeAnalise}
+
+MISSÃO: 
+Avalia a entrega do aluno com base na instrução do professor. 
+- Se for 'Conhecimento', foca no rigor teórico.
+- Se for 'Aptidão', foca na execução técnica.
+- Se for 'Competência', foca na atitude profissional.
+Fala diretamente para o aluno de forma construtiva.";
+
         return await _iaService.ObterSugestoes(
-            textoAluno: conteudoAluno,
-            descricaoVertente: descricaoParaIA,
-            vertenteId: vertenteId,
+            promptSistema: promptSistema,
+            instrucaoPrincipal: instrucaoParaIA,
+            conteudoParaAnalisar: conteudoAluno,
             alunoId: alunoUserId,
             trabalhoId: trabalhoId.ToString(),
+            vertenteId: vertenteId,
             arquivoBytes: arquivoBytes
         );
     }
+
+    // --- MÉTODOS DE NOTIFICAÇÃO E RELATÓRIO (MANTIDOS) ---
 
     public async Task<List<NotificationSubscription>> GetSubscriptionsByUserIdAsync(string userId)
     {
