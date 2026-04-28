@@ -32,7 +32,7 @@
         <div class="row g-3 mb-4">
             <div class="col-md-4">
                 <div class="card shadow-sm border-0 p-3 border-bottom border-primary border-4" style="border-radius: 15px;">
-                    <h6 class="text-muted small text-uppercase">Média Global</h6>
+                    <h6 class="text-muted small text-uppercase">Média Global (Módulos Concluídos)</h6>
                     <h4 class="fw-bold mb-0">@CalcularMediaGeral().ToString("F1")</h4>
                 </div>
             </div>
@@ -44,7 +44,7 @@
             </div>
         </div>
 
-        @* TABELA DE MÓDULOS COM LÓGICA DE BLOQUEIO *@
+        @* TABELA DE MÓDULOS *@
         <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 15px;">
             <h5 class="fw-bold mb-3 text-muted small text-uppercase">Estado de Conclusão e Bloqueios</h5>
             <div class="table-responsive">
@@ -73,7 +73,7 @@
                                         <span class="me-2 small fw-bold">@m.HorasConsumidas/@m.HorasTotais h</span>
                                         <div class="progress flex-grow-1" style="height: 8px; background-color: #eee;">
                                             <div class="progress-bar @(m.ModuloConcluido ? "bg-success" : "bg-primary")"
-                                                 style="width: @(Math.Min(100, m.HorasConsumidas * 100 / m.HorasTotais))%"></div>
+                                                 style="width: @(m.HorasTotais > 0 ? Math.Min(100, m.HorasConsumidas * 100 / m.HorasTotais) : 0)%"></div>
                                         </div>
                                     </div>
                                 </td>
@@ -84,7 +84,7 @@
                                         {
                                             <button class="btn btn-sm btn-danger mb-1 w-100 py-0"
                                                     style="font-size: 10px;"
-                                                    @onclick="() => IniciarPlano(v)">
+                                                    @onclick="() => AbrirModalRecuperacao(v)">
                                                 <i class="bi bi-exclamation-triangle"></i> @v.Tipo (@v.Media.ToString("F1"))
                                             </button>
                                         }
@@ -118,12 +118,55 @@
     }
 </div>
 
+@* MODAL DE PLANO DE RECUPERAÇÃO *@
+@if (MostrarModal)
+{
+    <div class="modal d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+                <div class="modal-header bg-danger text-white" style="border-radius: 20px 20px 0 0;">
+                    <h5 class="modal-title fw-bold">Plano de Recuperação</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => MostrarModal = false"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p>Está a criar uma recuperação para a vertente <strong>@VertenteParaRecuperar?.Tipo</strong>.</p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Instruções para o Aluno</label>
+                        <textarea class="form-control" rows="3" @bind="InstrucoesRecuperacao" placeholder="Ex: Resolver ficha de exercícios X..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Data Limite de Entrega</label>
+                        <input type="date" class="form-control" @bind="DataLimiteRecuperacao" />
+                    </div>
+
+                    <div class="alert alert-info small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Este trabalho de recuperação terá <strong>0 horas</strong> atribuídas para não exceder o limite do módulo.
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button class="btn btn-light rounded-pill" @onclick="() => MostrarModal = false">Cancelar</button>
+                    <button class="btn btn-danger rounded-pill px-4" @onclick="GravarPlanoRecuperacao">Criar Trabalho</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public int AlunoId { get; set; }
     private Aluno? AlunoSelecionado;
     private List<ModuloAnalise> PanoramaModulos = new();
     private List<VertenteAnalise> VertentesAbaixoDaMedia = new();
     private bool IsLoading = true;
+
+    // Variáveis para o Modal
+    private bool MostrarModal = false;
+    private VertenteAnalise? VertenteParaRecuperar;
+    private string InstrucoesRecuperacao = "";
+    private DateTime DataLimiteRecuperacao = DateTime.Now.AddDays(7);
 
     protected override async Task OnInitializedAsync() => await CarregarFichaCompleta();
 
@@ -133,7 +176,7 @@
         try
         {
             AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
-            if (AlunoSelecionado != null)
+            if (AlunoSelecionado?.UserId != null)
             {
                 var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
                 if (trabalhos != null)
@@ -150,7 +193,6 @@
 
     private void ProcessarLogicaTecnica(List<Trabalho> trabalhos)
     {
-        // 1. Panorama de Módulos (Agrupamento Individual)
         PanoramaModulos = trabalhos
             .GroupBy(t => new
             {
@@ -161,7 +203,6 @@
             })
             .Select(g =>
             {
-                // Calcula a média das MELHORES notas de cada vertente neste módulo
                 var vertentesDoModulo = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
                                          .Where(v => v.Nota.HasValue)
                                          .GroupBy(v => v.Tipo)
@@ -179,7 +220,6 @@
                 };
             }).ToList();
 
-        // 2. Vertentes Críticas (Considerando a melhor nota como superação do bloqueio)
         VertentesAbaixoDaMedia = trabalhos
             .SelectMany(t => (t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
                 .Select(v => new { v, t.ModuloId }))
@@ -189,7 +229,7 @@
             {
                 ModuloId = g.Key.ModuloId ?? 0,
                 Tipo = g.Key.Tipo ?? "Geral",
-                Media = (double)g.Max(x => x.v.Nota!.Value), // A melhor nota decide se continua bloqueado
+                Media = (double)g.Max(x => x.v.Nota!.Value),
                 TemNotas = true
             })
             .Where(v => v.Media < 9.5)
@@ -198,14 +238,32 @@
 
     private double CalcularMediaGeral()
     {
-        // A média global só considera módulos que já atingiram as horas totais (concluídos)
         var concluidos = PanoramaModulos.Where(m => m.ModuloConcluido).ToList();
         return concluidos.Any() ? concluidos.Average(m => m.Media) : 0;
     }
 
-    private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
+    private void AbrirModalRecuperacao(VertenteAnalise v)
+    {
+        VertenteParaRecuperar = v;
+        InstrucoesRecuperacao = "";
+        MostrarModal = true;
+    }
 
-    private void IniciarPlano(VertenteAnalise v) { /* Lógica de Recuperação */ }
+    private async Task GravarPlanoRecuperacao()
+    {
+        if (VertenteParaRecuperar == null || AlunoSelecionado == null) return;
+
+        // Aqui chamas o teu serviço para criar o trabalho de recuperação
+        // IMPORTANTE: HorasAtribuidas = 0 e usamos a DataLimiteRecuperacao
+
+        // Exemplo fictício:
+        // await TrabalhoService.CriarTrabalhoRecuperacao(AlunoSelecionado.UserId, VertenteParaRecuperar.ModuloId, InstrucoesRecuperacao, DataLimiteRecuperacao);
+
+        MostrarModal = false;
+        await CarregarFichaCompleta();
+    }
+
+    private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
 
     public class ModuloAnalise
     {
@@ -215,7 +273,7 @@
         public int HorasTotais { get; set; }
         public int HorasConsumidas { get; set; }
         public double Media { get; set; }
-        public bool ModuloConcluido => HorasConsumidas >= HorasTotais;
+        public bool ModuloConcluido => HorasConsumidas >= HorasTotais && HorasTotais > 0;
     }
 
     public class VertenteAnalise
