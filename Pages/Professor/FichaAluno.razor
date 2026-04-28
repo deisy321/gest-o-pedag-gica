@@ -7,6 +7,23 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 
+<style>
+    /* Estilo para destacar a necessidade de recuperação */
+    .btn-recuperar-urgente {
+        animation: pulse-red 2s infinite;
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 11px;
+    }
+
+    @@keyframes pulse-red {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
+</style>
+
 <div class="container-fluid mt-4">
     @* CABEÇALHO *@
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -43,7 +60,7 @@
                 <div class="card shadow-sm border-0 p-3 border-bottom border-primary border-4 h-100" style="border-radius: 15px;">
                     <h6 class="text-muted small text-uppercase fw-bold">Média Global</h6>
                     <h4 class="fw-bold mb-0">@CalcularMediaGeral().ToString("F1")</h4>
-                    <small class="text-muted">Baseado em Módulos Concluídos</small>
+                    <small class="text-muted">Módulos Concluídos</small>
                 </div>
             </div>
             <div class="col-md-8">
@@ -70,7 +87,7 @@
                         <tr>
                             <th>Módulo</th>
                             <th>Progresso Horas</th>
-                            <th class="text-center">Vertentes Críticas</th>
+                            <th class="text-center">Vertentes Críticas (< 9.5)</th>
                             <th class="text-center">Nota Final / Status</th>
                         </tr>
                     </thead>
@@ -99,22 +116,21 @@
                                     {
                                         @foreach (var v in criticas)
                                         {
-                                            <button class="btn btn-sm btn-danger mb-1 w-100 py-1"
-                                                    style="font-size: 11px;"
-                                                    @onclick="() => AbrirModalRecuperacao(v, m.ModuloNome)">
-                                                <i class="bi bi-exclamation-triangle"></i> Recuperar @v.Tipo (@v.Media.ToString("F1"))
+                                            <button class="btn btn-danger btn-sm btn-recuperar-urgente mb-1 w-100 py-2 shadow-sm"
+                                                    @onclick="() => AbrirModalRecuperacao(v, m.ModuloNome, m.DisciplinaId)">
+                                                <i class="bi bi-plus-circle-fill me-1"></i> Criar Recuperação @v.Tipo
                                             </button>
                                         }
                                     }
                                     else
                                     {
-                                        <span class="text-success small"><i class="bi bi-check-circle-fill"></i> Conformidade</span>
+                                        <span class="text-success small"><i class="bi bi-check-circle-fill"></i> Regularizado</span>
                                     }
                                 </td>
                                 <td class="text-center">
                                     @if (estaBloqueado)
                                     {
-                                        <div class="text-danger" title="Nota Bloqueada: Requer Recuperação">
+                                        <div class="text-danger" title="Módulo retido por notas negativas">
                                             <i class="bi bi-lock-fill fs-4"></i>
                                             <div class="fw-bold" style="font-size: 9px;">BLOQUEADO</div>
                                         </div>
@@ -138,35 +154,37 @@
 @* MODAL DE PLANO DE RECUPERAÇÃO *@
 @if (MostrarModal)
 {
-    <div class="modal d-block" style="background: rgba(0,0,0,0.5); z-index: 1050;">
+    <div class="modal d-block" style="background: rgba(0,0,0,0.6); z-index: 1050; backdrop-filter: blur(4px);">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
                 <div class="modal-header bg-danger text-white" style="border-radius: 20px 20px 0 0;">
-                    <h5 class="modal-title fw-bold">Novo Plano de Recuperação</h5>
+                    <h5 class="modal-title fw-bold"><i class="bi bi-Exclamation-octagon me-2"></i>Plano de Recuperação</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="() => MostrarModal = false"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <p>Recuperação para: <strong>@VertenteParaRecuperar?.Tipo</strong> no módulo <strong>@NomeModuloAtual</strong>.</p>
+                    <p class="mb-4">Está a criar um trabalho de recuperação de <strong>@VertenteParaRecuperar?.Tipo</strong> para o módulo <strong>@NomeModuloAtual</strong>.</p>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Instruções para o Aluno</label>
-                        <textarea class="form-control" rows="3" @bind="InstrucoesRecuperacao"
-                                  placeholder="Descreva o que o aluno deve entregar para recuperar esta nota..."></textarea>
+                        <label class="form-label fw-bold text-secondary">O que o aluno deve realizar?</label>
+                        <textarea class="form-control border-primary" rows="4" @bind="InstrucoesRecuperacao"
+                                  placeholder="Ex: Resolução da ficha técnica anexa ou repetição do teste prático..."></textarea>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Data Limite de Entrega</label>
-                        <input type="date" class="form-control" @bind="DataLimiteRecuperacao" />
+                        <label class="form-label fw-bold text-secondary">Prazo de Entrega</label>
+                        <input type="date" class="form-control border-primary" @bind="DataLimiteRecuperacao" />
                     </div>
 
-                    <div class="alert alert-info small">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Este trabalho terá <strong>0 horas</strong> para não alterar a carga horária já registada do módulo.
+                    <div class="alert alert-warning border-0 small d-flex align-items-center">
+                        <i class="bi bi-info-circle-fill fs-5 me-2"></i>
+                        <span>Nota: Este trabalho será registado com 0 horas para não inflacionar o tempo total do módulo.</span>
                     </div>
                 </div>
-                <div class="modal-footer border-0">
-                    <button class="btn btn-light rounded-pill" @onclick="() => MostrarModal = false">Cancelar</button>
-                    <button class="btn btn-danger rounded-pill px-4" @onclick="GravarPlanoRecuperacao">Confirmar e Notificar</button>
+                <div class="modal-footer border-0 p-4">
+                    <button class="btn btn-light rounded-pill px-4" @onclick="() => MostrarModal = false">Desistir</button>
+                    <button class="btn btn-danger rounded-pill px-4 shadow" @onclick="GravarPlanoRecuperacao">
+                        <i class="bi bi-send-check me-2"></i>Atribuir Recuperação
+                    </button>
                 </div>
             </div>
         </div>
@@ -183,6 +201,7 @@
     private bool MostrarModal = false;
     private VertenteAnalise? VertenteParaRecuperar;
     private string NomeModuloAtual = "";
+    private int? DisciplinaIdAtual;
     private string InstrucoesRecuperacao = "";
     private DateTime DataLimiteRecuperacao = DateTime.Now.AddDays(7);
 
@@ -207,10 +226,7 @@
         {
             Console.WriteLine($"Erro ao carregar dados: {ex.Message}");
         }
-        finally
-        {
-            IsLoading = false;
-        }
+        finally { IsLoading = false; }
     }
 
     private void ProcessarLogicaTecnica(List<Trabalho> trabalhos)
@@ -219,6 +235,7 @@
             .GroupBy(t => new
             {
                 t.ModuloId,
+                t.DisciplinaId,
                 NomeModulo = t.Modulo?.Nome ?? "Módulo Indefinido",
                 NomeDisc = t.Disciplina?.Nome ?? "N/A",
                 Horas = t.Modulo?.TotalHoras ?? 25
@@ -234,6 +251,7 @@
                 return new ModuloAnalise
                 {
                     ModuloId = g.Key.ModuloId ?? 0,
+                    DisciplinaId = g.Key.DisciplinaId ?? 0,
                     ModuloNome = g.Key.NomeModulo,
                     DisciplinaNome = g.Key.NomeDisc,
                     HorasTotais = g.Key.Horas,
@@ -264,10 +282,11 @@
         return concluidos.Any() ? concluidos.Average(m => m.Media) : 0;
     }
 
-    private void AbrirModalRecuperacao(VertenteAnalise v, string moduloNome)
+    private void AbrirModalRecuperacao(VertenteAnalise v, string moduloNome, int disciplinaId)
     {
         VertenteParaRecuperar = v;
         NomeModuloAtual = moduloNome;
+        DisciplinaIdAtual = disciplinaId;
         InstrucoesRecuperacao = "";
         DataLimiteRecuperacao = DateTime.Now.AddDays(7);
         MostrarModal = true;
@@ -282,12 +301,14 @@
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var professorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
+            // 1. Criar o Trabalho (Cabeçalho)
             var novoTrabalho = new Trabalho
             {
-                Titulo = $"Recuperação: {VertenteParaRecuperar.Tipo} ({NomeModuloAtual})",
+                Titulo = $"RECUPERAÇÃO: {VertenteParaRecuperar.Tipo} - {NomeModuloAtual}",
                 ConteudoTexto = InstrucoesRecuperacao,
                 PrazoEntrega = DataLimiteRecuperacao,
                 ModuloId = VertenteParaRecuperar.ModuloId,
+                DisciplinaId = DisciplinaIdAtual, // Importante para filtros
                 AlunoId = AlunoSelecionado.UserId,
                 ProfessorId = professorId,
                 HorasAtribuidas = 0,
@@ -297,7 +318,19 @@
                 Ativo = true
             };
 
-            await TrabalhoService.CriarTrabalhoAsync(novoTrabalho);
+            // Guardar o trabalho e obter o ID gerado
+            int novoId = await TrabalhoService.CriarTrabalhoAsync(novoTrabalho);
+
+            // 2. CRIAR A VERTENTE (O "Coração" da avaliação)
+            // Sem isto, não há onde colocar a nota depois
+            var novaVertente = new TrabalhoVertente
+            {
+                TrabalhoId = novoId,
+                Tipo = VertenteParaRecuperar.Tipo,
+                ConteudoTexto = "Plano de recuperação definido pelo professor."
+            };
+
+            await TrabalhoService.AddVertenteAsync(novaVertente);
 
             MostrarModal = false;
             await CarregarFichaCompleta();
@@ -314,6 +347,7 @@
     public class ModuloAnalise
     {
         public int ModuloId { get; set; }
+        public int DisciplinaId { get; set; }
         public string ModuloNome { get; set; } = "";
         public string DisciplinaNome { get; set; } = "";
         public int HorasTotais { get; set; }
