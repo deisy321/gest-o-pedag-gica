@@ -156,15 +156,22 @@
     private void ProcessarLogicaTecnica(List<Trabalho> trabalhos)
     {
         // 1. Agrupamento por ID do Módulo para o Panorama
+        // Correção: Atribuímos nomes explícitos para evitar conflito de propriedades "Nome"
         PanoramaModulos = trabalhos
-            .GroupBy(t => new { t.ModuloId, t.Modulo?.Nome, t.Disciplina?.Nome, t.Modulo?.TotalHoras })
+            .GroupBy(t => new
+            {
+                t.ModuloId,
+                NomeModulo = t.Modulo?.Nome,
+                NomeDisciplina = t.Disciplina?.Nome,
+                t.Modulo?.TotalHoras
+            })
             .Select(g => new ModuloAnalise
             {
                 ModuloId = g.Key.ModuloId ?? 0,
-                ModuloNome = g.Key.Nome ?? "Módulo Geral",
-                DisciplinaNome = g.Key.Nome ?? "N/A",
+                ModuloNome = g.Key.NomeModulo ?? "Módulo Geral",
+                DisciplinaNome = g.Key.NomeDisciplina ?? "N/A",
                 HorasTotais = g.Key.TotalHoras ?? 25,
-                HorasConsumidas = g.Sum(x => x.HorasAtribuidas), // Soma as horas reais de cada trabalho
+                HorasConsumidas = g.Sum(x => x.HorasAtribuidas),
                 Media = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
                          .Where(v => v.Nota.HasValue)
                          .Select(v => (double)v.Nota!)
@@ -172,15 +179,16 @@
             }).ToList();
 
         // 2. Identificação de Vertentes Críticas (Média < 9.5) agrupadas por Módulo
+        // Correção: Atribuímos nomes explícitos (Ex: NomeDisc) para evitar conflito com Tipo ou Nome do Módulo
         VertentesAbaixoDaMedia = trabalhos
             .SelectMany(t => (t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                .Select(v => new { v, t.ModuloId, t.Disciplina?.Nome }))
-            .GroupBy(x => new { x.v.Tipo, x.ModuloId, x.Nome })
+                .Select(v => new { v, t.ModuloId, NomeDisc = t.Disciplina?.Nome }))
+            .GroupBy(x => new { x.v.Tipo, x.ModuloId, x.NomeDisc })
             .Select(g => new VertenteAnalise
             {
                 Tipo = g.Key.Tipo ?? "Geral",
                 ModuloId = g.Key.ModuloId ?? 0,
-                DisciplinaNome = g.Key.Nome ?? "N/A",
+                DisciplinaNome = g.Key.NomeDisc ?? "N/A",
                 Media = g.Where(x => x.v.Nota.HasValue)
                          .Select(x => (double)x.v.Nota!)
                          .DefaultIfEmpty(0).Average(),
@@ -199,8 +207,7 @@
 
     private void IniciarPlano(VertenteAnalise v)
     {
-        // Navega para a página de criação já com o Aluno e Módulo pré-selecionados
-        // Ou abre o seu Modal de recuperação aqui
+        // Espaço para navegação ou modal de recuperação
     }
 
     public class ModuloAnalise
