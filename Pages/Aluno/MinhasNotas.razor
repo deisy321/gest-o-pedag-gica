@@ -7,65 +7,85 @@
 <div class="container mt-4">
     <h3 class="fw-bold mb-4">O Meu Desempenho</h3>
 
-    <div class="row mb-4">
-        @if (ResumoModulos.Any())
+    @if (DisciplinasAgrupadas.Any())
+    {
+        @foreach (var disciplina in DisciplinasAgrupadas)
         {
-            @foreach (var modulo in ResumoModulos)
-            {
-                <div class="col-md-6 mb-3">
-                    <div class="card shadow-sm border-0 @(modulo.EstaBloqueado ? "border-start border-danger border-5" : "")" style="border-radius: 12px;">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                    <h6 class="text-muted small text-uppercase mb-1">@modulo.DisciplinaNome</h6>
-                                    <h5 class="fw-bold">@modulo.ModuloNome</h5>
-                                </div>
-                                <div class="text-end">
+            <div class="mb-5">
+                <!-- Título da Disciplina -->
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-primary rounded-circle me-2" style="width: 12px; height: 12px;"></div>
+                    <h4 class="fw-bold m-0 text-dark">@disciplina.Key</h4>
+                    <hr class="flex-grow-1 ms-3 opacity-25">
+                </div>
+
+                <div class="row">
+                    @foreach (var modulo in disciplina.Modulos)
+                    {
+                        <div class="col-md-6 mb-3">
+                            <div class="card shadow-sm border-0 @(modulo.EstaBloqueado ? "border-start border-danger border-5" : "border-start border-primary border-5")" style="border-radius: 12px;">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h5 class="fw-bold mb-0">@modulo.ModuloNome</h5>
+                                            <small class="text-muted">@modulo.HorasTotais h totais</small>
+                                        </div>
+                                        <div class="text-end">
+                                            @if (modulo.EstaBloqueado)
+                                            {
+                                                <div class="text-danger" title="Módulo retido por negativa em vertente específica">
+                                                    <i class="bi bi-lock-fill fs-5"></i>
+                                                    <span class="d-block fw-bold" style="font-size: 0.7rem;">BLOQUEADO</span>
+                                                </div>
+                                            }
+                                            else if (modulo.Concluido)
+                                            {
+                                                <span class="badge bg-success fs-6 shadow-sm">Nota Final: @modulo.Media.ToString("F1")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Em Curso</span>
+                                            }
+                                        </div>
+                                    </div>
+
                                     @if (modulo.EstaBloqueado)
                                     {
-                                        <div class="text-danger" title="Módulo retido por negativa em vertente específica">
-                                            <i class="bi bi-lock-fill fs-5"></i>
-                                            <span class="d-block fw-bold" style="font-size: 0.7rem;">BLOQUEADO</span>
+                                        <div class="alert alert-danger py-1 px-2 mb-2" style="font-size: 0.8rem;">
+                                            <i class="bi bi-exclamation-circle me-1"></i>
+                                            Recuperação em: <strong>@string.Join(", ", modulo.VertentesCriticas)</strong>
                                         </div>
                                     }
-                                    else if (modulo.Concluido)
-                                    {
-                                        <span class="badge bg-success fs-6 shadow-sm">Nota Final: @modulo.Media.ToString("F1")</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary">Em Curso</span>
-                                    }
-                                </div>
-                            </div>
 
-                            @if (modulo.EstaBloqueado)
-                            {
-                                <div class="alert alert-danger py-1 px-2 mb-2" style="font-size: 0.8rem;">
-                                    <i class="bi bi-exclamation-circle me-1"></i>
-                                    Necessita recuperação em: <strong>@string.Join(", ", modulo.VertentesCriticas)</strong>
-                                </div>
-                            }
-
-                            <div class="mt-3">
-                                <div class="d-flex justify-content-between small mb-1">
-                                    <span>Carga Horária: @modulo.HorasAtuais / @modulo.HorasTotais h</span>
-                                    <span>@((modulo.HorasAtuais * 100 / modulo.HorasTotais))%</span>
-                                </div>
-                                <div class="progress" style="height: 8px; border-radius: 4px; background-color: #e9ecef;">
-                                    <div class="progress-bar @(modulo.EstaBloqueado ? "bg-warning" : (modulo.Concluido ? "bg-success" : "bg-primary"))"
-                                         role="progressbar"
-                                         style="width: @(Math.Min(100, modulo.HorasAtuais * 100 / modulo.HorasTotais))%"></div>
+                                    <div class="mt-3">
+                                        <div class="d-flex justify-content-between small mb-1">
+                                            <span>Progresso: @modulo.HorasAtuais h</span>
+                                            <span>@((modulo.HorasAtuais * 100 / modulo.HorasTotais))%</span>
+                                        </div>
+                                        <div class="progress" style="height: 8px; border-radius: 4px; background-color: #e9ecef;">
+                                            <div class="progress-bar @(modulo.EstaBloqueado ? "bg-warning" : (modulo.Concluido ? "bg-success" : "bg-primary"))"
+                                                 role="progressbar"
+                                                 style="width: @(Math.Min(100, modulo.HorasAtuais * 100 / modulo.HorasTotais))%"></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    }
                 </div>
-            }
+            </div>
         }
-    </div>
+    }
+    else
+    {
+        <div class="text-center p-5 text-muted">
+            <i class="bi bi-folder-x fs-1"></i>
+            <p>Nenhum registo encontrado.</p>
+        </div>
+    }
 
-    <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
+    <!-- Histórico Detalhado permanece abaixo -->
+    <div class="card shadow-sm border-0 p-4 mt-4" style="border-radius: 15px;">
         <h5 class="fw-bold mb-3">Histórico de Avaliações</h5>
         <div class="table-responsive">
             <table class="table table-hover align-middle">
@@ -104,12 +124,6 @@
                             }
                         }
                     }
-                    else
-                    {
-                        <tr>
-                            <td colspan="5" class="text-center p-4 text-muted">Ainda não tens avaliações registadas.</td>
-                        </tr>
-                    }
                 </tbody>
             </table>
         </div>
@@ -118,7 +132,7 @@
 
 @code {
     private List<Trabalho> trabalhos = new();
-    private List<ModuloResumo> ResumoModulos = new();
+    private List<DisciplinaAgrupada> DisciplinasAgrupadas = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -127,56 +141,54 @@
 
         if (!string.IsNullOrEmpty(userId))
         {
-            trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(userId);
-            ProcessarResumoPorModulo();
+            trabalhos = await TrabalhoService.GetTrabalhosDoAlunosAsync(userId);
+            ProcessarResumoPorDisciplina();
         }
     }
 
-    private void ProcessarResumoPorModulo()
+    private void ProcessarResumoPorDisciplina()
     {
-        ResumoModulos = trabalhos
-            .GroupBy(t => new
+        // Primeiro agrupamos por Disciplina, depois por Módulo
+        DisciplinasAgrupadas = trabalhos
+            .GroupBy(t => t.Disciplina?.Nome ?? "Outros")
+            .Select(gd => new DisciplinaAgrupada
             {
-                t.ModuloId,
-                Nome = t.Modulo?.Nome ?? "Geral",
-                Disciplina = t.Disciplina?.Nome ?? "N/A",
-                HorasMembro = t.Modulo?.TotalHoras ?? 25
-            })
-            .Select(g =>
-            {
-                // NOVA LÓGICA: Agrupar por tipo e selecionar apenas a melhor nota (Max)
-                var statusVertentes = g.SelectMany(t => t.TrabalhoVertentes)
-                    .Where(v => v.Nota.HasValue)
-                    .GroupBy(v => v.Tipo)
-                    .Select(vType => new
-                    {
-                        Tipo = vType.Key,
-                        MelhorNota = (double)vType.Max(x => x.Nota!.Value)
-                    })
-                    .ToList();
-
-                // Uma vertente só é "crítica" se o melhor resultado obtido nela for negativo
-                var criticas = statusVertentes
-                    .Where(x => x.MelhorNota < 9.5)
-                    .Select(x => x.Tipo ?? "Indefinida")
-                    .ToList();
-
-                return new ModuloResumo
+                Key = gd.Key,
+                Modulos = gd.GroupBy(m => new { m.ModuloId, Nome = m.Modulo?.Nome ?? "Geral", Horas = m.Modulo?.TotalHoras ?? 25 })
+                .Select(g =>
                 {
-                    ModuloNome = g.Key.Nome,
-                    DisciplinaNome = g.Key.Disciplina,
-                    HorasTotais = g.Key.HorasMembro,
-                    HorasAtuais = g.Sum(t => t.HorasAtribuidas),
-                    Media = statusVertentes.Any() ? statusVertentes.Average(v => v.MelhorNota) : 0,
-                    VertentesCriticas = criticas
-                };
-            }).ToList();
+                    var statusVertentes = g.SelectMany(t => t.TrabalhoVertentes)
+                        .Where(v => v.Nota.HasValue)
+                        .GroupBy(v => v.Tipo)
+                        .Select(vType => new
+                        {
+                            Tipo = vType.Key,
+                            MelhorNota = (double)vType.Max(x => x.Nota!.Value)
+                        }).ToList();
+
+                    var criticas = statusVertentes.Where(x => x.MelhorNota < 9.5).Select(x => x.Tipo ?? "Indefinida").ToList();
+
+                    return new ModuloResumo
+                    {
+                        ModuloNome = g.Key.Nome,
+                        HorasTotais = g.Key.Horas,
+                        HorasAtuais = g.Sum(t => t.HorasAtribuidas),
+                        Media = statusVertentes.Any() ? statusVertentes.Average(v => v.MelhorNota) : 0,
+                        VertentesCriticas = criticas
+                    };
+                }).ToList()
+            }).OrderBy(d => d.Key).ToList();
+    }
+
+    public class DisciplinaAgrupada
+    {
+        public string Key { get; set; } = "";
+        public List<ModuloResumo> Modulos { get; set; } = new();
     }
 
     public class ModuloResumo
     {
         public string ModuloNome { get; set; } = "";
-        public string DisciplinaNome { get; set; } = "";
         public int HorasTotais { get; set; }
         public int HorasAtuais { get; set; }
         public double Media { get; set; }

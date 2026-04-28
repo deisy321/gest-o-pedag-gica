@@ -8,93 +8,101 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="fw-bold m-0">Histórico de Conclusão</h3>
         <div class="text-end">
-            <span class="badge bg-dark p-2">Módulos Concluídos: @HistoricoFinalizado.Count(x => x.Status == "Aprovado") / @HistoricoFinalizado.Count</span>
+            @* Contador global de aproveitamento *@
+            <span class="badge bg-dark p-2">
+                Módulos Concluídos: @DisciplinasAgrupadas.Sum(d => d.Modulos.Count(m => m.Status == "Aprovado")) / @DisciplinasAgrupadas.Sum(d => d.Modulos.Count)
+            </span>
         </div>
     </div>
 
-    <div class="card shadow-sm border-0" style="border-radius: 15px;">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="ps-4">Ano Letivo</th>
-                        <th>Módulo / Disciplina</th>
-                        <th>Professor Responsável</th>
-                        <th class="text-center">Média Final</th>
-                        <th class="text-center">Estado Técnico</th>
-                        <th class="text-end pe-4">Ação</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (HistoricoFinalizado.Any())
-                    {
-                        @foreach (var item in HistoricoFinalizado)
-                        {
+    @if (DisciplinasAgrupadas.Any())
+    {
+        @foreach (var disciplina in DisciplinasAgrupadas)
+        {
+            <div class="card shadow-sm border-0 mb-5" style="border-radius: 15px; overflow: hidden;">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h5 class="fw-bold m-0 text-primary">
+                        <i class="bi bi-book me-2"></i>@disciplina.DisciplinaNome
+                    </h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
                             <tr>
-                                <td class="ps-4 text-muted">@item.AnoLetivo</td>
-                                <td>
-                                    <div class="fw-bold">@item.ModuloNome</div>
-                                    <small class="text-muted text-uppercase" style="font-size: 10px;">@item.DisciplinaNome</small>
-                                </td>
-                                <td>@item.Professor</td>
-                                <td class="text-center">
-                                    @if (item.Status == "Bloqueado")
-                                    {
-                                        <span class="text-muted">--</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="fw-bold @(item.MediaFinal >= 9.5m ? "text-success" : "text-danger")">
-                                            @item.MediaFinal.ToString("F1")
-                                        </span>
-                                    }
-                                </td>
-                                <td class="text-center">
-                                    @switch (item.Status)
-                                    {
-                                        case "Aprovado":
-                                            <span class="badge rounded-pill bg-success-subtle text-success border border-success">Concluído</span>
-                                            break;
-                                        case "Bloqueado":
-                                            <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger">Retido (Técnico)</span>
-                                            break;
-                                        default:
-                                            <span class="badge rounded-pill bg-warning-subtle text-warning border border-warning">Em Curso</span>
-                                            break;
-                                    }
-                                </td>
-                                <td class="text-end pe-4">
-                                    @if (item.Status == "Aprovado")
-                                    {
-                                        <button class="btn btn-sm btn-outline-primary shadow-sm" title="Descarregar Comprovativo">
-                                            <i class="bi bi-file-earmark-pdf"></i>
-                                        </button>
-                                    }
-                                    else if (item.Status == "Bloqueado")
-                                    {
-                                        <i class="bi bi-info-circle text-danger" title="Módulo retido devido a vertente negativa."></i>
-                                    }
-                                </td>
+                                <th class="ps-4" style="width: 15%;">Ano Letivo</th>
+                                <th style="width: 30%;">Módulo</th>
+                                <th style="width: 20%;">Professor</th>
+                                <th class="text-center" style="width: 10%;">Média Final</th>
+                                <th class="text-center" style="width: 15%;">Estado Técnico</th>
+                                <th class="text-end pe-4" style="width: 10%;">Ação</th>
                             </tr>
-                        }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="6" class="text-center p-5 text-muted">
-                                <i class="bi bi-journal-x fs-2 d-block mb-2"></i>
-                                Ainda não existem módulos encerrados no sistema.
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in disciplina.Modulos)
+                            {
+                                <tr>
+                                    <td class="ps-4 text-muted">@item.AnoLetivo</td>
+                                    <td>
+                                        <div class="fw-bold">@item.ModuloNome</div>
+                                    </td>
+                                    <td>@item.Professor</td>
+                                    <td class="text-center">
+                                        @if (item.Status == "Bloqueado")
+                                        {
+                                            <span class="text-muted">--</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="fw-bold @(item.MediaFinal >= 9.5m ? "text-success" : "text-danger")">
+                                                @item.MediaFinal.ToString("F1")
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @switch (item.Status)
+                                        {
+                                            case "Aprovado":
+                                                <span class="badge rounded-pill bg-success-subtle text-success border border-success">Concluído</span>
+                                                break;
+                                            case "Bloqueado":
+                                                <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger">Retido (Técnico)</span>
+                                                break;
+                                            default:
+                                                <span class="badge rounded-pill bg-warning-subtle text-warning border border-warning">Em Curso</span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        @if (item.Status == "Aprovado")
+                                        {
+                                            <button class="btn btn-sm btn-outline-primary shadow-sm" title="Descarregar Comprovativo">
+                                                <i class="bi bi-file-earmark-pdf"></i>
+                                            </button>
+                                        }
+                                        else if (item.Status == "Bloqueado")
+                                        {
+                                            <i class="bi bi-info-circle text-danger" title="Módulo retido devido a vertente negativa."></i>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="card shadow-sm border-0 p-5 text-center text-muted" style="border-radius: 15px;">
+            <i class="bi bi-journal-x fs-1 d-block mb-2"></i>
+            Ainda não existem módulos registados no sistema.
         </div>
-    </div>
+    }
 </div>
 
 @code {
-    private List<HistoricoModuloUI> HistoricoFinalizado = new();
+    private List<DisciplinaHistoricoUI> DisciplinasAgrupadas = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -110,54 +118,62 @@
 
     private void ProcessarHistorico(List<Trabalho> trabalhos)
     {
-        HistoricoFinalizado = trabalhos
-            .GroupBy(t => new
+        DisciplinasAgrupadas = trabalhos
+            .GroupBy(t => t.Disciplina?.Nome ?? "Outros")
+            .Select(gd => new DisciplinaHistoricoUI
             {
-                t.ModuloId,
-                Nome = t.Modulo?.Nome ?? "N/D",
-                Disciplina = t.Disciplina?.Nome ?? "N/A",
-                ProfessorNome = t.Professor?.UserName ?? "N/D",
-                HorasTotais = t.Modulo?.TotalHoras ?? 25
-            })
-            .Select(g =>
-            {
-                // NOVA LÓGICA: Obter apenas a melhor nota de cada tipo de vertente
-                var melhoresNotasPorVertente = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                    .Where(v => v.Nota.HasValue)
-                    .GroupBy(v => v.Tipo)
-                    .Select(gv => gv.Max(v => v.Nota!.Value))
-                    .ToList();
-
-                var horasFeitas = g.Sum(t => t.HorasAtribuidas);
-                var concluidoHoras = horasFeitas >= g.Key.HorasTotais;
-
-                // Bloqueio técnico: Se a melhor nota de qualquer vertente ainda for < 9.5
-                var temBloqueioTecnico = melhoresNotasPorVertente.Any(nota => nota < 9.5m);
-
-                string status;
-                if (temBloqueioTecnico && concluidoHoras) status = "Bloqueado";
-                else if (concluidoHoras) status = "Aprovado";
-                else status = "Em Curso";
-
-                return new HistoricoModuloUI
+                DisciplinaNome = gd.Key,
+                Modulos = gd.GroupBy(t => new
                 {
-                    AnoLetivo = g.First().DataCriacao.Year.ToString() + "/" + (g.First().DataCriacao.Year + 1).ToString().Substring(2),
-                    ModuloNome = g.Key.Nome,
-                    DisciplinaNome = g.Key.Disciplina,
-                    Professor = g.Key.ProfessorNome,
-                    MediaFinal = melhoresNotasPorVertente.Any() ? melhoresNotasPorVertente.Average() : 0,
-                    Status = status
-                };
+                    t.ModuloId,
+                    Nome = t.Modulo?.Nome ?? "N/D",
+                    ProfessorNome = t.Professor?.UserName ?? "N/D",
+                    HorasTotais = t.Modulo?.TotalHoras ?? 25
+                })
+                .Select(g =>
+                {
+                    var melhoresNotasPorVertente = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                        .Where(v => v.Nota.HasValue)
+                        .GroupBy(v => v.Tipo)
+                        .Select(gv => gv.Max(v => v.Nota!.Value))
+                        .ToList();
+
+                    var horasFeitas = g.Sum(t => t.HorasAtribuidas);
+                    var concluidoHoras = horasFeitas >= g.Key.HorasTotais;
+                    var temBloqueioTecnico = melhoresNotasPorVertente.Any(nota => nota < 9.5m);
+
+                    string status;
+                    if (temBloqueioTecnico && concluidoHoras) status = "Bloqueado";
+                    else if (concluidoHoras) status = "Aprovado";
+                    else status = "Em Curso";
+
+                    return new HistoricoModuloUI
+                    {
+                        AnoLetivo = g.OrderBy(x => x.DataCriacao).First().DataCriacao.Year.ToString() + "/" +
+                                   (g.OrderBy(x => x.DataCriacao).First().DataCriacao.Year + 1).ToString().Substring(2),
+                        ModuloNome = g.Key.Nome,
+                        Professor = g.Key.ProfessorNome,
+                        MediaFinal = melhoresNotasPorVertente.Any() ? melhoresNotasPorVertente.Average() : 0,
+                        Status = status
+                    };
+                })
+                .OrderBy(m => m.ModuloNome)
+                .ToList()
             })
-            .OrderByDescending(h => h.AnoLetivo)
+            .OrderBy(d => d.DisciplinaNome)
             .ToList();
+    }
+
+    private class DisciplinaHistoricoUI
+    {
+        public string DisciplinaNome { get; set; } = "";
+        public List<HistoricoModuloUI> Modulos { get; set; } = new();
     }
 
     private class HistoricoModuloUI
     {
         public string AnoLetivo { get; set; } = "";
         public string ModuloNome { get; set; } = "";
-        public string DisciplinaNome { get; set; } = "";
         public string Professor { get; set; } = "";
         public decimal MediaFinal { get; set; }
         public string Status { get; set; } = "";
