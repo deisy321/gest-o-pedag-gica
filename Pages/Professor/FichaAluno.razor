@@ -203,6 +203,10 @@
                 }
             }
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar dados: {ex.Message}");
+        }
         finally
         {
             IsLoading = false;
@@ -265,6 +269,7 @@
         VertenteParaRecuperar = v;
         NomeModuloAtual = moduloNome;
         InstrucoesRecuperacao = "";
+        DataLimiteRecuperacao = DateTime.Now.AddDays(7);
         MostrarModal = true;
     }
 
@@ -274,7 +279,6 @@
 
         try
         {
-            // Obter ID do professor logado
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var professorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
@@ -287,11 +291,12 @@
                 AlunoId = AlunoSelecionado.UserId,
                 ProfessorId = professorId,
                 HorasAtribuidas = 0,
-                Status = "Pendente",
-                DataCriacao = DateTime.UtcNow
+                Status = "Pendente", // Agora o modelo já suporta este campo
+                IsPlanoRecuperacao = true,
+                DataCriacao = DateTime.UtcNow,
+                Ativo = true
             };
 
-            // Chamada correta ao método do TrabalhoService
             await TrabalhoService.CriarTrabalhoAsync(novoTrabalho);
 
             MostrarModal = false;
@@ -299,17 +304,12 @@
         }
         catch (Exception ex)
         {
-            // Opcional: Adicionar alerta de erro aqui
             Console.WriteLine($"Erro ao criar recuperação: {ex.Message}");
         }
     }
 
     private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
-
-    private void IrParaAvaliacao()
-    {
-        Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
-    }
+    private void IrParaAvaliacao() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
 
     public class ModuloAnalise
     {
