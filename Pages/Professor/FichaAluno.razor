@@ -8,18 +8,16 @@
 @inject NavigationManager Nav
 
 <div class="container-fluid mt-4">
-    @* CABEÇALHO COM BOTÕES DE AÇÃO *@
+    @* CABEÇALHO *@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold m-0">Ficha Técnica do Aluno</h2>
             <p class="text-muted small">Análise de conformidade e desempenho por módulos</p>
         </div>
         <div class="d-flex gap-2">
-            @* NOVO BOTÃO ADICIONADO: Direciona para a avaliação de trabalhos *@
             <button class="btn btn-primary rounded-pill px-4 shadow-sm" @onclick="IrParaAvaliacao">
                 <i class="bi bi-pencil-square me-2"></i>Avaliar Trabalhos
             </button>
-
             <button class="btn btn-outline-secondary rounded-pill shadow-sm" @onclick="VoltarParaDashboard">
                 <i class="bi bi-arrow-left me-2"></i> Voltar
             </button>
@@ -45,7 +43,7 @@
                 <div class="card shadow-sm border-0 p-3 border-bottom border-primary border-4 h-100" style="border-radius: 15px;">
                     <h6 class="text-muted small text-uppercase fw-bold">Média Global</h6>
                     <h4 class="fw-bold mb-0">@CalcularMediaGeral().ToString("F1")</h4>
-                    <small class="text-muted">Módulos Concluídos</small>
+                    <small class="text-muted">Baseado em Módulos Concluídos</small>
                 </div>
             </div>
             <div class="col-md-8">
@@ -72,8 +70,8 @@
                         <tr>
                             <th>Módulo</th>
                             <th>Progresso Horas</th>
-                            <th class="text-center">Vertentes (Status)</th>
-                            <th class="text-center">Nota Final</th>
+                            <th class="text-center">Vertentes Críticas</th>
+                            <th class="text-center">Nota Final / Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -103,8 +101,8 @@
                                         {
                                             <button class="btn btn-sm btn-danger mb-1 w-100 py-0"
                                                     style="font-size: 10px;"
-                                                    @onclick="() => AbrirModalRecuperacao(v)">
-                                                <i class="bi bi-exclamation-triangle"></i> @v.Tipo (@v.Media.ToString("F1"))
+                                                    @onclick="() => AbrirModalRecuperacao(v, m.ModuloNome)">
+                                                <i class="bi bi-exclamation-triangle"></i> Recuperar @v.Tipo (@v.Media.ToString("F1"))
                                             </button>
                                         }
                                     }
@@ -144,15 +142,16 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow" style="border-radius: 20px;">
                 <div class="modal-header bg-danger text-white" style="border-radius: 20px 20px 0 0;">
-                    <h5 class="modal-title fw-bold">Plano de Recuperação</h5>
+                    <h5 class="modal-title fw-bold">Novo Plano de Recuperação</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="() => MostrarModal = false"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <p>Está a criar uma recuperação para a vertente <strong>@VertenteParaRecuperar?.Tipo</strong>.</p>
+                    <p>Recuperação para: <strong>@VertenteParaRecuperar?.Tipo</strong> no módulo <strong>@NomeModuloAtual</strong>.</p>
 
                     <div class="mb-3">
                         <label class="form-label fw-bold">Instruções para o Aluno</label>
-                        <textarea class="form-control" rows="3" @bind="InstrucoesRecuperacao" placeholder="Ex: Resolver ficha de exercícios X..."></textarea>
+                        <textarea class="form-control" rows="3" @bind="InstrucoesRecuperacao"
+                                  placeholder="Descreva o que o aluno deve entregar para recuperar esta nota..."></textarea>
                     </div>
 
                     <div class="mb-3">
@@ -162,12 +161,12 @@
 
                     <div class="alert alert-info small">
                         <i class="bi bi-info-circle me-1"></i>
-                        Este trabalho de recuperação terá <strong>0 horas</strong> atribuídas para não exceder o limite do módulo.
+                        Este trabalho terá <strong>0 horas</strong> para não alterar a carga horária já registada do módulo.
                     </div>
                 </div>
                 <div class="modal-footer border-0">
                     <button class="btn btn-light rounded-pill" @onclick="() => MostrarModal = false">Cancelar</button>
-                    <button class="btn btn-danger rounded-pill px-4" @onclick="GravarPlanoRecuperacao">Criar Trabalho</button>
+                    <button class="btn btn-danger rounded-pill px-4" @onclick="GravarPlanoRecuperacao">Confirmar e Notificar</button>
                 </div>
             </div>
         </div>
@@ -183,6 +182,7 @@
 
     private bool MostrarModal = false;
     private VertenteAnalise? VertenteParaRecuperar;
+    private string NomeModuloAtual = "";
     private string InstrucoesRecuperacao = "";
     private DateTime DataLimiteRecuperacao = DateTime.Now.AddDays(7);
 
@@ -260,9 +260,10 @@
         return concluidos.Any() ? concluidos.Average(m => m.Media) : 0;
     }
 
-    private void AbrirModalRecuperacao(VertenteAnalise v)
+    private void AbrirModalRecuperacao(VertenteAnalise v, string moduloNome)
     {
         VertenteParaRecuperar = v;
+        NomeModuloAtual = moduloNome;
         InstrucoesRecuperacao = "";
         MostrarModal = true;
     }
@@ -270,14 +271,41 @@
     private async Task GravarPlanoRecuperacao()
     {
         if (VertenteParaRecuperar == null || AlunoSelecionado == null) return;
-        // Lógica de serviço para salvar...
-        MostrarModal = false;
-        await CarregarFichaCompleta();
+
+        try
+        {
+            // Obter ID do professor logado
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var professorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            var novoTrabalho = new Trabalho
+            {
+                Titulo = $"Recuperação: {VertenteParaRecuperar.Tipo} ({NomeModuloAtual})",
+                ConteudoTexto = InstrucoesRecuperacao,
+                PrazoEntrega = DataLimiteRecuperacao,
+                ModuloId = VertenteParaRecuperar.ModuloId,
+                AlunoId = AlunoSelecionado.UserId,
+                ProfessorId = professorId,
+                HorasAtribuidas = 0,
+                Status = "Pendente",
+                DataCriacao = DateTime.UtcNow
+            };
+
+            // Chamada correta ao método do TrabalhoService
+            await TrabalhoService.CriarTrabalhoAsync(novoTrabalho);
+
+            MostrarModal = false;
+            await CarregarFichaCompleta();
+        }
+        catch (Exception ex)
+        {
+            // Opcional: Adicionar alerta de erro aqui
+            Console.WriteLine($"Erro ao criar recuperação: {ex.Message}");
+        }
     }
 
     private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
 
-    // Lógica para o novo botão de avaliação
     private void IrParaAvaliacao()
     {
         Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
