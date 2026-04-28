@@ -67,7 +67,7 @@
             {
                 <div class="card-body-custom text-center py-5">
                     <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
-                    <p class="mt-3 text-muted">Nenhum trabalho encontrado</p>
+                    <p class="mt-3 text-muted">Nenhum trabalho ativo encontrado</p>
                 </div>
             }
             else
@@ -98,15 +98,13 @@
                                 <tr>
                                     <td><strong>@trabalho.Titulo</strong></td>
                                     <td>
-                                        @* RESOLVIDO: Busca o nome da turma na lista carregada caso o objeto Turma esteja nulo *@
-                                        <span class="badge bg-primary text-white" style="background-color: #0d6efd !important; color: white !important; padding: 5px 10px;">
+                                        <span class="badge bg-primary text-white" style="background-color: #0d6efd !important; padding: 5px 10px;">
                                             @if (trabalho.Turma != null)
                                             {
                                                 @trabalho.Turma.Nome
                                             }
                                             else
                                             {
-
                                                 @(ListaTurmas.FirstOrDefault(t => t.Id == trabalho.TurmaId)?.Nome ?? "N/D")
                                             }
                                         </span>
@@ -114,7 +112,7 @@
                                     <td>
                                         @if (string.IsNullOrEmpty(trabalho.AlunoId))
                                         {
-                                            <span class="badge bg-info text-white" style="background-color: #0dcaf0 !important; color: white !important;">Turma</span>
+                                            <span class="badge bg-info text-white" style="background-color: #0dcaf0 !important;">Turma</span>
                                         }
                                         else
                                         {
@@ -144,9 +142,9 @@
                                     </td>
                                     <td><span class="badge bg-secondary text-white">@entregues/@total</span></td>
                                     <td class="text-center">
-                                        <button class="btn btn-sm btn-primary me-1" @onclick="() => AbrirEditar(trabalho)"><i class="bi bi-pencil"></i></button>
-                                        <button class="btn btn-sm btn-warning me-1" @onclick="() => AumentarPrazo(trabalho)"><i class="bi bi-calendar-plus"></i></button>
-                                        <button class="btn btn-sm btn-danger" @onclick="() => ConfirmarDelete(trabalho.Id)"><i class="bi bi-trash"></i></button>
+                                        <button class="btn btn-sm btn-primary me-1" @onclick="() => AbrirEditar(trabalho)" title="Editar"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn btn-sm btn-warning me-1" @onclick="() => AumentarPrazo(trabalho)" title="Aumentar Prazo"><i class="bi bi-calendar-plus"></i></button>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => ConfirmarDelete(trabalho.Id)" title="Eliminar/Arquivar"><i class="bi bi-trash"></i></button>
                                     </td>
                                 </tr>
                             }
@@ -209,11 +207,14 @@
 {
     <div class="modal-bg" @onclick="FecharConfirmDelete">
         <div class="modal-card" style="max-width: 400px;">
-            <h5>Confirmar Eliminação</h5>
-            <p>Deseja eliminar este trabalho?</p>
+            <h5>Confirmar Remoção</h5>
+            <p>Deseja remover este trabalho da sua lista?</p>
+            <div class="alert alert-info py-2" style="font-size: 0.85rem;">
+                <i class="bi bi-info-circle"></i> Trabalhos com notas serão apenas ocultados para preservar as médias.
+            </div>
             <div class="d-flex gap-2">
                 <button class="btn btn-custom btn-custom-outline" @onclick="FecharConfirmDelete">Cancelar</button>
-                <button class="btn btn-custom btn-custom-danger" @onclick="EliminarTrabalho">Sim, Eliminar</button>
+                <button class="btn btn-custom btn-custom-danger" @onclick="EliminarTrabalho">Confirmar</button>
             </div>
         </div>
     </div>
@@ -242,12 +243,14 @@
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var professorUserId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            // Carrega turmas primeiro para garantir que temos os nomes para exibição
             ListaTurmas = await TurmaService.GetTurmasAsync();
 
             if (!string.IsNullOrEmpty(professorUserId))
             {
-                TodosTrabalhos = await TrabalhoService.GetTrabalhosDoProfessorAsync(professorUserId);
+                // Carrega trabalhos do professor
+                var resultado = await TrabalhoService.GetTrabalhosDoProfessorAsync(professorUserId);
+                // Filtra apenas os que estão Ativo == true no carregamento inicial
+                TodosTrabalhos = resultado.Where(t => t.Ativo).ToList();
                 TrabalhosFiltrados = TodosTrabalhos;
             }
         }
@@ -266,7 +269,8 @@
 
     private void FiltrarTrabalhos()
     {
-        var temp = TodosTrabalhos.AsEnumerable();
+        // Importante: Garantir que sempre filtramos apenas os Ativos
+        var temp = TodosTrabalhos.Where(t => t.Ativo);
 
         if (TurmaFiltroId > 0)
         {
@@ -308,6 +312,10 @@
     private async Task SalvarEdicao()
     {
         if (TrabalhoEmEdicao == null) return;
+
+        // Aqui chamaria o serviço para atualizar no banco
+        // await TrabalhoService.UpdateTrabalhoAsync(TrabalhoEmEdicao);
+
         var t = TodosTrabalhos.FirstOrDefault(x => x.Id == TrabalhoEmEdicao.Id);
         if (t != null) { t.Titulo = TrabalhoEmEdicao.Titulo; t.Descricao = TrabalhoEmEdicao.Descricao; t.PrazoEntrega = NovaData; }
         FecharModal();
@@ -319,6 +327,9 @@
     private async Task SalvarNovaData()
     {
         if (TrabalhoSelecionado == null) return;
+
+        // await TrabalhoService.UpdatePrazoAsync(TrabalhoSelecionado.Id, DiasAdicionais);
+
         var t = TodosTrabalhos.FirstOrDefault(x => x.Id == TrabalhoSelecionado.Id);
         if (t != null) t.PrazoEntrega = t.PrazoEntrega.AddDays(DiasAdicionais);
         FecharModalPrazo();
@@ -329,12 +340,32 @@
 
     private async Task EliminarTrabalho()
     {
-        if (await TrabalhoService.ApagarTrabalhoAsync(TrabalhoParaDeleteId))
+        var trabalho = TodosTrabalhos.FirstOrDefault(t => t.Id == TrabalhoParaDeleteId);
+        if (trabalho == null) return;
+
+        // Verificamos se o trabalho tem notas (pela propriedade Nota ou pelas Vertentes)
+        bool temNotas = trabalho.Nota.HasValue || (trabalho.TrabalhoVertentes?.Any(v => v.Nota.HasValue) ?? false);
+
+        if (temNotas)
         {
-            TodosTrabalhos.RemoveAll(t => t.Id == TrabalhoParaDeleteId);
-            FiltrarTrabalhos();
-            FecharConfirmDelete();
+            // Lógica de ARQUIVAR (esconder da lista)
+            // No seu Service, crie um método que apenas faça trabalho.Ativo = false;
+            // await TrabalhoService.ArquivarTrabalhoAsync(TrabalhoParaDeleteId);
+
+            trabalho.Ativo = false;
+            TodosTrabalhos.Remove(trabalho); // Remove da lista local para sumir da tela
         }
+        else
+        {
+            // Lógica de APAGAR real do banco de dados (não há risco de perder notas)
+            if (await TrabalhoService.ApagarTrabalhoAsync(TrabalhoParaDeleteId))
+            {
+                TodosTrabalhos.Remove(trabalho);
+            }
+        }
+
+        FiltrarTrabalhos();
+        FecharConfirmDelete();
     }
 
     private void FecharModal() => TrabalhoEmEdicao = null;
