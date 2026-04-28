@@ -4,47 +4,108 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject TrabalhoService TrabalhoService
 
-<h3>Minhas Notas</h3>
+<div class="container mt-4">
+    <h3 class="fw-bold mb-4">O Meu Desempenho</h3>
 
-<div class="card p-4">
-    <h5>Avaliações Recebidas</h5>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Trabalho</th>
-                <th>Nota</th>
-                <th>Feedback</th>
-                <th>Data de Envio</th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (trabalhos?.Count > 0)
+    @* --- SECÇÃO 1: RESUMO POR MÓDULO --- *@
+    <div class="row mb-4">
+        @if (ResumoModulos.Any())
+        {
+            @foreach (var modulo in ResumoModulos)
             {
-                foreach (var trabalho in trabalhos)
-                {
-                    foreach (var vert in trabalho.TrabalhoVertentes.Where(v => v.Nota.HasValue || !string.IsNullOrEmpty(v.Feedback)))
+                <div class="col-md-6 mb-3">
+                    <div class="card shadow-sm border-0" style="border-radius: 12px;">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h6 class="text-muted small text-uppercase mb-1">@modulo.DisciplinaNome</h6>
+                                    <h5 class="fw-bold">@modulo.ModuloNome</h5>
+                                </div>
+                                <div class="text-end">
+                                    @if (modulo.Concluido)
+                                    {
+                                        <span class="badge bg-success fs-6">Nota Final: @modulo.Media.ToString("F1")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Em Curso</span>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <span>Carga Horária: @modulo.HorasAtuais / @modulo.HorasTotais h</span>
+                                    <span>@((modulo.HorasAtuais * 100 / modulo.HorasTotais))%</span>
+                                </div>
+                                <div class="progress" style="height: 8px; border-radius: 4px;">
+                                    <div class="progress-bar @(modulo.Concluido ? "bg-success" : "bg-primary")"
+                                         role="progressbar"
+                                         style="width: @(Math.Min(100, modulo.HorasAtuais * 100 / modulo.HorasTotais))%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+
+    @* --- SECÇÃO 2: DETALHE DAS VERTENTES --- *@
+    <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
+        <h5 class="fw-bold mb-3">Histórico de Avaliações</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Trabalho / Módulo</th>
+                        <th>Vertente</th>
+                        <th class="text-center">Nota</th>
+                        <th>Feedback do Professor</th>
+                        <th>Data</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (trabalhos?.Count > 0)
+                    {
+                        foreach (var trabalho in trabalhos)
+                        {
+                            foreach (var vert in trabalho.TrabalhoVertentes.Where(v => v.Nota.HasValue || !string.IsNullOrEmpty(v.Feedback)))
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold">@trabalho.Titulo</div>
+                                        <small class="text-muted">@trabalho.Modulo?.Nome</small>
+                                    </td>
+                                    <td><span class="badge bg-light text-dark border">@vert.Tipo</span></td>
+                                    <td class="text-center">
+                                        <span class="fw-bold @(vert.Nota >= 9.5m ? "text-success" : "text-danger")">
+                                            @(vert.Nota.HasValue? vert.Nota.Value.ToString("F1") : "-")
+                                        </span>
+                                    </td>
+                                    <td class="small text-muted" style="max-width: 300px;">
+                                        @(!string.IsNullOrEmpty(vert.Feedback) ? vert.Feedback : "Sem comentários")
+                                    </td>
+                                    <td><small>@(vert.DataEnvio?.ToShortDateString() ?? "-")</small></td>
+                                </tr>
+                            }
+                        }
+                    }
+                    else
                     {
                         <tr>
-                            <td>@trabalho.Titulo</td>
-                            <td>@(vert.Nota.HasValue? vert.Nota.Value.ToString("F1") : "-")</td>
-                            <td>@(!string.IsNullOrEmpty(vert.Feedback) ? vert.Feedback : "-")</td>
-                            <td>@(vert.DataEnvio.HasValue? vert.DataEnvio.Value.ToShortDateString() : "-")</td>
+                            <td colspan="5" class="text-center p-4 text-muted">Ainda não tens avaliações registadas.</td>
                         </tr>
                     }
-                }
-            }
-            else
-            {
-                <tr>
-                    <td colspan="4" class="text-center">Sem avaliações disponíveis</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 @code {
     private List<Trabalho> trabalhos = new();
+    private List<ModuloResumo> ResumoModulos = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -53,8 +114,43 @@
 
         if (!string.IsNullOrEmpty(userId))
         {
-            // Aqui garantimos que carregamos somente os trabalhos com vertentes enviadas
             trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(userId);
+            ProcessarResumoPorModulo();
         }
+    }
+
+    private void ProcessarResumoPorModulo()
+    {
+        ResumoModulos = trabalhos
+            .GroupBy(t => new { t.ModuloId, Nome = t.Modulo?.Nome ?? "Geral", Disciplina = t.Disciplina?.Nome ?? "N/A", Horas = t.Modulo?.TotalHoras ?? 25 })
+            .Select(g =>
+            {
+                var notas = g.SelectMany(t => t.TrabalhoVertentes)
+                             .Where(v => v.Nota.HasValue)
+                             .Select(v => (double)v.Nota!.Value)
+                             .ToList();
+
+                // Simulamos 5h por cada trabalho entregue para o cálculo de progresso
+                int horasEntregues = g.Count() * 5;
+
+                return new ModuloResumo
+                {
+                    ModuloNome = g.Key.Nome,
+                    DisciplinaNome = g.Key.Disciplina,
+                    HorasTotais = g.Key.Horas,
+                    HorasAtuais = horasEntregues,
+                    Media = notas.Any() ? notas.Average() : 0
+                };
+            }).ToList();
+    }
+
+    public class ModuloResumo
+    {
+        public string ModuloNome { get; set; } = "";
+        public string DisciplinaNome { get; set; } = "";
+        public int HorasTotais { get; set; }
+        public int HorasAtuais { get; set; }
+        public double Media { get; set; }
+        public bool Concluido => HorasAtuais >= HorasTotais;
     }
 }
