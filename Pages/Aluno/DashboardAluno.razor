@@ -161,6 +161,15 @@
                                         @if (t.IsPlanoRecuperacao)
                                         {
                                             <span class="badge bg-danger ms-1" style="font-size: 0.6rem;">RECUPERAÇÃO</span>
+                                            <div class="text-danger small mt-1">
+                                                <i class="bi bi-calendar-event"></i> Prazo: @t.PrazoEntrega.ToString("dd/MM/yyyy HH:mm")
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="text-muted small mt-1">
+                                                <i class="bi bi-clock"></i> Prazo: @t.PrazoEntrega.ToString("dd/MM/yyyy")
+                                            </div>
                                         }
                                     </td>
                                     <td>
