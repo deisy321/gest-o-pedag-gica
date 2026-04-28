@@ -8,11 +8,22 @@
 @inject NavigationManager Nav
 
 <div class="container-fluid mt-4">
+    @* CABEÇALHO COM BOTÕES DE AÇÃO *@
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold m-0">Ficha Técnica do Aluno</h2>
-        <button class="btn btn-outline-secondary rounded-pill" @onclick="VoltarParaDashboard">
-            <i class="bi bi-arrow-left me-2"></i> Voltar
-        </button>
+        <div>
+            <h2 class="fw-bold m-0">Ficha Técnica do Aluno</h2>
+            <p class="text-muted small">Análise de conformidade e desempenho por módulos</p>
+        </div>
+        <div class="d-flex gap-2">
+            @* NOVO BOTÃO ADICIONADO: Direciona para a avaliação de trabalhos *@
+            <button class="btn btn-primary rounded-pill px-4 shadow-sm" @onclick="IrParaAvaliacao">
+                <i class="bi bi-pencil-square me-2"></i>Avaliar Trabalhos
+            </button>
+
+            <button class="btn btn-outline-secondary rounded-pill shadow-sm" @onclick="VoltarParaDashboard">
+                <i class="bi bi-arrow-left me-2"></i> Voltar
+            </button>
+        </div>
     </div>
 
     @if (IsLoading)
@@ -31,15 +42,23 @@
         @* Stats Rápidas *@
         <div class="row g-3 mb-4">
             <div class="col-md-4">
-                <div class="card shadow-sm border-0 p-3 border-bottom border-primary border-4" style="border-radius: 15px;">
-                    <h6 class="text-muted small text-uppercase">Média Global (Módulos Concluídos)</h6>
+                <div class="card shadow-sm border-0 p-3 border-bottom border-primary border-4 h-100" style="border-radius: 15px;">
+                    <h6 class="text-muted small text-uppercase fw-bold">Média Global</h6>
                     <h4 class="fw-bold mb-0">@CalcularMediaGeral().ToString("F1")</h4>
+                    <small class="text-muted">Módulos Concluídos</small>
                 </div>
             </div>
             <div class="col-md-8">
-                <div class="card shadow-sm border-0 p-3 h-100" style="border-radius: 15px;">
-                    <div class="fw-bold">@AlunoSelecionado.Nome</div>
-                    <div class="text-muted small">@AlunoSelecionado.Turma?.Nome</div>
+                <div class="card shadow-sm border-0 p-3 h-100 d-flex flex-row align-items-center" style="border-radius: 15px;">
+                    <div class="bg-light rounded-circle p-3 me-3">
+                        <i class="bi bi-person-badge fs-3 text-primary"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold fs-5">@AlunoSelecionado.Nome</div>
+                        <div class="text-muted small">
+                            <i class="bi bi-mortarboard me-1"></i> @(AlunoSelecionado.Turma?.Nome ?? "Sem Turma")
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -121,7 +140,7 @@
 @* MODAL DE PLANO DE RECUPERAÇÃO *@
 @if (MostrarModal)
 {
-    <div class="modal d-block" style="background: rgba(0,0,0,0.5)">
+    <div class="modal d-block" style="background: rgba(0,0,0,0.5); z-index: 1050;">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow" style="border-radius: 20px;">
                 <div class="modal-header bg-danger text-white" style="border-radius: 20px 20px 0 0;">
@@ -162,7 +181,6 @@
     private List<VertenteAnalise> VertentesAbaixoDaMedia = new();
     private bool IsLoading = true;
 
-    // Variáveis para o Modal
     private bool MostrarModal = false;
     private VertenteAnalise? VertenteParaRecuperar;
     private string InstrucoesRecuperacao = "";
@@ -252,18 +270,18 @@
     private async Task GravarPlanoRecuperacao()
     {
         if (VertenteParaRecuperar == null || AlunoSelecionado == null) return;
-
-        // Aqui chamas o teu serviço para criar o trabalho de recuperação
-        // IMPORTANTE: HorasAtribuidas = 0 e usamos a DataLimiteRecuperacao
-
-        // Exemplo fictício:
-        // await TrabalhoService.CriarTrabalhoRecuperacao(AlunoSelecionado.UserId, VertenteParaRecuperar.ModuloId, InstrucoesRecuperacao, DataLimiteRecuperacao);
-
+        // Lógica de serviço para salvar...
         MostrarModal = false;
         await CarregarFichaCompleta();
     }
 
     private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
+
+    // Lógica para o novo botão de avaliação
+    private void IrParaAvaliacao()
+    {
+        Nav.NavigateTo($"/professor/AvaliarTrabalhos/{AlunoId}");
+    }
 
     public class ModuloAnalise
     {
