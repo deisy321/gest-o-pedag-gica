@@ -8,25 +8,23 @@ namespace gestaopedagogica.Models
     {
         public int Id { get; set; }
 
-        [Required]
+        [Required(ErrorMessage = "O título é obrigatório")]
         public string Titulo { get; set; } = "";
+
+        // ✅ Propriedade que faltava para corrigir o erro CS0117
+        public string Status { get; set; } = "Pendente";
 
         public bool IsPlanoRecuperacao { get; set; } = false;
 
-        /// <summary>
-        /// Define se o trabalho está visível na lista ativa. 
-        /// Se false, o trabalho foi "arquivado" para não poluir a lista, 
-        /// mas as notas associadas continuam a contar para a média.
-        /// </summary>
         public bool Ativo { get; set; } = true;
 
         public string? Descricao { get; set; }
 
         public string? AlunoId { get; set; }
-        public ApplicationUser? Aluno { get; set; }
+        public virtual ApplicationUser? Aluno { get; set; }
 
         public string? ProfessorId { get; set; }
-        public ApplicationUser? Professor { get; set; }
+        public virtual ApplicationUser? Professor { get; set; }
 
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
         public DateTime PrazoEntrega { get; set; }
@@ -35,18 +33,17 @@ namespace gestaopedagogica.Models
         public int HorasAtribuidas { get; set; }
 
         public int? ModuloId { get; set; }
-        public Modulo? Modulo { get; set; }
+        public virtual Modulo? Modulo { get; set; }
 
         public int? DisciplinaId { get; set; }
-        public Disciplina? Disciplina { get; set; }
+        public virtual Disciplina? Disciplina { get; set; }
 
         public int? TurmaId { get; set; }
-        public Turma? Turma { get; set; }
+        public virtual Turma? Turma { get; set; }
 
         public string ConteudoTexto { get; set; } = "";
         public string? ConteudoTextoAluno { get; set; }
 
-        // ✅ Propriedades de Arquivo
         public byte[]? FicheiroBytes { get; set; }
         public string? FicheiroNome { get; set; }
         public string? FicheiroContentType { get; set; }
@@ -55,6 +52,6 @@ namespace gestaopedagogica.Models
         public DateTime DataEnvio { get; set; } = DateTime.UtcNow;
         public bool VistoPeloProfessor { get; set; } = false;
 
-        public ICollection<TrabalhoVertente> TrabalhoVertentes { get; set; } = new List<TrabalhoVertente>();
+        public virtual ICollection<TrabalhoVertente> TrabalhoVertentes { get; set; } = new List<TrabalhoVertente>();
     }
 }

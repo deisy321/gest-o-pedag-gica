@@ -99,8 +99,8 @@
                                     {
                                         @foreach (var v in criticas)
                                         {
-                                            <button class="btn btn-sm btn-danger mb-1 w-100 py-0"
-                                                    style="font-size: 10px;"
+                                            <button class="btn btn-sm btn-danger mb-1 w-100 py-1"
+                                                    style="font-size: 11px;"
                                                     @onclick="() => AbrirModalRecuperacao(v, m.ModuloNome)">
                                                 <i class="bi bi-exclamation-triangle"></i> Recuperar @v.Tipo (@v.Media.ToString("F1"))
                                             </button>
@@ -108,7 +108,7 @@
                                     }
                                     else
                                     {
-                                        <span class="text-success small"><i class="bi bi-check-circle-fill"></i> Conformidade Técnica</span>
+                                        <span class="text-success small"><i class="bi bi-check-circle-fill"></i> Conformidade</span>
                                     }
                                 </td>
                                 <td class="text-center">
@@ -291,7 +291,7 @@
                 AlunoId = AlunoSelecionado.UserId,
                 ProfessorId = professorId,
                 HorasAtribuidas = 0,
-                Status = "Pendente", // Agora o modelo já suporta este campo
+                Status = "Pendente",
                 IsPlanoRecuperacao = true,
                 DataCriacao = DateTime.UtcNow,
                 Ativo = true
