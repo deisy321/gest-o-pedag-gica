@@ -1,120 +1,273 @@
-﻿@page "/professor/FichaAluno/{AlunoId}"
+﻿@page "/professor/FichaAluno/{AlunoId:int}"
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AlunoService AlunoService
 @inject TrabalhoService TrabalhoService
-@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
 
-<div class="container">
-    <h3>Gestão de Plano de Recuperação</h3>
+<style>
+    .btn-recuperar-urgente {
+        animation: pulse-red 2s infinite;
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 11px;
+    }
 
-    @if (carregando)
-    {
-        <div class="text-center">
-            <div class="spinner-border" role="status"></div>
-            <p>A carregar dados...</p>
+    @keyframes pulse-red {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
+</style>
+
+<div class="container-fluid mt-4">
+    @* CABEÇALHO *@
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold m-0">Ficha Técnica do Aluno</h2>
+            <p class="text-muted small">Análise de desempenho por módulos</p>
         </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary rounded-pill shadow-sm" @onclick="VoltarParaDashboard">
+                <i class="bi bi-arrow-left me-2"></i> Voltar
+            </button>
+        </div>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2 text-muted">A analisar dados...</p>
+        </div>
+    }
+    else if (AlunoSelecionado == null)
+    {
+        <div class="alert alert-warning">Aluno não encontrado. ID: @AlunoId</div>
     }
     else
     {
-        <div class="card p-4 shadow-sm">
-            <EditForm Model="@novoPlano" OnValidSubmit="GravarPlanoRecuperacao">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Título do Plano</label>
-                    <InputText @bind-Value="novoPlano.Titulo" class="form-control" />
+        @* Perfil do Aluno *@
+        <div class="card shadow-sm border-0 p-3 mb-4" style="border-radius: 15px;">
+            <div class="d-flex align-items-center">
+                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
+                    <i class="bi bi-person-fill fs-2"></i>
                 </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Descrição / Instruções</label>
-                    <InputTextArea @bind-Value="novoPlano.ConteudoTexto" class="form-control" rows="3" />
+                <div>
+                    <h4 class="fw-bold mb-0">@AlunoSelecionado.Nome</h4>
+                    <span class="badge bg-light text-dark border">@ (AlunoSelecionado.Turma?.Nome ?? "Sem Turma")</span>
                 </div>
+            </div>
+        </div>
 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold">Horas Atribuídas</label>
-                        <InputNumber @bind-Value="novoPlano.HorasAtribuidas" class="form-control" />
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold">Prazo de Entrega</label>
-                        <InputDate @bind-Value="novoPlano.PrazoEntrega" class="form-control" />
-                    </div>
-                </div>
-
-                <div class="mt-3">
-                    <button type="submit" class="btn btn-success" disabled="@estaProcessando">
-                        @if (estaProcessando)
+        @* TABELA DE MÓDULOS *@
+        <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Módulo / Disciplina</th>
+                            <th>Progresso</th>
+                            <th class="text-center">Ações de Recuperação</th>
+                            <th class="text-center">Média / Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in PanoramaModulos)
                         {
-                            <span class="spinner-border spinner-border-sm"></span>
-                            <span> A gravar...</span>
+                            var criticas = VertentesAbaixoDaMedia.Where(v => v.ModuloId == m.ModuloId).ToList();
+                            bool estaBloqueado = criticas.Any();
+
+                            <tr>
+                                <td>
+                                    <div class="fw-bold">@m.ModuloNome</div>
+                                    <small class="text-muted">@m.DisciplinaNome</small>
+                                </td>
+                                <td>
+                                    <div class="small mb-1">@m.HorasConsumidas / @m.HorasTotais h</div>
+                                    <div class="progress" style="height: 6px; width: 120px;">
+                                        <div class="progress-bar bg-primary" style="width: @(m.HorasTotais > 0 ? (m.HorasConsumidas * 100 / m.HorasTotais) : 0)%"></div>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    @if (estaBloqueado)
+                                    {
+                                        @foreach (var v in criticas)
+                                        {
+                                            <button class="btn btn-danger btn-sm btn-recuperar-urgente mb-1 w-100"
+                                                    @onclick="() => AbrirModalRecuperacao(v, m.ModuloNome, m.DisciplinaId)">
+                                                <i class="bi bi-plus-circle me-1"></i> Criar @v.Tipo
+                                            </button>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-success small"><i class="bi bi-check-circle-fill"></i> Regularizado</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge @(estaBloqueado ? "bg-danger" : "bg-success") fs-6">
+                                        @m.Media.ToString("F1")
+                                    </span>
+                                </td>
+                            </tr>
                         }
-                        else
-                        {
-                            <span>Criar Plano de Recuperação</span>
-                        }
-                    </button>
-                </div>
-            </EditForm>
+                    </tbody>
+                </table>
+            </div>
         </div>
     }
 </div>
 
+@* MODAL (DENTRO DA MESMA PÁGINA PARA EVITAR ERRO DE ROTA) *@
+@if (MostrarModal)
+{
+    <div class="modal d-block" style="background: rgba(0,0,0,0.7); z-index: 1050; backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+                <div class="modal-header bg-danger text-white" style="border-radius: 20px 20px 0 0;">
+                    <h5 class="modal-title fw-bold">Novo Plano de Recuperação</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => MostrarModal = false"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <h6>Módulo: <strong>@NomeModuloAtual</strong></h6>
+                    <p class="text-muted small">Recuperação de @VertenteParaRecuperar?.Tipo</p>
+
+                    <div class="mb-3">
+                        <label class="fw-bold small">Instruções para o Aluno</label>
+                        <textarea class="form-control" rows="3" @bind="InstrucoesRecuperacao"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="fw-bold small">Data Limite</label>
+                        <input type="date" class="form-control" @bind="DataLimiteRecuperacao" />
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button class="btn btn-light rounded-pill" @onclick="() => MostrarModal = false">Cancelar</button>
+                    <button class="btn btn-danger rounded-pill px-4" @onclick="GravarPlanoRecuperacao">
+                        Gravar e Atribuir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
-    [Parameter] public string AlunoId { get; set; }
+    [Parameter] public int AlunoId { get; set; }
+    private Aluno? AlunoSelecionado;
+    private List<ModuloAnalise> PanoramaModulos = new();
+    private List<VertenteAnalise> VertentesAbaixoDaMedia = new();
+    private bool IsLoading = true;
 
-    [SupplyParameterFromQuery] public int ModuloIdAtual { get; set; }
-    [SupplyParameterFromQuery] public int DisciplinaIdAtual { get; set; }
-    [SupplyParameterFromQuery] public string ProfessorIdAtual { get; set; }
+    // Estado do Modal
+    private bool MostrarModal = false;
+    private VertenteAnalise? VertenteParaRecuperar;
+    private string NomeModuloAtual = "";
+    private int DisciplinaIdAtual;
+    private string InstrucoesRecuperacao = "";
+    private DateTime DataLimiteRecuperacao = DateTime.Now.AddDays(7);
 
-    private Trabalho novoPlano = new Trabalho();
-    private bool carregando = true;
-    private bool estaProcessando = false;
+    protected override async Task OnInitializedAsync() => await CarregarFichaCompleta();
 
-    protected override void OnInitialized()
+    private async Task CarregarFichaCompleta()
     {
-        novoPlano.AlunoId = AlunoId;
-        novoPlano.ProfessorId = ProfessorIdAtual;
-        novoPlano.ModuloId = ModuloIdAtual > 0 ? ModuloIdAtual : null;
-        novoPlano.DisciplinaId = DisciplinaIdAtual > 0 ? DisciplinaIdAtual : null;
-        novoPlano.PrazoEntrega = DateTime.Now.AddDays(7);
-        novoPlano.Titulo = "Plano de Recuperação";
+        IsLoading = true;
+        try
+        {
+            AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
+            if (AlunoSelecionado?.UserId != null)
+            {
+                var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
+                ProcessarLogicaTecnica(trabalhos ?? new());
+            }
+        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
+        finally { IsLoading = false; }
+    }
 
-        carregando = false;
+    private void ProcessarLogicaTecnica(List<Trabalho> trabalhos)
+    {
+        // Agrupar por módulo para ver médias e horas
+        PanoramaModulos = trabalhos
+            .GroupBy(t => new { t.ModuloId, t.DisciplinaId, Nome = t.Modulo?.Nome ?? "Módulo", Disc = t.Disciplina?.Nome ?? "N/A", H = t.Modulo?.TotalHoras ?? 25 })
+            .Select(g => new ModuloAnalise {
+                ModuloId = g.Key.ModuloId ?? 0,
+                DisciplinaId = g.Key.DisciplinaId ?? 0,
+                ModuloNome = g.Key.Nome,
+                DisciplinaNome = g.Key.Disc,
+                HorasTotais = g.Key.H,
+                HorasConsumidas = g.Sum(x => x.HorasAtribuidas),
+                Media = g.SelectMany(t => t.TrabalhoVertentes ?? new()).Where(v => v.Nota.HasValue).Any() 
+                        ? g.SelectMany(t => t.TrabalhoVertentes ?? new()).Where(v => v.Nota.HasValue).Average(v => (double)v.Nota!.Value) : 0
+            }).ToList();
+
+        // Identificar vertentes negativas (Ex: Teste < 9.5)
+        VertentesAbaixoDaMedia = trabalhos
+            .SelectMany(t => (t.TrabalhoVertentes ?? new()).Select(v => new { v, t.ModuloId }))
+            .Where(x => x.v.Nota.HasValue && x.v.Nota < 9.5)
+            .Select(x => new VertenteAnalise {
+                ModuloId = x.ModuloId ?? 0,
+                Tipo = x.v.Tipo ?? "Trabalho",
+                Media = (double)x.v.Nota!.Value
+            }).ToList();
+    }
+
+    private void AbrirModalRecuperacao(VertenteAnalise v, string moduloNome, int discId)
+    {
+        VertenteParaRecuperar = v;
+        NomeModuloAtual = moduloNome;
+        DisciplinaIdAtual = discId;
+        InstrucoesRecuperacao = $"Recuperação de nota negativa na vertente {v.Tipo}.";
+        MostrarModal = true;
     }
 
     private async Task GravarPlanoRecuperacao()
     {
-        if (estaProcessando) return;
+        if (AlunoSelecionado == null || VertenteParaRecuperar == null) return;
 
-        try
-        {
-            estaProcessando = true;
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var profId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            int novoTrabalhoId = await TrabalhoService.CriarTrabalhoAsync(novoPlano);
+        var novoT = new Trabalho {
+            Titulo = $"[RECUPERAÇÃO] {VertenteParaRecuperar.Tipo}",
+            ConteudoTexto = InstrucoesRecuperacao,
+            PrazoEntrega = DataLimiteRecuperacao,
+            ModuloId = VertenteParaRecuperar.ModuloId,
+            DisciplinaId = DisciplinaIdAtual,
+            AlunoId = AlunoSelecionado.UserId,
+            ProfessorId = profId,
+            IsPlanoRecuperacao = true,
+            Status = "Pendente",
+            DataCriacao = DateTime.Now
+        };
 
-            if (novoTrabalhoId > 0)
-            {
-                var vertenteRecuperacao = new TrabalhoVertente
-                {
-                    TrabalhoId = novoTrabalhoId,
-                    Tipo = "Recuperação",
-                    ConteudoTexto = novoPlano.ConteudoTexto ?? "Avaliação referente ao plano de recuperação.",
-                    Feedback = ""
-                    // DataCriacao removida para evitar o erro anterior
-                };
+        int id = await TrabalhoService.CriarTrabalhoAsync(novoT);
+        await TrabalhoService.AddVertenteAsync(new TrabalhoVertente { TrabalhoId = id, Tipo = VertenteParaRecuperar.Tipo });
 
-                await TrabalhoService.AddVertenteAsync(vertenteRecuperacao);
-                Navigation.NavigateTo($"/trabalhos-professor/{ProfessorIdAtual}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Erro: {ex.Message}");
-        }
-        finally
-        {
-            estaProcessando = false;
-        }
+        MostrarModal = false;
+        await CarregarFichaCompleta(); // Atualiza a tabela
+    }
+
+    private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
+
+    public class ModuloAnalise {
+        public int ModuloId { get; set; }
+        public int DisciplinaId { get; set; }
+        public string ModuloNome { get; set; } = "";
+        public string DisciplinaNome { get; set; } = "";
+        public int HorasTotais { get; set; }
+        public int HorasConsumidas { get; set; }
+        public double Media { get; set; }
+    }
+
+    public class VertenteAnalise {
+        public int ModuloId { get; set; }
+        public string Tipo { get; set; } = "";
+        public double Media { get; set; }
     }
 }
