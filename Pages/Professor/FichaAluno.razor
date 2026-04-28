@@ -1,14 +1,11 @@
-﻿@page "/ficha-aluno/{AlunoId}"
+﻿@page "/professor/FichaAluno/{AlunoId}"
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
 @inject TrabalhoService TrabalhoService
 @inject NavigationManager Navigation
 
 <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3>Gestão de Plano de Recuperação</h3>
-        <button class="btn btn-outline-secondary" @onclick="@(() => Navigation.NavigateTo($"/trabalhos-professor/{ProfessorIdAtual}"))">Voltar</button>
-    </div>
+    <h3>Gestão de Plano de Recuperação</h3>
 
     @if (carregando)
     {
@@ -19,26 +16,25 @@
     }
     else
     {
-        <div class="card shadow-sm p-4">
+        <div class="card p-4 shadow-sm">
             <EditForm Model="@novoPlano" OnValidSubmit="GravarPlanoRecuperacao">
                 <DataAnnotationsValidator />
-                <ValidationSummary class="text-danger" />
+                <ValidationSummary />
 
                 <div class="mb-3">
                     <label class="form-label fw-bold">Título do Plano</label>
-                    <InputText @bind-Value="novoPlano.Titulo" class="form-control" placeholder="Ex: Plano de Recuperação - Módulo 1" />
+                    <InputText @bind-Value="novoPlano.Titulo" class="form-control" />
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Descrição / Instruções do Professor</label>
-                    <InputTextArea @bind-Value="novoPlano.ConteudoTexto" class="form-control" rows="3" placeholder="Descreva o que o aluno deve fazer..." />
+                    <label class="form-label fw-bold">Descrição / Instruções</label>
+                    <InputTextArea @bind-Value="novoPlano.ConteudoTexto" class="form-control" rows="3" />
                 </div>
 
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label fw-bold">Horas Atribuídas</label>
                         <InputNumber @bind-Value="novoPlano.HorasAtribuidas" class="form-control" />
-                        <small class="text-muted">Horas que serão contabilizadas no módulo.</small>
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label fw-bold">Prazo de Entrega</label>
@@ -46,16 +42,16 @@
                     </div>
                 </div>
 
-                <div class="mt-4 border-top pt-3 text-end">
-                    <button type="submit" class="btn btn-success btn-lg" disabled="@estaProcessando">
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-success" disabled="@estaProcessando">
                         @if (estaProcessando)
                         {
-                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                            <span> A gravar no sistema...</span>
+                            <span class="spinner-border spinner-border-sm"></span>
+                            <span> A gravar...</span>
                         }
                         else
                         {
-                            <i class="bi bi-check-circle"></i> <span>Criar e Atribuir Plano</span>
+                            <span>Criar Plano de Recuperação</span>
                         }
                     </button>
                 </div>
@@ -67,11 +63,9 @@
 @code {
     [Parameter] public string AlunoId { get; set; }
 
-    // NOTA: Estes parâmetros devem ser passados ou carregados. 
-    // Se eles vierem zerados, o banco de dados pode rejeitar a gravação.
-    [Parameter, SupplyParameterFromQuery] public int ModuloIdAtual { get; set; }
-    [Parameter, SupplyParameterFromQuery] public int DisciplinaIdAtual { get; set; }
-    [Parameter, SupplyParameterFromQuery] public string ProfessorIdAtual { get; set; }
+    [SupplyParameterFromQuery] public int ModuloIdAtual { get; set; }
+    [SupplyParameterFromQuery] public int DisciplinaIdAtual { get; set; }
+    [SupplyParameterFromQuery] public string ProfessorIdAtual { get; set; }
 
     private Trabalho novoPlano = new Trabalho();
     private bool carregando = true;
@@ -79,64 +73,44 @@
 
     protected override void OnInitialized()
     {
-        PrepararNovoPlano();
-        carregando = false;
-    }
+        novoPlano.AlunoId = AlunoId;
+        novoPlano.ProfessorId = ProfessorIdAtual;
+        novoPlano.ModuloId = ModuloIdAtual > 0 ? ModuloIdAtual : null;
+        novoPlano.DisciplinaId = DisciplinaIdAtual > 0 ? DisciplinaIdAtual : null;
+        novoPlano.PrazoEntrega = DateTime.Now.AddDays(7);
+        novoPlano.Titulo = "Plano de Recuperação";
 
-    private void PrepararNovoPlano()
-    {
-        novoPlano = new Trabalho
-        {
-            AlunoId = AlunoId,
-            ProfessorId = ProfessorIdAtual,
-            ModuloId = ModuloIdAtual > 0 ? ModuloIdAtual : null,
-            DisciplinaId = DisciplinaIdAtual > 0 ? DisciplinaIdAtual : null,
-            PrazoEntrega = DateTime.Now.AddDays(7),
-            Titulo = "Plano de Recuperação",
-            ConteudoTexto = ""
-        };
+        carregando = false;
     }
 
     private async Task GravarPlanoRecuperacao()
     {
         if (estaProcessando) return;
 
-        // Validação básica de segurança
-        if (string.IsNullOrEmpty(novoPlano.Titulo)) return;
-
         try
         {
             estaProcessando = true;
 
-            // 1. Criar o Trabalho (Gera o ID principal)
-            // O seu serviço já trata o DateTime.SpecifyKind
             int novoTrabalhoId = await TrabalhoService.CriarTrabalhoAsync(novoPlano);
 
             if (novoTrabalhoId > 0)
             {
-                // 2. Criar a Vertente (CORRIGIDO: Sem DataCriacao que não existe no seu modelo)
                 var vertenteRecuperacao = new TrabalhoVertente
                 {
                     TrabalhoId = novoTrabalhoId,
                     Tipo = "Recuperação",
-                    ConteudoTexto = !string.IsNullOrEmpty(novoPlano.ConteudoTexto) 
-                                    ? novoPlano.ConteudoTexto 
-                                    : "Plano de Recuperação atribuído.",
-                    Feedback = "",
-                    ConteudoTextoAluno = ""
+                    ConteudoTexto = novoPlano.ConteudoTexto ?? "Avaliação referente ao plano de recuperação.",
+                    Feedback = ""
+                    // DataCriacao removida para evitar o erro anterior
                 };
 
-                // 3. Adicionar a vertente
                 await TrabalhoService.AddVertenteAsync(vertenteRecuperacao);
-
-                // 4. Sucesso! Redireciona para a lista do professor
                 Navigation.NavigateTo($"/trabalhos-professor/{ProfessorIdAtual}");
             }
         }
         catch (Exception ex)
         {
-            // Log do erro para depuração
-            Console.WriteLine($"ERRO CRÍTICO: {ex.Message}");
+            Console.WriteLine($"Erro: {ex.Message}");
         }
         finally
         {
