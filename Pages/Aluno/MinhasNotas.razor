@@ -7,7 +7,7 @@
 <div class="container mt-4">
     <h3 class="fw-bold mb-4">O Meu Desempenho</h3>
 
-    @if (DisciplinasAgrupadas.Any())
+    @if (DisciplinasAgrupadas != null && DisciplinasAgrupadas.Any())
     {
         @foreach (var disciplina in DisciplinasAgrupadas)
         {
@@ -60,12 +60,12 @@
                                     <div class="mt-3">
                                         <div class="d-flex justify-content-between small mb-1">
                                             <span>Progresso: @modulo.HorasAtuais h</span>
-                                            <span>@((modulo.HorasAtuais * 100 / modulo.HorasTotais))%</span>
+                                            <span>@(modulo.HorasTotais > 0 ? (modulo.HorasAtuais * 100 / modulo.HorasTotais) : 0)%</span>
                                         </div>
                                         <div class="progress" style="height: 8px; border-radius: 4px; background-color: #e9ecef;">
                                             <div class="progress-bar @(modulo.EstaBloqueado ? "bg-warning" : (modulo.Concluido ? "bg-success" : "bg-primary"))"
                                                  role="progressbar"
-                                                 style="width: @(Math.Min(100, modulo.HorasAtuais * 100 / modulo.HorasTotais))%"></div>
+                                                 style="width: @(modulo.HorasTotais > 0 ? Math.Min(100, modulo.HorasAtuais * 100 / modulo.HorasTotais) : 0)%"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -84,7 +84,7 @@
         </div>
     }
 
-    <!-- Histórico Detalhado permanece abaixo -->
+    <!-- Histórico Detalhado -->
     <div class="card shadow-sm border-0 p-4 mt-4" style="border-radius: 15px;">
         <h5 class="fw-bold mb-3">Histórico de Avaliações</h5>
         <div class="table-responsive">
@@ -99,7 +99,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @if (trabalhos?.Count > 0)
+                    @if (trabalhos != null && trabalhos.Any())
                     {
                         @foreach (var trabalho in trabalhos.OrderByDescending(t => t.DataCriacao))
                         {
@@ -141,14 +141,16 @@
 
         if (!string.IsNullOrEmpty(userId))
         {
-            trabalhos = await TrabalhoService.GetTrabalhosDoAlunosAsync(userId);
+            // CORREÇÃO: Nome do método ajustado para GetTrabalhosDoAlunoAsync
+            trabalhos = await TrabalhoService.GetTrabalhosDoAlunoAsync(userId);
             ProcessarResumoPorDisciplina();
         }
     }
 
     private void ProcessarResumoPorDisciplina()
     {
-        // Primeiro agrupamos por Disciplina, depois por Módulo
+        if (trabalhos == null) return;
+
         DisciplinasAgrupadas = trabalhos
             .GroupBy(t => t.Disciplina?.Nome ?? "Outros")
             .Select(gd => new DisciplinaAgrupada
