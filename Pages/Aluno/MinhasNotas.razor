@@ -12,7 +12,6 @@
         @foreach (var disciplina in DisciplinasAgrupadas)
         {
             <div class="mb-5">
-                <!-- Título da Disciplina -->
                 <div class="d-flex align-items-center mb-3">
                     <div class="bg-primary rounded-circle me-2" style="width: 12px; height: 12px;"></div>
                     <h4 class="fw-bold m-0 text-dark">@disciplina.Key</h4>
@@ -65,7 +64,7 @@
                                         <div class="progress" style="height: 8px; border-radius: 4px; background-color: #e9ecef;">
                                             <div class="progress-bar @(modulo.EstaBloqueado ? "bg-warning" : (modulo.Concluido ? "bg-success" : "bg-primary"))"
                                                  role="progressbar"
-                                                 style="width: @(modulo.HorasTotais > 0 ? Math.Min(100, modulo.HorasAtuais * 100 / modulo.HorasTotais) : 0)%"></div>
+                                                 style="width: @(modulo.HorasTotais > 0 ? Math.Min(100, (modulo.HorasAtuais * 100 / modulo.HorasTotais)) : 0)%"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -141,15 +140,15 @@
 
         if (!string.IsNullOrEmpty(userId))
         {
-            // CORREÇÃO: Nome do método ajustado para GetTrabalhosDoAlunoAsync
-            trabalhos = await TrabalhoService.GetTrabalhosDoAlunoAsync(userId);
+            // CORREÇÃO: Utilizando o método correto do TrabalhoService
+            trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(userId);
             ProcessarResumoPorDisciplina();
         }
     }
 
     private void ProcessarResumoPorDisciplina()
     {
-        if (trabalhos == null) return;
+        if (trabalhos == null || !trabalhos.Any()) return;
 
         DisciplinasAgrupadas = trabalhos
             .GroupBy(t => t.Disciplina?.Nome ?? "Outros")
