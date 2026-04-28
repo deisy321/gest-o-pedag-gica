@@ -10,15 +10,40 @@
 
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold text-dark">Painel de Avaliação Docente</h3>
-        <span class="badge bg-primary">Sessão: @DateTime.Now.Year/@(DateTime.Now.Year + 1)</span>
+        <div>
+            <h3 class="fw-bold text-dark mb-0">Painel de Avaliação Docente</h3>
+            <p class="text-muted">Análise de desempenho, entregas e planos de recuperação</p>
+        </div>
+        <span class="badge bg-primary px-3 py-2">Sessão: @DateTime.Now.Year/@(DateTime.Now.Year + 1)</span>
+    </div>
+
+    @* Cartões de Resumo Rápido *@
+    <div class="row mb-4 g-3">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-3 border-start border-primary border-4">
+                <small class="text-muted fw-bold">MÉDIA GLOBAL</small>
+                <h3 class="fw-bold mb-0">@(Medias.Any() ? Medias.Average().ToString("F1") : "0.0")</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-3 border-start border-danger border-4">
+                <small class="text-muted fw-bold">ALUNOS EM RECUPERAÇÃO</small>
+                <h3 class="fw-bold mb-0 text-danger">@TotalEmRecuperacao</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-3 border-start border-success border-4">
+                <small class="text-muted fw-bold">TAXA DE ENTREGA</small>
+                <h3 class="fw-bold mb-0 text-success">@TaxaEntregaGlobal.ToString("F0")%</h3>
+            </div>
+        </div>
     </div>
 
     <div class="row mb-4">
-        @* Gráfico de Desempenho *@
+        @* Gráfico Principal *@
         <div class="col-md-8">
             <div class="card border-0 shadow-sm p-4 h-100">
-                <h5 class="fw-bold mb-4 text-muted">Média por Turma</h5>
+                <h5 class="fw-bold mb-4 text-muted">Desempenho por Turma</h5>
                 @if (Labels == null || !Labels.Any())
                 {
                     <div class="d-flex justify-content-center align-items-center" style="height: 300px;">
@@ -31,47 +56,39 @@
             </div>
         </div>
 
-        @* Coluna Lateral com Resumo e IA *@
+        @* Insights da IA e Detalhes *@
         <div class="col-md-4">
-            <div class="card border-0 shadow-sm p-4 bg-light h-100 d-flex flex-column">
-                <h5 class="fw-bold mb-3">Resumo de Atividades</h5>
-                <div class="list-group list-group-flush bg-transparent">
-                    @foreach (var label in Labels.Select((name, index) => new { name, index }))
-                    {
-                        <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-0 px-0">
-                            <span>@label.name</span>
-                            <span class="fw-bold">@Medias[label.index].ToString("F1")</span>
-                        </div>
-                    }
-                </div>
+            <div class="card border-0 shadow-sm p-4 bg-white h-100 d-flex flex-column">
+                <h5 class="fw-bold mb-3"><i class="bi bi-robot text-primary me-2"></i>Análise Inteligente</h5>
 
-                @* Bloco de Análise da IA *@
-                <div class="mt-4 pt-3 border-top">
-                    @if (isGerandoAnalise)
-                    {
-                        <div class="text-center py-3">
-                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                            <p class="small text-muted mt-2">A IA está a analisar os resultados...</p>
-                        </div>
-                    }
-                    else if (!string.IsNullOrEmpty(analiseIA))
-                    {
-                        <div class="p-3 rounded-3" style="background: #ffffff; border-left: 4px solid #4e73df;">
-                            <h6 class="small fw-bold text-primary mb-2">
-                                <i class="bi bi-robot me-2"></i>Insight Pedagógico (IA)
-                            </h6>
-                            <p class="small mb-0 text-dark" style="line-height: 1.4; white-space: pre-line;">
-                                @analiseIA
-                            </p>
-                        </div>
-                    }
-                </div>
+                @if (isGerandoAnalise)
+                {
+                    <div class="text-center py-5">
+                        <div class="spinner-grow text-primary" role="status"></div>
+                        <p class="small text-muted mt-2">Processando dados pedagógicos...</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="p-3 rounded-3 mb-3" style="background: #f8f9fc; border-left: 4px solid #4e73df;">
+                        <p class="small mb-0 text-dark" style="line-height: 1.6; white-space: pre-line;">
+                            @analiseIA
+                        </p>
+                    </div>
+                }
 
-                <div class="mt-auto pt-3">
-                    <p class="small text-muted mb-0">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Análise gerada com base nos dados da Tríade.
-                    </p>
+                <h6 class="fw-bold mt-3 mb-3 small">Métricas por Turma:</h6>
+                <div class="list-group list-group-flush small">
+                    @foreach (var item in DadosTurmas)
+                    {
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <span class="fw-bold">@item.Nome</span>
+                                <div class="text-muted" style="font-size: 0.75rem;">Recuperações: @item.QtdRecuperacao</div>
+                            </div>
+                            <span class="badge @(item.Media >= 10 ? "bg-success" : "bg-danger")">@item.Media.ToString("F1")</span>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -81,9 +98,21 @@
 @code {
     private List<string> Labels = new();
     private List<double> Medias = new();
+    private List<TurmaDashboardItem> DadosTurmas = new();
+    private int TotalEmRecuperacao = 0;
+    private double TaxaEntregaGlobal = 0;
+
     private string analiseIA = "";
     private bool isGerandoAnalise = false;
     private bool initialized = false;
+
+    public class TurmaDashboardItem
+    {
+        public string Nome { get; set; } = "";
+        public double Media { get; set; }
+        public int QtdRecuperacao { get; set; }
+        public double PercentualEntrega { get; set; }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -97,24 +126,35 @@
         var turmas = await ProfessorService.GetTurmasDoProfessorAsync(professor.Id);
         var trabalhos = await TrabalhoService.GetTodosTrabalhosComNotasAsync();
 
-        var dados = turmas.Select(turma =>
+        DadosTurmas = turmas.Select(turma =>
         {
-            var notas = trabalhos.Where(t => t.TurmaId == turma.Id && t.ProfessorId == userId)
-                .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                .Where(v => v.Nota.HasValue)
-                .Select(v => (double)v.Nota!.Value).ToList();
+            var trabalhosTurma = trabalhos.Where(t => t.TurmaId == turma.Id && t.ProfessorId == userId).ToList();
+            var vertentes = trabalhosTurma.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).ToList();
 
-            return new { Nome = turma.Nome, Media = notas.Any() ? Math.Round(notas.Average(), 1) : 0 };
+            var notas = vertentes.Where(v => v.Nota.HasValue).Select(v => (double)v.Nota!.Value).ToList();
+
+            int totalEsperado = vertentes.Count;
+            int totalEntregue = vertentes.Count(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null);
+
+            return new TurmaDashboardItem
+            {
+                Nome = turma.Nome,
+                Media = notas.Any() ? Math.Round(notas.Average(), 1) : 0,
+                QtdRecuperacao = trabalhosTurma.Count(t => t.IsPlanoRecuperacao),
+                PercentualEntrega = totalEsperado > 0 ? ((double)totalEntregue / totalEsperado) * 100 : 0
+            };
         }).OrderByDescending(x => x.Media).ToList();
 
-        Labels = dados.Select(d => d.Nome).ToList();
-        Medias = dados.Select(d => d.Media).ToList();
+        Labels = DadosTurmas.Select(d => d.Nome).ToList();
+        Medias = DadosTurmas.Select(d => d.Media).ToList();
+        TotalEmRecuperacao = DadosTurmas.Sum(d => d.QtdRecuperacao);
+        TaxaEntregaGlobal = DadosTurmas.Any() ? DadosTurmas.Average(d => d.PercentualEntrega) : 0;
+
         initialized = true;
 
-        // Inicia a geração da análise da IA se houver dados
-        if (Medias.Any(m => m > 0))
+        if (DadosTurmas.Any())
         {
-            _ = GerarAnaliseIA(userId); // Executa em background para não travar a UI
+            _ = GerarAnaliseIA(userId);
         }
     }
 
@@ -125,23 +165,22 @@
             isGerandoAnalise = true;
             StateHasChanged();
 
-            var resumoDados = string.Join("; ", Labels.Select((name, index) =>
-                $"Turma {name} tem média {Medias[index]}"));
+            var resumoParaIA = string.Join(" | ", DadosTurmas.Select(d =>
+                $"{d.Nome}: Média {d.Media}, Entregas {d.PercentualEntrega:F0}%, Planos Recup: {d.QtdRecuperacao}"));
 
             analiseIA = await IAService.ObterSugestoes(
-                promptSistemaOriginal: "És um Mentor Pedagógico especializado em análise de dados escolares. O teu objetivo é ajudar o professor a interpretar as médias das suas turmas.",
-                instrucaoPrincipal: "Dá um conselho pedagógico curto (máx 3 frases) baseado nestas médias. Identifica quem precisa de apoio ou parabéns.",
-                conteudoParaAnalisar: resumoDados,
+                promptSistemaOriginal: "És um Coordenador Pedagógico. Analisas médias, taxas de entrega e planos de recuperação.",
+                instrucaoPrincipal: "Dá um diagnóstico curto. Prioriza turmas com baixa entrega ou muitas recuperações. Seja motivador mas direto.",
+                conteudoParaAnalisar: resumoParaIA,
                 alunoId: professorId,
-                trabalhoId: "REPORT_PROF",
+                trabalhoId: "REPORT_PROF_ADVANCED",
                 vertenteId: "0",
                 arquivoBytes: null
             );
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            analiseIA = "Padrões de desempenho estáveis. Continue a monitorizar.";
-            Console.WriteLine($"Erro IA Relatório: {ex.Message}");
+            analiseIA = "Análise indisponível no momento. O desempenho geral parece seguir a média institucional.";
         }
         finally
         {
