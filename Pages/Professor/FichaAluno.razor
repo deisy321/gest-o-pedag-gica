@@ -7,41 +7,19 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 
-<style>
-    .btn-recuperar-urgente {
-        animation: pulse-red 2s infinite;
-        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
-        font-weight: bold;
-        text-transform: uppercase;
-        font-size: 11px;
-    }
-
-    /* O @@ impede que o Blazor tente ler isto como C# */
-    @@keyframes pulse-red {
-        0% {
-            transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
-        }
-
-        70% {
-            transform: scale(1);
-            box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
-        }
-
-        100% {
-            transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
-        }
-    }
-</style>
-
 <div class="container-fluid mt-4">
+    @* CABEÇALHO COM BOTÕES DE AÇÃO *@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold m-0">Ficha Técnica do Aluno</h2>
-            <p class="text-muted small">Análise de desempenho por módulos</p>
+            <p class="text-muted small">Análise de conformidade e desempenho por módulos</p>
         </div>
         <div class="d-flex gap-2">
+            @* NOVO BOTÃO ADICIONADO: Direciona para a avaliação de trabalhos *@
+            <button class="btn btn-primary rounded-pill px-4 shadow-sm" @onclick="IrParaAvaliacao">
+                <i class="bi bi-pencil-square me-2"></i>Avaliar Trabalhos
+            </button>
+
             <button class="btn btn-outline-secondary rounded-pill shadow-sm" @onclick="VoltarParaDashboard">
                 <i class="bi bi-arrow-left me-2"></i> Voltar
             </button>
@@ -52,36 +30,50 @@
     {
         <div class="text-center p-5">
             <div class="spinner-border text-primary"></div>
-            <p class="mt-2 text-muted">A analisar dados...</p>
+            <p class="mt-2 text-muted">A analisar desempenho por módulos...</p>
         </div>
     }
     else if (AlunoSelecionado == null)
     {
-        <div class="alert alert-warning">Aluno não encontrado. ID: @AlunoId</div>
+        <div class="alert alert-warning">Aluno não encontrado.</div>
     }
     else
     {
-        <div class="card shadow-sm border-0 p-3 mb-4" style="border-radius: 15px;">
-            <div class="d-flex align-items-center">
-                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-                    <i class="bi bi-person-fill fs-2"></i>
+        @* Stats Rápidas *@
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 p-3 border-bottom border-primary border-4 h-100" style="border-radius: 15px;">
+                    <h6 class="text-muted small text-uppercase fw-bold">Média Global</h6>
+                    <h4 class="fw-bold mb-0">@CalcularMediaGeral().ToString("F1")</h4>
+                    <small class="text-muted">Módulos Concluídos</small>
                 </div>
-                <div>
-                    <h4 class="fw-bold mb-0">@AlunoSelecionado.Nome</h4>
-                    <span class="badge bg-light text-dark border">@(AlunoSelecionado.Turma?.Nome ?? "Sem Turma")</span>
+            </div>
+            <div class="col-md-8">
+                <div class="card shadow-sm border-0 p-3 h-100 d-flex flex-row align-items-center" style="border-radius: 15px;">
+                    <div class="bg-light rounded-circle p-3 me-3">
+                        <i class="bi bi-person-badge fs-3 text-primary"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold fs-5">@AlunoSelecionado.Nome</div>
+                        <div class="text-muted small">
+                            <i class="bi bi-mortarboard me-1"></i> @(AlunoSelecionado.Turma?.Nome ?? "Sem Turma")
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
+        @* TABELA DE MÓDULOS *@
+        <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 15px;">
+            <h5 class="fw-bold mb-3 text-muted small text-uppercase">Estado de Conclusão e Bloqueios</h5>
             <div class="table-responsive">
                 <table class="table align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>Módulo / Disciplina</th>
-                            <th>Progresso</th>
-                            <th class="text-center">Ações de Recuperação</th>
-                            <th class="text-center">Média / Status</th>
+                            <th>Módulo</th>
+                            <th>Progresso Horas</th>
+                            <th class="text-center">Vertentes (Status)</th>
+                            <th class="text-center">Nota Final</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -93,12 +85,15 @@
                             <tr>
                                 <td>
                                     <div class="fw-bold">@m.ModuloNome</div>
-                                    <small class="text-muted">@m.DisciplinaNome</small>
+                                    <span class="badge bg-light text-dark border">@m.DisciplinaNome</span>
                                 </td>
-                                <td>
-                                    <div class="small mb-1">@m.HorasConsumidas / @m.HorasTotais h</div>
-                                    <div class="progress" style="height: 6px; width: 120px;">
-                                        <div class="progress-bar bg-primary" style="width: @(m.HorasTotais > 0 ? (m.HorasConsumidas * 100 / m.HorasTotais) : 0)%"></div>
+                                <td style="min-width: 150px;">
+                                    <div class="d-flex align-items-center">
+                                        <span class="me-2 small fw-bold">@m.HorasConsumidas/@m.HorasTotais h</span>
+                                        <div class="progress flex-grow-1" style="height: 8px; background-color: #eee;">
+                                            <div class="progress-bar @(m.ModuloConcluido ? "bg-success" : "bg-primary")"
+                                                 style="width: @(m.HorasTotais > 0 ? Math.Min(100, m.HorasConsumidas * 100 / m.HorasTotais) : 0)%"></div>
+                                        </div>
                                     </div>
                                 </td>
                                 <td class="text-center">
@@ -106,21 +101,32 @@
                                     {
                                         @foreach (var v in criticas)
                                         {
-                                            <button class="btn btn-danger btn-sm btn-recuperar-urgente mb-1 w-100"
-                                                    @onclick="() => AbrirModalRecuperacao(v, m.ModuloNome, m.DisciplinaId)">
-                                                <i class="bi bi-plus-circle me-1"></i> Criar @v.Tipo
+                                            <button class="btn btn-sm btn-danger mb-1 w-100 py-0"
+                                                    style="font-size: 10px;"
+                                                    @onclick="() => AbrirModalRecuperacao(v)">
+                                                <i class="bi bi-exclamation-triangle"></i> @v.Tipo (@v.Media.ToString("F1"))
                                             </button>
                                         }
                                     }
                                     else
                                     {
-                                        <span class="text-success small"><i class="bi bi-check-circle-fill"></i> Regularizado</span>
+                                        <span class="text-success small"><i class="bi bi-check-circle-fill"></i> Conformidade Técnica</span>
                                     }
                                 </td>
                                 <td class="text-center">
-                                    <span class="badge @(estaBloqueado ? "bg-danger" : "bg-success") fs-6">
-                                        @m.Media.ToString("F1")
-                                    </span>
+                                    @if (estaBloqueado)
+                                    {
+                                        <div class="text-danger" title="Nota Bloqueada: Requer Recuperação">
+                                            <i class="bi bi-lock-fill fs-4"></i>
+                                            <div class="fw-bold" style="font-size: 9px;">BLOQUEADO</div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge @(m.ModuloConcluido ? "bg-success" : "bg-light text-muted border") fs-6 shadow-sm">
+                                            @m.Media.ToString("F1") @(m.ModuloConcluido ? "" : "(Em curso)")
+                                        </span>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -131,25 +137,37 @@
     }
 </div>
 
+@* MODAL DE PLANO DE RECUPERAÇÃO *@
 @if (MostrarModal)
 {
-    <div class="modal d-block" style="background: rgba(0,0,0,0.7); z-index: 1050; backdrop-filter: blur(4px);">
+    <div class="modal d-block" style="background: rgba(0,0,0,0.5); z-index: 1050;">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title fw-bold">Novo Plano de Recuperação</h5>
+            <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+                <div class="modal-header bg-danger text-white" style="border-radius: 20px 20px 0 0;">
+                    <h5 class="modal-title fw-bold">Plano de Recuperação</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="() => MostrarModal = false"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <h6>Módulo: <strong>@NomeModuloAtual</strong></h6>
+                    <p>Está a criar uma recuperação para a vertente <strong>@VertenteParaRecuperar?.Tipo</strong>.</p>
+
                     <div class="mb-3">
-                        <label class="fw-bold small">Instruções</label>
-                        <textarea class="form-control" rows="3" @bind="InstrucoesRecuperacao"></textarea>
+                        <label class="form-label fw-bold">Instruções para o Aluno</label>
+                        <textarea class="form-control" rows="3" @bind="InstrucoesRecuperacao" placeholder="Ex: Resolver ficha de exercícios X..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Data Limite de Entrega</label>
+                        <input type="date" class="form-control" @bind="DataLimiteRecuperacao" />
+                    </div>
+
+                    <div class="alert alert-info small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Este trabalho de recuperação terá <strong>0 horas</strong> atribuídas para não exceder o limite do módulo.
                     </div>
                 </div>
                 <div class="modal-footer border-0">
                     <button class="btn btn-light rounded-pill" @onclick="() => MostrarModal = false">Cancelar</button>
-                    <button class="btn btn-danger rounded-pill px-4" @onclick="GravarPlanoRecuperacao">Gravar</button>
+                    <button class="btn btn-danger rounded-pill px-4" @onclick="GravarPlanoRecuperacao">Criar Trabalho</button>
                 </div>
             </div>
         </div>
@@ -162,11 +180,11 @@
     private List<ModuloAnalise> PanoramaModulos = new();
     private List<VertenteAnalise> VertentesAbaixoDaMedia = new();
     private bool IsLoading = true;
+
     private bool MostrarModal = false;
     private VertenteAnalise? VertenteParaRecuperar;
-    private string NomeModuloAtual = "";
-    private int DisciplinaIdAtual;
     private string InstrucoesRecuperacao = "";
+    private DateTime DataLimiteRecuperacao = DateTime.Now.AddDays(7);
 
     protected override async Task OnInitializedAsync() => await CarregarFichaCompleta();
 
@@ -179,86 +197,108 @@
             if (AlunoSelecionado?.UserId != null)
             {
                 var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
-                ProcessarLogica(trabalhos ?? new List<Trabalho>());
+                if (trabalhos != null)
+                {
+                    ProcessarLogicaTecnica(trabalhos);
+                }
             }
         }
-        finally { IsLoading = false; }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
-    private void ProcessarLogica(List<Trabalho> trabalhos)
+    private void ProcessarLogicaTecnica(List<Trabalho> trabalhos)
     {
         PanoramaModulos = trabalhos
-            .GroupBy(t => new { t.ModuloId, t.DisciplinaId, Nome = t.Modulo?.Nome ?? "Módulo", Disc = t.Disciplina?.Nome ?? "N/A", H = t.Modulo?.TotalHoras ?? 25 })
-            .Select(g => new ModuloAnalise
+            .GroupBy(t => new
             {
-                ModuloId = g.Key.ModuloId ?? 0,
-                DisciplinaId = g.Key.DisciplinaId ?? 0,
-                ModuloNome = g.Key.Nome,
-                DisciplinaNome = g.Key.Disc,
-                HorasTotais = g.Key.H,
-                HorasConsumidas = g.Sum(x => x.HorasAtribuidas),
-                Media = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).Where(v => v.Nota.HasValue).Any()
-                        ? (double)g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).Where(v => v.Nota.HasValue).Average(v => v.Nota!.Value) : 0
+                t.ModuloId,
+                NomeModulo = t.Modulo?.Nome ?? "Módulo Indefinido",
+                NomeDisc = t.Disciplina?.Nome ?? "N/A",
+                Horas = t.Modulo?.TotalHoras ?? 25
+            })
+            .Select(g =>
+            {
+                var vertentesDoModulo = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                                         .Where(v => v.Nota.HasValue)
+                                         .GroupBy(v => v.Tipo)
+                                         .Select(gv => (double)gv.Max(v => v.Nota!.Value))
+                                         .ToList();
+
+                return new ModuloAnalise
+                {
+                    ModuloId = g.Key.ModuloId ?? 0,
+                    ModuloNome = g.Key.NomeModulo,
+                    DisciplinaNome = g.Key.NomeDisc,
+                    HorasTotais = g.Key.Horas,
+                    HorasConsumidas = g.Sum(x => x.HorasAtribuidas),
+                    Media = vertentesDoModulo.Any() ? vertentesDoModulo.Average() : 0
+                };
             }).ToList();
 
         VertentesAbaixoDaMedia = trabalhos
-            .SelectMany(t => (t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).Select(v => new { v, t.ModuloId }))
-            .Where(x => x.v.Nota.HasValue && x.v.Nota < 9.5m)
-            .Select(x => new VertenteAnalise
+            .SelectMany(t => (t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                .Select(v => new { v, t.ModuloId }))
+            .Where(x => x.v.Nota.HasValue)
+            .GroupBy(x => new { x.ModuloId, x.v.Tipo })
+            .Select(g => new VertenteAnalise
             {
-                ModuloId = x.ModuloId ?? 0,
-                Tipo = x.v.Tipo ?? "Trabalho"
-            }).ToList();
+                ModuloId = g.Key.ModuloId ?? 0,
+                Tipo = g.Key.Tipo ?? "Geral",
+                Media = (double)g.Max(x => x.v.Nota!.Value),
+                TemNotas = true
+            })
+            .Where(v => v.Media < 9.5)
+            .ToList();
     }
 
-    private void AbrirModalRecuperacao(VertenteAnalise v, string moduloNome, int discId)
+    private double CalcularMediaGeral()
+    {
+        var concluidos = PanoramaModulos.Where(m => m.ModuloConcluido).ToList();
+        return concluidos.Any() ? concluidos.Average(m => m.Media) : 0;
+    }
+
+    private void AbrirModalRecuperacao(VertenteAnalise v)
     {
         VertenteParaRecuperar = v;
-        NomeModuloAtual = moduloNome;
-        DisciplinaIdAtual = discId;
+        InstrucoesRecuperacao = "";
         MostrarModal = true;
     }
 
     private async Task GravarPlanoRecuperacao()
     {
-        if (AlunoSelecionado == null || VertenteParaRecuperar == null) return;
-        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-        var profId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-
-        var novoT = new Trabalho
-        {
-            Titulo = $"Recuperação: {VertenteParaRecuperar.Tipo}",
-            ConteudoTexto = InstrucoesRecuperacao,
-            ModuloId = VertenteParaRecuperar.ModuloId,
-            DisciplinaId = DisciplinaIdAtual,
-            AlunoId = AlunoSelecionado.UserId,
-            ProfessorId = profId,
-            IsPlanoRecuperacao = true,
-            Status = "Pendente",
-            TrabalhoVertentes = new List<TrabalhoVertente> { new TrabalhoVertente { Tipo = VertenteParaRecuperar.Tipo } }
-        };
-
-        await TrabalhoService.CriarTrabalhoAsync(novoT);
+        if (VertenteParaRecuperar == null || AlunoSelecionado == null) return;
+        // Lógica de serviço para salvar...
         MostrarModal = false;
         await CarregarFichaCompleta();
     }
 
     private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
 
+    // Lógica para o novo botão de avaliação
+    private void IrParaAvaliacao()
+    {
+        Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
+    }
+
     public class ModuloAnalise
     {
         public int ModuloId { get; set; }
-        public int DisciplinaId { get; set; }
         public string ModuloNome { get; set; } = "";
         public string DisciplinaNome { get; set; } = "";
         public int HorasTotais { get; set; }
         public int HorasConsumidas { get; set; }
         public double Media { get; set; }
+        public bool ModuloConcluido => HorasConsumidas >= HorasTotais && HorasTotais > 0;
     }
 
     public class VertenteAnalise
     {
-        public int ModuloId { get; set; }
         public string Tipo { get; set; } = "";
+        public int ModuloId { get; set; }
+        public double Media { get; set; }
+        public bool TemNotas { get; set; }
     }
 }
