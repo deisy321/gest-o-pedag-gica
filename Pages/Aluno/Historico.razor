@@ -12,7 +12,6 @@
         </div>
     </div>
 
-    @* --- TABELA DE HISTÓRICO --- *@
     <div class="card shadow-sm border-0" style="border-radius: 15px;">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -122,17 +121,18 @@
             })
             .Select(g =>
             {
-                var vertentes = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                                 .Where(v => v.Nota.HasValue)
-                                 .ToList();
-
-                // Lógica de Bloqueio: Alguma média por TIPO de vertente < 9.5?
-                var temBloqueioTecnico = vertentes
+                // NOVA LÓGICA: Obter apenas a melhor nota de cada tipo de vertente
+                var melhoresNotasPorVertente = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                    .Where(v => v.Nota.HasValue)
                     .GroupBy(v => v.Tipo)
-                    .Any(vType => vType.Average(x => x.Nota!.Value) < 9.5m);
+                    .Select(gv => gv.Max(v => v.Nota!.Value))
+                    .ToList();
 
                 var horasFeitas = g.Sum(t => t.HorasAtribuidas);
                 var concluidoHoras = horasFeitas >= g.Key.HorasTotais;
+
+                // Bloqueio técnico: Se a melhor nota de qualquer vertente ainda for < 9.5
+                var temBloqueioTecnico = melhoresNotasPorVertente.Any(nota => nota < 9.5m);
 
                 string status;
                 if (temBloqueioTecnico && concluidoHoras) status = "Bloqueado";
@@ -145,7 +145,7 @@
                     ModuloNome = g.Key.Nome,
                     DisciplinaNome = g.Key.Disciplina,
                     Professor = g.Key.ProfessorNome,
-                    MediaFinal = vertentes.Any() ? vertentes.Average(v => v.Nota!.Value) : 0,
+                    MediaFinal = melhoresNotasPorVertente.Any() ? melhoresNotasPorVertente.Average() : 0,
                     Status = status
                 };
             })
@@ -160,6 +160,6 @@
         public string DisciplinaNome { get; set; } = "";
         public string Professor { get; set; } = "";
         public decimal MediaFinal { get; set; }
-        public string Status { get; set; } = ""; // "Aprovado", "Bloqueado", "Em Curso"
+        public string Status { get; set; } = "";
     }
 }

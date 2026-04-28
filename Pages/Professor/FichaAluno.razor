@@ -19,7 +19,7 @@
     {
         <div class="text-center p-5">
             <div class="spinner-border text-primary"></div>
-            <p class="mt-2 text-muted">A analisar desempenho por módulos...</p>
+            <p class="mt-2 text-muted">A validar notas e recuperações...</p>
         </div>
     }
     else if (AlunoSelecionado == null)
@@ -32,7 +32,7 @@
         <div class="row g-3 mb-4">
             <div class="col-md-4">
                 <div class="card shadow-sm border-0 p-3 border-bottom border-primary border-4" style="border-radius: 15px;">
-                    <h6 class="text-muted small text-uppercase">Média Global</h6>
+                    <h6 class="text-muted small text-uppercase">Média Global (Módulos Concluídos)</h6>
                     <h4 class="fw-bold mb-0">@CalcularMediaGeral().ToString("F1")</h4>
                 </div>
             </div>
@@ -44,23 +44,23 @@
             </div>
         </div>
 
-        @* TABELA DE MÓDULOS COM LÓGICA DE BLOQUEIO *@
+        @* TABELA DE MÓDULOS *@
         <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 15px;">
-            <h5 class="fw-bold mb-3 text-muted small text-uppercase">Estado de Conclusão e Bloqueios</h5>
+            <h5 class="fw-bold mb-3 text-muted small text-uppercase">Estado de Conclusão e Validação de Vertentes</h5>
             <div class="table-responsive">
                 <table class="table align-middle">
                     <thead class="table-light">
                         <tr>
                             <th>Módulo</th>
-                            <th>Progresso Horas</th>
-                            <th class="text-center">Vertentes (Status)</th>
+                            <th>Carga Horária</th>
+                            <th class="text-center">Validação Técnica</th>
                             <th class="text-center">Nota Final</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var m in PanoramaModulos)
                         {
-                            // Verifica se este módulo específico tem alguma vertente crítica
+                            // Um módulo só é "desbloqueado" se não houver NENHUMA vertente abaixo de 9.5
                             var criticas = VertentesAbaixoDaMedia.Where(v => v.ModuloId == m.ModuloId).ToList();
                             bool estaBloqueado = criticas.Any();
 
@@ -69,10 +69,10 @@
                                     <div class="fw-bold">@m.ModuloNome</div>
                                     <span class="badge bg-light text-dark border">@m.DisciplinaNome</span>
                                 </td>
-                                <td style="min-width: 150px;">
+                                <td>
                                     <div class="d-flex align-items-center">
                                         <span class="me-2 small fw-bold">@m.HorasConsumidas/@m.HorasTotais h</span>
-                                        <div class="progress flex-grow-1" style="height: 8px; background-color: #eee;">
+                                        <div class="progress flex-grow-1" style="height: 6px;">
                                             <div class="progress-bar @(m.ModuloConcluido ? "bg-success" : "bg-primary")"
                                                  style="width: @(Math.Min(100, m.HorasConsumidas * 100 / m.HorasTotais))%"></div>
                                         </div>
@@ -83,35 +83,33 @@
                                     {
                                         @foreach (var v in criticas)
                                         {
-                                            <button class="btn btn-sm btn-danger mb-1 w-100 py-0"
-                                                    style="font-size: 10px;"
-                                                    @onclick="() => IniciarPlano(v)">
-                                                <i class="bi bi-exclamation-triangle"></i> @v.Tipo (@v.Media.ToString("F1"))
-                                            </button>
+                                            <div class="badge bg-danger-subtle text-danger border border-danger mb-1 d-block" style="font-size: 10px;">
+                                                <i class="bi bi-x-circle"></i> @v.Tipo: @v.Media.ToString("F1")
+                                            </div>
                                         }
                                     }
                                     else
                                     {
-                                        <span class="text-success small"><i class="bi bi-check-circle-fill"></i> Conformidade Técnica</span>
+                                        <span class="badge bg-success-subtle text-success border border-success">
+                                            <i class="bi bi-check-all"></i> Vertentes OK
+                                        </span>
                                     }
                                 </td>
                                 <td class="text-center">
                                     @if (estaBloqueado)
                                     {
-                                        <div class="text-danger" title="Nota Bloqueada: Requer Recuperação">
+                                        <div class="text-danger" title="Aguardar lançamento de nota de recuperação">
                                             <i class="bi bi-lock-fill fs-4"></i>
-                                            <div class="fw-bold" style="font-size: 9px;">BLOQUEADO</div>
+                                            <div class="fw-bold" style="font-size: 9px;">TRANCADO</div>
                                         </div>
                                     }
                                     else if (m.ModuloConcluido)
                                     {
-                                        <span class="badge bg-success fs-6 shadow-sm">
-                                            @m.Media.ToString("F1")
-                                        </span>
+                                        <span class="badge bg-success fs-6 shadow-sm">@m.Media.ToString("F1")</span>
                                     }
                                     else
                                     {
-                                        <span class="badge bg-light text-muted border">@m.Media.ToString("F1") (Em curso)</span>
+                                        <span class="badge bg-light text-muted border">@m.Media.ToString("F1") (Em Curso)</span>
                                     }
                                 </td>
                             </tr>
@@ -141,74 +139,67 @@
             if (AlunoSelecionado != null)
             {
                 var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
-                if (trabalhos != null)
-                {
-                    ProcessarLogicaTecnica(trabalhos);
-                }
+                if (trabalhos != null) ProcessarLogicaTecnica(trabalhos);
             }
         }
-        finally
-        {
-            IsLoading = false;
-        }
+        finally { IsLoading = false; }
     }
 
     private void ProcessarLogicaTecnica(List<Trabalho> trabalhos)
     {
-        // 1. Agrupamento por ID do Módulo para o Panorama
-        // Correção: Atribuímos nomes explícitos para evitar conflito de propriedades "Nome"
+        // 1. Panorama de Módulos com Lógica de Substituição de Nota (Recuperação)
         PanoramaModulos = trabalhos
             .GroupBy(t => new
             {
                 t.ModuloId,
-                NomeModulo = t.Modulo?.Nome,
-                NomeDisciplina = t.Disciplina?.Nome,
+                NomeM = t.Modulo?.Nome,
+                NomeD = t.Disciplina?.Nome,
                 t.Modulo?.TotalHoras
             })
-            .Select(g => new ModuloAnalise
+            .Select(g =>
             {
-                ModuloId = g.Key.ModuloId ?? 0,
-                ModuloNome = g.Key.NomeModulo ?? "Módulo Geral",
-                DisciplinaNome = g.Key.NomeDisciplina ?? "N/A",
-                HorasTotais = g.Key.TotalHoras ?? 25,
-                HorasConsumidas = g.Sum(x => x.HorasAtribuidas),
-                Media = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                         .Where(v => v.Nota.HasValue)
-                         .Select(v => (double)v.Nota!)
-                         .DefaultIfEmpty(0).Average()
+                // Para cada tipo de vertente, pegamos APENAS a nota mais alta (o sistema assume que a recuperação é maior)
+                var melhoresNotasPorVertente = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                    .Where(v => v.Nota.HasValue)
+                    .GroupBy(v => v.Tipo)
+                    .Select(gv => gv.Max(v => (double)v.Nota!))
+                    .ToList();
+
+                return new ModuloAnalise
+                {
+                    ModuloId = g.Key.ModuloId ?? 0,
+                    ModuloNome = g.Key.NomeM ?? "Módulo Geral",
+                    DisciplinaNome = g.Key.NomeD ?? "N/A",
+                    HorasTotais = g.Key.TotalHoras ?? 25,
+                    HorasConsumidas = g.Sum(x => x.HorasAtribuidas),
+                    // Média final do módulo baseada nas melhores notas de cada vertente
+                    Media = melhoresNotasPorVertente.Any() ? melhoresNotasPorVertente.Average() : 0
+                };
             }).ToList();
 
-        // 2. Identificação de Vertentes Críticas (Média < 9.5) agrupadas por Módulo
-        // Correção: Atribuímos nomes explícitos (Ex: NomeDisc) para evitar conflito com Tipo ou Nome do Módulo
+        // 2. Lógica de Bloqueio (Só remove da lista "Crítica" quando a nota de recuperação for >= 9.5)
         VertentesAbaixoDaMedia = trabalhos
             .SelectMany(t => (t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                .Select(v => new { v, t.ModuloId, NomeDisc = t.Disciplina?.Nome }))
-            .GroupBy(x => new { x.v.Tipo, x.ModuloId, x.NomeDisc })
+                .Select(v => new { v, t.ModuloId }))
+            .GroupBy(x => new { x.v.Tipo, x.ModuloId })
             .Select(g => new VertenteAnalise
             {
                 Tipo = g.Key.Tipo ?? "Geral",
                 ModuloId = g.Key.ModuloId ?? 0,
-                DisciplinaNome = g.Key.NomeDisc ?? "N/A",
-                Media = g.Where(x => x.v.Nota.HasValue)
-                         .Select(x => (double)x.v.Nota!)
-                         .DefaultIfEmpty(0).Average(),
+                // Pega a nota mais alta já lançada para esta vertente neste módulo
+                Media = g.Where(x => x.v.Nota.HasValue).Max(x => (double)x.v.Nota!),
                 TemNotas = g.Any(x => x.v.Nota.HasValue)
             })
-            .Where(v => v.TemNotas && v.Media < 9.5)
+            .Where(v => v.TemNotas && v.Media < 9.5) // Se a maior nota ainda for < 9.5, continua trancado
             .ToList();
     }
 
-    private double CalcularMediaGeral()
-    {
-        return PanoramaModulos.Any() ? PanoramaModulos.Average(m => m.Media) : 0;
-    }
+    private double CalcularMediaGeral() =>
+        PanoramaModulos.Where(m => m.ModuloConcluido && !VertentesAbaixoDaMedia.Any(v => v.ModuloId == m.ModuloId))
+                       .Select(m => m.Media)
+                       .DefaultIfEmpty(0).Average();
 
     private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
-
-    private void IniciarPlano(VertenteAnalise v)
-    {
-        // Espaço para navegação ou modal de recuperação
-    }
 
     public class ModuloAnalise
     {
@@ -225,7 +216,6 @@
     {
         public string Tipo { get; set; } = "";
         public int ModuloId { get; set; }
-        public string DisciplinaNome { get; set; } = "";
         public double Media { get; set; }
         public bool TemNotas { get; set; }
     }

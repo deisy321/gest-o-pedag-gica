@@ -7,7 +7,6 @@
 <div class="container mt-4">
     <h3 class="fw-bold mb-4">O Meu Desempenho</h3>
 
-    @* --- SECÇÃO 1: RESUMO POR MÓDULO --- *@
     <div class="row mb-4">
         @if (ResumoModulos.Any())
         {
@@ -66,7 +65,6 @@
         }
     </div>
 
-    @* --- SECÇÃO 2: DETALHE DAS VERTENTES --- *@
     <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
         <h5 class="fw-bold mb-3">Histórico de Avaliações</h5>
         <div class="table-responsive">
@@ -146,30 +144,30 @@
             })
             .Select(g =>
             {
-                // Todas as vertentes avaliadas deste módulo
-                var todasAsVertentes = g.SelectMany(t => t.TrabalhoVertentes)
-                                        .Where(v => v.Nota.HasValue)
-                                        .ToList();
-
-                // Lógica de Bloqueio: Agrupar por TIPO de vertente e ver se a média de algum tipo é < 9.5
-                var mediasPorTipo = todasAsVertentes
+                // NOVA LÓGICA: Agrupar por tipo e selecionar apenas a melhor nota (Max)
+                var statusVertentes = g.SelectMany(t => t.TrabalhoVertentes)
+                    .Where(v => v.Nota.HasValue)
                     .GroupBy(v => v.Tipo)
                     .Select(vType => new
                     {
                         Tipo = vType.Key,
-                        MediaTipo = vType.Average(x => (double)x.Nota!.Value)
+                        MelhorNota = (double)vType.Max(x => x.Nota!.Value)
                     })
                     .ToList();
 
-                var criticas = mediasPorTipo.Where(x => x.MediaTipo < 9.5).Select(x => x.Tipo).ToList();
+                // Uma vertente só é "crítica" se o melhor resultado obtido nela for negativo
+                var criticas = statusVertentes
+                    .Where(x => x.MelhorNota < 9.5)
+                    .Select(x => x.Tipo ?? "Indefinida")
+                    .ToList();
 
                 return new ModuloResumo
                 {
                     ModuloNome = g.Key.Nome,
                     DisciplinaNome = g.Key.Disciplina,
                     HorasTotais = g.Key.HorasMembro,
-                    HorasAtuais = g.Sum(t => t.HorasAtribuidas), // Agora usa a carga horária real do trabalho
-                    Media = todasAsVertentes.Any() ? todasAsVertentes.Average(v => (double)v.Nota!.Value) : 0,
+                    HorasAtuais = g.Sum(t => t.HorasAtribuidas),
+                    Media = statusVertentes.Any() ? statusVertentes.Average(v => v.MelhorNota) : 0,
                     VertentesCriticas = criticas
                 };
             }).ToList();
