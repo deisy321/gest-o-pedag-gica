@@ -8,6 +8,7 @@
 @inject NavigationManager Nav
 
 <style>
+    @* Animação para o botão de recuperação crítica *@
     @@keyframes pulse-red {
         0%
 
@@ -41,7 +42,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold m-0">Ficha Técnica: @(AlunoSelecionado?.Nome ?? "Carregando...")</h2>
-            <p class="text-muted small">Média Global por Módulo com Bloqueio de Vertentes Críticas</p>
+            <p class="text-muted small">Gestão de Progressão e Planos de Recuperação</p>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-success rounded-pill px-4" @onclick="IrParaAvaliacao">Avaliar Aluno</button>
@@ -55,6 +56,7 @@
     }
     else
     {
+        @* SEÇÃO DE ALERTAS CRÍTICOS *@
         @if (VertentesCriticas.Any())
         {
             <div class="card border-0 shadow-sm mb-4" style="border-radius: 15px;">
@@ -79,6 +81,7 @@
             </div>
         }
 
+        @* TABELA DE PROGRESSO POR MÓDULO *@
         <div class="card border-0 shadow-sm p-4" style="border-radius: 15px;">
             <table class="table align-middle">
                 <thead class="table-light">
@@ -131,7 +134,7 @@
     }
 </div>
 
-@* MODAL DE RECUPERAÇÃO *@
+@* MODAL DE CRIAÇÃO DO PLANO DE RECUPERAÇÃO *@
 @if (MostrarModalRecuperacao)
 {
     <div class="modal-backdrop fade show"></div>
@@ -139,18 +142,20 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content shadow-lg border-0">
                 <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Plano de Recuperação</h5>
+                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Criar Plano de Recuperação</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="() => MostrarModalRecuperacao = false"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="small text-muted">Defina as instruções para o aluno recuperar a vertente <strong>@CriticaParaRecuperar?.TipoVertente</strong>.</p>
+                    <div class="alert alert-info small">
+                        Este plano será atribuído ao aluno para recuperar a vertente <strong>@CriticaParaRecuperar?.TipoVertente</strong> do módulo <strong>@CriticaParaRecuperar?.ModuloNome</strong>.
+                    </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Título</label>
+                        <label class="form-label fw-bold">Título do Trabalho</label>
                         <input type="text" class="form-control" @bind="TituloRecuperacao" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Instruções para o Aluno</label>
-                        <textarea class="form-control" rows="4" @bind="DescricaoRecuperacao" placeholder="Ex: Resolver ficha de exercícios X ou refazer o projeto..."></textarea>
+                        <label class="form-label fw-bold">Instruções de Recuperação</label>
+                        <textarea class="form-control" rows="4" @bind="DescricaoRecuperacao" placeholder="Descreva o que o aluno deve realizar para obter aproveitamento..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer bg-light">
@@ -160,7 +165,7 @@
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
                         }
-                        Salvar e Atribuir
+                        Atribuir Recuperação
                     </button>
                 </div>
             </div>
@@ -176,7 +181,6 @@
     private bool IsLoading = true;
     private bool IsSaving = false;
 
-    // Variáveis Modal
     private bool MostrarModalRecuperacao = false;
     private CriticaModel? CriticaParaRecuperar;
     private string TituloRecuperacao = "";
@@ -196,7 +200,7 @@
                 ProcessarDados(trabalhos ?? new List<Trabalho>());
             }
         }
-        catch (Exception ex) { Console.WriteLine($"Erro: {ex.Message}"); }
+        catch (Exception ex) { Console.WriteLine($"Erro ao carregar dados: {ex.Message}"); }
         finally { IsLoading = false; }
     }
 
@@ -205,6 +209,7 @@
         VertentesCriticas.Clear();
         PanoramaModulos.Clear();
 
+        // Identifica vertentes com nota < 9.5
         foreach (var t in trabalhos)
         {
             if (t.TrabalhoVertentes == null) continue;
@@ -223,6 +228,7 @@
             }
         }
 
+        // Agrupa por módulo para calcular média global e progresso de horas
         PanoramaModulos = trabalhos
             .GroupBy(t => new { ModId = t.ModuloId ?? 0, Nome = t.Modulo?.Nome ?? "Módulo" })
             .Select(g =>
@@ -246,7 +252,7 @@
     private void AbrirPainelRecuperacao(CriticaModel crit)
     {
         CriticaParaRecuperar = crit;
-        TituloRecuperacao = $"RECUPERAÇÃO: {crit.ModuloNome}";
+        TituloRecuperacao = $"PLANO DE RECUPERAÇÃO: {crit.ModuloNome}";
         DescricaoRecuperacao = "";
         MostrarModalRecuperacao = true;
     }
@@ -271,21 +277,27 @@
                 DisciplinaId = CriticaParaRecuperar.DisciplinaId,
                 DataCriacao = DateTime.UtcNow,
                 PrazoEntrega = DateTime.UtcNow.AddDays(7),
-                HorasAtribuidas = 0
+
+                // Marcações fundamentais para o fluxo de recuperação:
+                IsPlanoRecuperacao = true,
+                HorasAtribuidas = 0, // Não soma horas extras na ficha técnica
+                Status = "Pendente"
             };
 
             int novoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
+
+            // Cria a vertente específica que precisa ser recuperada
             await TrabalhoService.AddVertenteAsync(new TrabalhoVertente
             {
                 TrabalhoId = novoId,
                 Tipo = CriticaParaRecuperar.TipoVertente,
-                ConteudoTexto = "Avaliação de Recuperação"
+                ConteudoTexto = "Avaliação resultante do plano de recuperação."
             });
 
             MostrarModalRecuperacao = false;
             Nav.NavigateTo($"/professor/TrabalhosProfessor");
         }
-        catch (Exception ex) { Console.WriteLine(ex.Message); }
+        catch (Exception ex) { Console.WriteLine($"Erro ao salvar: {ex.Message}"); }
         finally { IsSaving = false; }
     }
 
