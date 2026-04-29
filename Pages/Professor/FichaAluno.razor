@@ -9,24 +9,31 @@
 
 <style>
     @@keyframes pulse-red {
-        0% {
-            transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
-        }
+        0%
 
-        70% {
-            transform: scale(1);
-            box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
-        }
+    {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+    }
 
-        100% {
-            transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
-        }
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+    }
+
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+    }
+
     }
 
     .btn-recuperar-urgente {
         animation: pulse-red 2s infinite;
+    }
+
+    .modal-backdrop {
+        opacity: 0.5;
     }
 </style>
 
@@ -57,13 +64,13 @@
                         @foreach (var crit in VertentesCriticas)
                         {
                             <div class="col-md-4">
-                                <div class="p-3 border rounded bg-white">
+                                <div class="p-3 border rounded bg-white shadow-sm">
                                     <div class="small text-muted text-uppercase fw-bold">@crit.ModuloNome</div>
                                     <div class="d-flex justify-content-between align-items-center mt-2">
                                         <span class="badge bg-danger">@crit.TipoVertente: @crit.Nota.ToString("F1")</span>
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => CriarTrabalhoRecuperacao(crit)">Gerar Recuperação</button>
+                                        <button class="btn btn-sm btn-danger btn-recuperar-urgente" @onclick="() => AbrirPainelRecuperacao(crit)">Recuperar</button>
                                     </div>
-                                    <div class="mt-1" style="font-size: 10px;">Trabalho: @crit.TrabalhoTitulo</div>
+                                    <div class="mt-1 text-muted" style="font-size: 10px;">Origem: @crit.TrabalhoTitulo</div>
                                 </div>
                             </div>
                         }
@@ -86,7 +93,6 @@
                     @foreach (var m in PanoramaModulos)
                     {
                         bool trancado = VertentesCriticas.Any(vc => vc.ModuloId == m.ModuloId);
-
                         <tr>
                             <td>
                                 <div class="fw-bold">@m.ModuloNome</div>
@@ -125,12 +131,56 @@
     }
 </div>
 
+@* MODAL DE RECUPERAÇÃO *@
+@if (MostrarModalRecuperacao)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal d-block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Plano de Recuperação</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => MostrarModalRecuperacao = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">Defina as instruções para o aluno recuperar a vertente <strong>@CriticaParaRecuperar?.TipoVertente</strong>.</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Título</label>
+                        <input type="text" class="form-control" @bind="TituloRecuperacao" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Instruções para o Aluno</label>
+                        <textarea class="form-control" rows="4" @bind="DescricaoRecuperacao" placeholder="Ex: Resolver ficha de exercícios X ou refazer o projeto..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button class="btn btn-secondary" @onclick="() => MostrarModalRecuperacao = false">Cancelar</button>
+                    <button class="btn btn-danger" @onclick="ConfirmarCriacaoRecuperacao" disabled="@IsSaving">
+                        @if (IsSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Salvar e Atribuir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public int AlunoId { get; set; }
     private Aluno? AlunoSelecionado;
     private List<ModuloAnalise> PanoramaModulos = new();
     private List<CriticaModel> VertentesCriticas = new();
     private bool IsLoading = true;
+    private bool IsSaving = false;
+
+    // Variáveis Modal
+    private bool MostrarModalRecuperacao = false;
+    private CriticaModel? CriticaParaRecuperar;
+    private string TituloRecuperacao = "";
+    private string DescricaoRecuperacao = "";
 
     protected override async Task OnInitializedAsync() => await CarregarDados();
 
@@ -146,14 +196,8 @@
                 ProcessarDados(trabalhos ?? new List<Trabalho>());
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Erro ao carregar: {ex.Message}");
-        }
-        finally
-        {
-            IsLoading = false;
-        }
+        catch (Exception ex) { Console.WriteLine($"Erro: {ex.Message}"); }
+        finally { IsLoading = false; }
     }
 
     private void ProcessarDados(List<Trabalho> trabalhos)
@@ -161,12 +205,9 @@
         VertentesCriticas.Clear();
         PanoramaModulos.Clear();
 
-        if (trabalhos == null || !trabalhos.Any()) return;
-
         foreach (var t in trabalhos)
         {
             if (t.TrabalhoVertentes == null) continue;
-
             foreach (var v in t.TrabalhoVertentes.Where(x => x.Nota.HasValue && x.Nota < 9.5m))
             {
                 VertentesCriticas.Add(new CriticaModel
@@ -188,9 +229,7 @@
             {
                 var notas = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
                              .Where(v => v.Nota.HasValue)
-                             .Select(v => v.Nota!.Value)
-                             .ToList();
-
+                             .Select(v => v.Nota!.Value).ToList();
                 return new ModuloAnalise
                 {
                     ModuloId = g.Key.ModId,
@@ -199,44 +238,60 @@
                     HorasTotais = g.FirstOrDefault()?.Modulo?.TotalHoras ?? 0,
                     HorasConsumidas = g.Sum(x => x.HorasAtribuidas),
                     TotalVertentesAvaleadas = notas.Count,
-                    MediaModulo = notas.Any() ? notas.Average() : 0m // PROTEÇÃO CONTRA DIVISÃO POR ZERO
+                    MediaModulo = notas.Any() ? notas.Average() : 0m
                 };
             }).ToList();
     }
 
-    private async Task CriarTrabalhoRecuperacao(CriticaModel crit)
+    private void AbrirPainelRecuperacao(CriticaModel crit)
     {
+        CriticaParaRecuperar = crit;
+        TituloRecuperacao = $"RECUPERAÇÃO: {crit.ModuloNome}";
+        DescricaoRecuperacao = "";
+        MostrarModalRecuperacao = true;
+    }
+
+    private async Task ConfirmarCriacaoRecuperacao()
+    {
+        if (CriticaParaRecuperar == null || string.IsNullOrWhiteSpace(DescricaoRecuperacao)) return;
+
         try
         {
-            if (AlunoSelecionado == null) return;
+            IsSaving = true;
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var professorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
             var novoTrabalho = new Trabalho
             {
-                Titulo = $"RECUPERAÇÃO: {crit.TipoVertente}",
-                ConteudoTexto = "Recuperação de nota.",
-                AlunoId = AlunoSelecionado.UserId,
+                Titulo = TituloRecuperacao,
+                ConteudoTexto = DescricaoRecuperacao,
+                AlunoId = AlunoSelecionado!.UserId,
                 ProfessorId = professorId,
-                ModuloId = crit.ModuloId,
-                DisciplinaId = crit.DisciplinaId,
+                ModuloId = CriticaParaRecuperar.ModuloId,
+                DisciplinaId = CriticaParaRecuperar.DisciplinaId,
                 DataCriacao = DateTime.UtcNow,
                 PrazoEntrega = DateTime.UtcNow.AddDays(7),
                 HorasAtribuidas = 0
             };
 
             int novoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
-            await TrabalhoService.AddVertenteAsync(new TrabalhoVertente { TrabalhoId = novoId, Tipo = crit.TipoVertente });
+            await TrabalhoService.AddVertenteAsync(new TrabalhoVertente
+            {
+                TrabalhoId = novoId,
+                Tipo = CriticaParaRecuperar.TipoVertente,
+                ConteudoTexto = "Avaliação de Recuperação"
+            });
 
-            Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
+            MostrarModalRecuperacao = false;
+            Nav.NavigateTo($"/professor/TrabalhosProfessor");
         }
         catch (Exception ex) { Console.WriteLine(ex.Message); }
+        finally { IsSaving = false; }
     }
 
     private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
     private void IrParaAvaliacao() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
 
-    // Classes de Apoio
     public class ModuloAnalise
     {
         public int ModuloId { get; set; }
