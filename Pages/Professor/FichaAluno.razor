@@ -11,71 +11,92 @@
     }
     else
     {
-        <h2 class="mb-4">Ficha de Desempenho: <span class="text-primary">@aluno.Nome</span></h2>
-
-        @foreach (var m in ModulosProcessados)
-        {
-            <div class="card mb-4 shadow-sm">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <span><strong>Módulo:</strong> @m.Nome</span>
-                    <span class="badge bg-info">@m.HorasConsumidas / @m.HorasTotais Horas</span>
-                </div>
-                <div class="card-body">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Trabalho</th>
-                                <th>Status</th>
-                                <th>Nota Média</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var t in m.TrabalhosWrapper)
-                            {
-                                <tr>
-                                    <td>@t.Dados.Titulo</td>
-                                    <td>
-                                        <span class="badge @(t.Dados.Status == "Avaliado" ? "bg-success" : "bg-warning")">
-                                            @t.Dados.Status
-                                        </span>
-                                    </td>
-                                    @* ✅ Agora usamos a nota calculada localmente *@
-                                    <td>@(t.NotaCalculada > 0 ? t.NotaCalculada.ToString("F2") : "---")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-
-                    <div class="mt-3 p-3 border-top d-flex justify-content-end">
-                        @if (m.ProntoParaMediaFinal)
-                        {
-                            <div class="text-end">
-                                <span class="text-muted me-2">Média Global do Módulo:</span>
-                                <h3 class="d-inline text-success">@m.MediaGlobal.ToString("F2")</h3>
-                            </div>
-                        }
-                        else if (m.HorasConsumidas >= m.HorasTotais)
-                        {
-                            <div class="alert alert-warning py-2 mb-0">
-                                <i class="fas fa-clock me-2"></i>
-                                <strong>Aguardando Correção:</strong> A carga horária foi atingida, mas existem trabalhos pendentes.
-                            </div>
-                        }
-                        else
-                        {
-                            <span class="text-muted">Progresso: @((m.HorasConsumidas * 100) / m.HorasTotais)% (Faltam horas)</span>
-                        }
-                    </div>
-                </div>
+        @* Cabeçalho conforme a imagem Captura de ecrã 2026-04-29 144941_2.png *@
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="fw-bold mb-0">Ficha Técnica: @aluno.Nome</h1>
+                <p class="text-muted">Controle de Carga Horária e Aproveitamento por Módulo</p>
             </div>
-        }
+            <div>
+                <button class="btn btn-success me-2"><i class="fas fa-plus"></i> Avaliar Aluno</button>
+                <button class="btn btn-outline-secondary">Voltar</button>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <table class="table align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4">Módulo / Disciplina</th>
+                            <th>Carga Horária (Progresso)</th>
+                            <th>Média por Vertente</th>
+                            <th class="text-center">Média Final / Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in ModulosProcessados)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <h6 class="text-primary fw-bold mb-0">@m.Nome</h6>
+                                    <small class="text-muted">Físico-química</small>
+                                </td>
+                                <td style="width: 250px;">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <small class="fw-bold">@m.HorasConsumidas / @m.HorasTotais h</small>
+                                        @if (m.HorasConsumidas >= m.HorasTotais)
+                                        {
+                                            <i class="fas fa-check-circle text-success"></i>
+                                        }
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        @{
+                                            var percent = m.HorasTotais > 0 ? Math.Min((m.HorasConsumidas * 100) / m.HorasTotais, 100) : 0;
+                                        }
+                                        <div class="progress-bar bg-success" style="width: @(percent)%"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-2">
+                                        @if (m.ProntoParaMediaFinal)
+                                        {
+                                            <span class="badge border text-success p-2">Competência: @m.MediaCompetencia.ToString("F1")</span>
+                                            <span class="badge border text-success p-2">Conhecimento: @m.MediaConhecimento.ToString("F1")</span>
+                                            <span class="badge border text-success p-2">Aptidão: @m.MediaAptidao.ToString("F1")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small"><i>Aguardando avaliações...</i></span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    @if (m.ProntoParaMediaFinal)
+                                    {
+                                        <div class="bg-success text-white rounded p-2 d-inline-block" style="min-width: 80px;">
+                                            <h4 class="mb-0 fw-bold">@m.MediaGlobal.ToString("F1")</h4>
+                                        </div>
+                                        <div class="small text-success fw-bold mt-1">APROVADO</div>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark px-3 py-2">PENDENTE</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
     }
 </div>
 
 @code {
     [Parameter] public int AlunoId { get; set; }
     private Aluno? aluno;
-    private List<ModuloResumo> ModulosProcessados = [];
+    private List<ModuloResumoUI> ModulosProcessados = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -83,60 +104,63 @@
         if (aluno != null)
         {
             var trabalhos = await TrabalhoService.GetTrabalhosByAlunoAsync(aluno.UserId);
-            ProcessarLogicaModulos(trabalhos);
+            ProcessarLogicaVisual(trabalhos);
         }
     }
 
-    private void ProcessarLogicaModulos(List<Trabalho> trabalhos)
+    private void ProcessarLogicaVisual(List<Trabalho> trabalhos)
     {
         ModulosProcessados = trabalhos
             .GroupBy(t => t.ModuloId)
             .Select(grupo =>
             {
-                var moduloInfo = grupo.First().Modulo;
-                double horasConsumidas = grupo.Sum(t => t.HorasAtribuidas);
+                var modulo = grupo.First().Modulo;
+                int horasCons = grupo.Sum(t => t.HorasAtribuidas);
+                int horasTot = modulo?.TotalHoras ?? 0;
 
-                // Criamos uma lista de "TrabalhoComNota" para calcular a nota sem mexer no modelo original
-                var trabalhosComNota = grupo.Select(t => new TrabalhoComNota
-                {
-                    Dados = t,
-                    NotaCalculada = (t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => v.Nota.HasValue))
-                                    ? (double)t.TrabalhoVertentes.Where(v => v.Nota.HasValue).Average(v => (double)v.Nota!.Value)
-                                    : 0
-                }).ToList();
-
-                bool cargaCompleta = horasConsumidas >= (moduloInfo?.TotalHoras ?? 0);
+                // 1. Verificar se todos os trabalhos deste grupo estão avaliados
                 bool todosAvaliados = grupo.All(t => t.Status == "Avaliado");
+                bool cargaCompleta = horasCons >= horasTot;
                 bool pronto = cargaCompleta && todosAvaliados;
 
-                double mediaGlobal = pronto ? trabalhosComNota.Average(tn => tn.NotaCalculada) : 0;
+                double mediaComp = 0, mediaConh = 0, mediaApt = 0, mediaFinal = 0;
 
-                return new ModuloResumo
+                if (pronto)
                 {
-                    Nome = moduloInfo?.Nome ?? "Indefinido",
-                    HorasTotais = moduloInfo?.TotalHoras ?? 0,
-                    HorasConsumidas = (int)horasConsumidas,
-                    TrabalhosWrapper = trabalhosComNota,
-                    MediaGlobal = mediaGlobal,
+                    // 2. Pegar todas as vertentes usando a propriedade 'Tipo' que mostraste no teu modelo
+                    var todasAsVertentes = grupo.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).ToList();
+
+                    // Filtragem correta pelo campo 'Tipo' string
+                    mediaComp = todasAsVertentes.Where(v => v.Tipo == "Competência" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
+                    mediaConh = todasAsVertentes.Where(v => v.Tipo == "Conhecimento" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
+                    mediaApt = todasAsVertentes.Where(v => v.Tipo == "Aptidão" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
+
+                    mediaFinal = (mediaComp + mediaConh + mediaApt) / 3;
+                }
+
+                return new ModuloResumoUI
+                {
+                    Nome = modulo?.Nome ?? "Módulo",
+                    HorasTotais = horasTot,
+                    HorasConsumidas = horasCons,
+                    MediaCompetencia = mediaComp,
+                    MediaConhecimento = mediaConh,
+                    MediaAptidao = mediaApt,
+                    MediaGlobal = mediaFinal,
                     ProntoParaMediaFinal = pronto
                 };
             }).ToList();
     }
 
-    // Estruturas auxiliares apenas para esta página
-    public class ModuloResumo
+    public class ModuloResumoUI
     {
         public string Nome { get; set; } = "";
         public int HorasTotais { get; set; }
         public int HorasConsumidas { get; set; }
-        public List<TrabalhoComNota> TrabalhosWrapper { get; set; } = [];
+        public double MediaCompetencia { get; set; }
+        public double MediaConhecimento { get; set; }
+        public double MediaAptidao { get; set; }
         public double MediaGlobal { get; set; }
         public bool ProntoParaMediaFinal { get; set; }
-    }
-
-    public class TrabalhoComNota
-    {
-        public Trabalho Dados { get; set; } = default!;
-        public double NotaCalculada { get; set; }
     }
 }
