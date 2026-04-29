@@ -49,6 +49,7 @@ public class TrabalhoService
         return await _context.Trabalhos
             .Include(t => t.TrabalhoVertentes)
             .Include(t => t.Disciplina)
+            .Include(t => t.Modulo) // CORREÇÃO: Incluído para que a Ficha do Aluno consiga ver as HorasTotais do Módulo
             .Where(t => t.AlunoId == alunoUserId)
             .AsNoTracking()
             .ToListAsync();
@@ -279,7 +280,7 @@ Fala diretamente para o aluno de forma construtiva.";
             {
                 if (!string.IsNullOrEmpty(sub.Payload))
                 {
-                    await _pushService.EnviarNotificacaoAsync(sub.Payload, mensagem, userId);
+                    await _pushService.EnviarNotificacaoAsync(sub.Payload, message: mensagem, userId);
                 }
             }
         }
