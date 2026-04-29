@@ -8,36 +8,13 @@
 @inject NavigationManager Nav
 
 <style>
-    /* Mantendo seus estilos originais */
     @@keyframes pulse-red {
-        0% {
-            transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
-        }
-
-        70% {
-            transform: scale(1);
-            box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
-        }
-
-        100% {
-            transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
-        }
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
     }
-
-    .btn-recuperar-urgente {
-        animation: pulse-red 2s infinite;
-    }
-
-    .modal-backdrop {
-        opacity: 0.5;
-    }
-
-    .progress-label {
-        font-size: 0.75rem;
-        font-weight: bold;
-    }
+    .btn-recuperar-urgente { animation: pulse-red 2s infinite; }
+    .progress-label { font-size: 0.75rem; font-weight: bold; }
 </style>
 
 <div class="container-fluid mt-4">
@@ -76,6 +53,10 @@
                         {
                             bool temVertentesNegativas = m.MediasPorTipo.Any(v => v.Value < 9.5m);
                             bool cargaHorariaCompleta = m.HorasConsumidas >= m.HorasTotais && m.HorasTotais > 0;
+                            
+                            // LÓGICA CORRIGIDA: Só mostra nota se as horas acabaram E se todos os trabalhos foram avaliados
+                            bool prontoParaMediaFinal = cargaHorariaCompleta && m.TodosTrabalhosAvaliados;
+
                             bool emRecuperacao = VertentesCriticas.Any(vc => vc.ModuloId == m.ModuloId && vc.TemRecuperacaoAtiva);
 
                             <tr>
@@ -86,10 +67,7 @@
                                 <td>
                                     <div class="d-flex justify-content-between align-items-center mb-1">
                                         <span class="progress-label">@m.HorasConsumidas / @m.HorasTotais h</span>
-                                        @if (cargaHorariaCompleta)
-                                        {
-                                            <i class="bi bi-check-circle-fill text-success"></i>
-                                        }
+                                        @if (cargaHorariaCompleta) { <i class="bi bi-check-circle-fill text-success"></i> }
                                     </div>
                                     <div class="progress" style="height: 8px; border-radius: 4px;">
                                         <div class="progress-bar @(cargaHorariaCompleta ? "bg-success" : "bg-primary")"
@@ -107,11 +85,12 @@
                                     </div>
                                 </td>
                                 <td class="text-center">
-                                    @if (!cargaHorariaCompleta)
+                                    @if (!prontoParaMediaFinal)
                                     {
                                         <div class="py-1">
                                             <span class="badge bg-secondary-subtle text-secondary border border-secondary fw-bold px-3 py-2">
-                                                <i class="bi bi-clock-history me-1"></i> AGUARDAR HORAS
+                                                <i class="bi bi-clock-history me-1"></i> 
+                                                @(cargaHorariaCompleta ? "NOTAS PENDENTES" : "AGUARDAR HORAS")
                                             </span>
                                         </div>
                                     }
@@ -129,7 +108,7 @@
                                                 <span class="badge bg-danger text-white fw-bold px-3 py-2 shadow-sm">
                                                     <i class="bi bi-lock-fill me-1"></i> BLOQUEADO
                                                 </span>
-                                                <small class="text-danger fw-bold" style="font-size: 0.7rem;">VERTENTE ABAIXO DE 9.5</small>
+                                                <small class="text-danger fw-bold" style="font-size: 0.7rem;">VERTENTE < 9.5</small>
                                             </div>
                                         }
                                     }
@@ -169,15 +148,11 @@
             AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
             if (AlunoSelecionado?.UserId != null)
             {
-                // Agora o serviço retorna os objetos Modulo preenchidos corretamente
                 var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
                 ProcessarDados(trabalhos ?? new List<Trabalho>());
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Erro ao carregar dados: {ex.Message}");
-        }
+        catch (Exception ex) { Console.WriteLine($"Erro: {ex.Message}"); }
         finally { IsLoading = false; }
     }
 
@@ -192,13 +167,13 @@
         {
             var moduloId = grupo.Key ?? 0;
             var trabalhoComModulo = grupo.FirstOrDefault(t => t.Modulo != null);
-
             if (trabalhoComModulo == null) continue;
 
-            // Soma das horas atribuídas neste módulo
             int horasDoModulo = grupo.Sum(t => t.HorasAtribuidas);
+            
+            // Verifica se todos os trabalhos deste módulo já foram avaliados pelo professor
+            bool todosAvaliados = grupo.All(t => t.Status == "Avaliado");
 
-            // Cálculo de médias por vertente (Conhecimento, Aptidão, Atitude)
             var todasVertentes = grupo.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
                                       .Where(v => v.Nota.HasValue)
                                       .ToList();
@@ -210,11 +185,9 @@
 
             bool recAtiva = grupo.Any(t => t.IsPlanoRecuperacao && t.Status != "Avaliado");
 
-            // Identificação de notas negativas
             foreach (var mv in mediasVertentes.Where(x => x.Value < 9.5m))
             {
-                VertentesCriticas.Add(new CriticaModel
-                {
+                VertentesCriticas.Add(new CriticaModel {
                     ModuloId = moduloId,
                     ModuloNome = trabalhoComModulo.Modulo?.Nome ?? "Módulo Desconhecido",
                     TipoVertente = mv.Key,
@@ -223,15 +196,15 @@
                 });
             }
 
-            PanoramaModulos.Add(new ModuloAnalise
-            {
+            PanoramaModulos.Add(new ModuloAnalise {
                 ModuloId = moduloId,
                 ModuloNome = trabalhoComModulo.Modulo?.Nome ?? "Módulo " + moduloId,
                 DisciplinaNome = trabalhoComModulo.Disciplina?.Nome ?? "N/A",
-                HorasTotais = trabalhoComModulo.Modulo?.TotalHoras ?? 0, // Agora virá preenchido
+                HorasTotais = trabalhoComModulo.Modulo?.TotalHoras ?? 0,
                 HorasConsumidas = horasDoModulo,
                 MediasPorTipo = mediasVertentes,
-                MediaGlobal = mediasVertentes.Any() ? mediasVertentes.Values.Average() : 0
+                MediaGlobal = mediasVertentes.Any() ? mediasVertentes.Values.Average() : 0,
+                TodosTrabalhosAvaliados = todosAvaliados // Atribui o novo check
             });
         }
     }
@@ -239,20 +212,19 @@
     private void IrParaAvaliacao() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
     private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
 
-    public class ModuloAnalise
-    {
+    public class ModuloAnalise {
         public int ModuloId { get; set; }
         public string ModuloNome { get; set; } = "";
         public string DisciplinaNome { get; set; } = "";
         public int HorasTotais { get; set; }
         public int HorasConsumidas { get; set; }
         public decimal MediaGlobal { get; set; }
+        public bool TodosTrabalhosAvaliados { get; set; } // Nova propriedade
         public Dictionary<string, decimal> MediasPorTipo { get; set; } = new();
         public double CalcularPercentualHoras() => HorasTotais > 0 ? Math.Min(100, (double)(HorasConsumidas * 100) / HorasTotais) : 0;
     }
 
-    public class CriticaModel
-    {
+    public class CriticaModel {
         public int ModuloId { get; set; }
         public string ModuloNome { get; set; } = "";
         public string TipoVertente { get; set; } = "";
