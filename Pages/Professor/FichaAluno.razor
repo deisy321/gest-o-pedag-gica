@@ -6,6 +6,7 @@
 @inject TrabalhoService TrabalhoService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <style>
     @* Animação para o botão de recuperação crítica *@
@@ -209,7 +210,6 @@
         VertentesCriticas.Clear();
         PanoramaModulos.Clear();
 
-        // Identifica vertentes com nota < 9.5
         foreach (var t in trabalhos)
         {
             if (t.TrabalhoVertentes == null) continue;
@@ -228,7 +228,6 @@
             }
         }
 
-        // Agrupa por módulo para calcular média global e progresso de horas
         PanoramaModulos = trabalhos
             .GroupBy(t => new { ModId = t.ModuloId ?? 0, Nome = t.Modulo?.Nome ?? "Módulo" })
             .Select(g =>
@@ -277,16 +276,14 @@
                 DisciplinaId = CriticaParaRecuperar.DisciplinaId,
                 DataCriacao = DateTime.UtcNow,
                 PrazoEntrega = DateTime.UtcNow.AddDays(7),
-
-                // Marcações fundamentais para o fluxo de recuperação:
                 IsPlanoRecuperacao = true,
-                HorasAtribuidas = 0, // Não soma horas extras na ficha técnica
-                Status = "Pendente"
+                HorasAtribuidas = 0,
+                Status = "Pendente",
+                Ativo = true
             };
 
             int novoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
 
-            // Cria a vertente específica que precisa ser recuperada
             await TrabalhoService.AddVertenteAsync(new TrabalhoVertente
             {
                 TrabalhoId = novoId,
@@ -294,10 +291,21 @@
                 ConteudoTexto = "Avaliação resultante do plano de recuperação."
             });
 
+            // Feedback e Atualização da UI
+            await JS.InvokeVoidAsync("alert", "Plano de recuperação atribuído com sucesso!");
+
             MostrarModalRecuperacao = false;
-            Nav.NavigateTo($"/professor/TrabalhosProfessor");
+            TituloRecuperacao = "";
+            DescricaoRecuperacao = "";
+
+            // Recarrega os dados da ficha para refletir as mudanças imediatamente
+            await CarregarDados();
         }
-        catch (Exception ex) { Console.WriteLine($"Erro ao salvar: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao salvar: {ex.Message}");
+            await JS.InvokeVoidAsync("alert", "Erro ao processar a solicitação.");
+        }
         finally { IsSaving = false; }
     }
 
