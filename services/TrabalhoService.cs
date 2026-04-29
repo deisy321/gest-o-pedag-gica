@@ -4,18 +4,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace gestaopedagogica.Services;
 
-public class TrabalhoService
+// Aplicação de Construtor Primário para simplificar a classe e limpar avisos do VS
+public class TrabalhoService(ApplicationDbContext context, IAService iaService, PushService pushService)
 {
-    private readonly ApplicationDbContext _context;
-    private readonly IAService _iaService;
-    private readonly PushService _pushService;
-
-    public TrabalhoService(ApplicationDbContext context, IAService iaService, PushService pushService)
-    {
-        _context = context;
-        _iaService = iaService;
-        _pushService = pushService;
-    }
+    private readonly ApplicationDbContext _context = context;
+    private readonly IAService _iaService = iaService;
+    private readonly PushService _pushService = pushService;
 
     // --- NOVA LÓGICA DE GESTÃO DE CARGA HORÁRIA ---
 
@@ -23,14 +17,18 @@ public class TrabalhoService
     {
         if (moduloId == null) return 0;
 
-        // Soma as HorasAtribuidas de todos os trabalhos vinculados a este módulo
-        // Inclui automaticamente Planos de Recuperação pois estes também consomem horas
         return await _context.Trabalhos
             .Where(t => t.ModuloId == moduloId)
             .SumAsync(t => t.HorasAtribuidas);
     }
 
-    // --- MÉTODOS EXISTENTES (MANTIDOS) ---
+    // --- MÉTODOS DE CONSULTA PARA O ALUNO ---
+
+    // RESOLUÇÃO DO ERRO: Adicionado para compatibilidade com a FichaAluno.razor
+    public async Task<List<Trabalho>> GetTrabalhosByAlunoAsync(string alunoUserId)
+    {
+        return await GetTrabalhosDoAlunoComVertentesAsync(alunoUserId);
+    }
 
     public async Task<List<Trabalho>> GetTrabalhosDisponiveisParaAlunoAsync(string alunoUserId)
     {
@@ -49,7 +47,7 @@ public class TrabalhoService
         return await _context.Trabalhos
             .Include(t => t.TrabalhoVertentes)
             .Include(t => t.Disciplina)
-            .Include(t => t.Modulo) // CORREÇÃO: Incluído para que a Ficha do Aluno consiga ver as HorasTotais do Módulo
+            .Include(t => t.Modulo)
             .Where(t => t.AlunoId == alunoUserId)
             .AsNoTracking()
             .ToListAsync();
@@ -62,6 +60,8 @@ public class TrabalhoService
             .ToListAsync();
     }
 
+    // --- MÉTODOS DE CONSULTA PARA O PROFESSOR ---
+
     public async Task<List<Trabalho>> GetTrabalhosDoProfessorAsync(string professorUserId)
     {
         return await _context.Trabalhos
@@ -73,6 +73,8 @@ public class TrabalhoService
             .OrderByDescending(t => t.DataEntrega)
             .ToListAsync();
     }
+
+    // --- LÓGICA DE AVALIAÇÃO E CRUD ---
 
     public async Task AtualizarNotaEFeedbackAsync(int vertenteId, decimal? nota, string feedback)
     {
@@ -186,7 +188,7 @@ public class TrabalhoService
             dbObj.FicheiroNome = trabalho.FicheiroNome;
             dbObj.FicheiroBytes = trabalho.FicheiroBytes;
             dbObj.FicheiroContentType = trabalho.FicheiroContentType;
-            dbObj.HorasAtribuidas = trabalho.HorasAtribuidas; // Adicionado para permitir edição de horas
+            dbObj.HorasAtribuidas = trabalho.HorasAtribuidas;
 
             if (trabalho.DataEntrega.HasValue)
                 dbObj.DataEntrega = DateTime.SpecifyKind(trabalho.DataEntrega.Value, DateTimeKind.Utc);
@@ -203,7 +205,7 @@ public class TrabalhoService
         }
     }
 
-    // --- NOVA LÓGICA DE IA TURBINADA (CORRIGIDA) ---
+    // --- NOVA LÓGICA DE IA TURBINADA ---
 
     public async Task<string> GerarFeedbackIAAsync(string alunoUserId, string conteudoAluno, byte[]? arquivoBytes, int trabalhoId, string vertenteId)
     {
@@ -211,8 +213,8 @@ public class TrabalhoService
             .Include(t => t.Modulo)
             .Include(t => t.Disciplina)
             .Include(t => t.TrabalhoVertentes)
-            .Include(t => t.Aluno) // IdentityUser
-            .Include(t => t.Professor) // IdentityUser
+            .Include(t => t.Aluno)
+            .Include(t => t.Professor)
             .FirstOrDefaultAsync(t => t.Id == trabalhoId);
 
         if (trabalho == null) return "Erro: Trabalho não localizado no sistema.";
@@ -262,7 +264,7 @@ Fala diretamente para o aluno de forma construtiva.";
         );
     }
 
-    // --- MÉTODOS DE NOTIFICAÇÃO E RELATÓRIO (MANTIDOS) ---
+    // --- MÉTODOS DE NOTIFICAÇÃO E RELATÓRIO ---
 
     public async Task<List<NotificationSubscription>> GetSubscriptionsByUserIdAsync(string userId)
     {
@@ -305,7 +307,7 @@ Fala diretamente para o aluno de forma construtiva.";
         catch (Exception ex)
         {
             Console.WriteLine($"Erro ao obter trabalhos para relatório: {ex.Message}");
-            return new List<Trabalho>();
+            return []; // Simplificação de coleção: [] em vez de new List<Trabalho>()
         }
     }
 }
