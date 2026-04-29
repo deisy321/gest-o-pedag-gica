@@ -10,34 +10,13 @@
 <style>
     /* ... Seus estilos CSS permanecem exatamente iguais ... */
     @@keyframes pulse-red {
-        0% {
-            transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
-        }
-
-        70% {
-            transform: scale(1);
-            box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
-        }
-
-        100% {
-            transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
-        }
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
     }
-
-    .btn-recuperar-urgente {
-        animation: pulse-red 2s infinite;
-    }
-
-    .modal-backdrop {
-        opacity: 0.5;
-    }
-
-    .progress-label {
-        font-size: 0.75rem;
-        font-weight: bold;
-    }
+    .btn-recuperar-urgente { animation: pulse-red 2s infinite; }
+    .modal-backdrop { opacity: 0.5; }
+    .progress-label { font-size: 0.75rem; font-weight: bold; }
 </style>
 
 <div class="container-fluid mt-4">
@@ -174,9 +153,9 @@
                 ProcessarDados(trabalhos ?? new List<Trabalho>());
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Erro ao carregar dados: {ex.Message}");
+        catch (Exception ex) 
+        { 
+            Console.WriteLine($"Erro ao carregar dados: {ex.Message}"); 
         }
         finally { IsLoading = false; }
     }
@@ -194,10 +173,10 @@
             var moduloId = grupo.Key ?? 0;
             // Pegamos o primeiro trabalho que tenha o objeto Modulo carregado para extrair as definições
             var trabalhoComModulo = grupo.FirstOrDefault(t => t.Modulo != null);
-
+            
             if (trabalhoComModulo == null) continue;
 
-            // MÉTRICA DE HORAS:
+            // MÉTRICA DE HORAS: 
             // Somamos as horas de cada trabalho ÚNICO no grupo (evita duplicar se houver muitas vertentes)
             int horasDoModulo = grupo.Sum(t => t.HorasAtribuidas);
 
