@@ -28,17 +28,12 @@
     .btn-recuperar-urgente {
         animation: pulse-red 2s infinite;
     }
-
-    .bg-soft-danger {
-        background-color: #f8d7da;
-        color: #721c24;
-    }
 </style>
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="fw-bold m-0">Ficha Técnica: @(AlunoSelecionado?.Nome ?? "Aluno")</h2>
+            <h2 class="fw-bold m-0">Ficha Técnica: @(AlunoSelecionado?.Nome ?? "Carregando...")</h2>
             <p class="text-muted small">Média Global por Módulo com Bloqueio de Vertentes Críticas</p>
         </div>
         <div class="d-flex gap-2">
@@ -57,7 +52,7 @@
         {
             <div class="card border-0 shadow-sm mb-4" style="border-radius: 15px;">
                 <div class="card-body">
-                    <h5 class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Atenção: Vertentes Críticas (Média do Módulo Suspensa)</h5>
+                    <h5 class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Atenção: Vertentes Críticas</h5>
                     <div class="row g-3">
                         @foreach (var crit in VertentesCriticas)
                         {
@@ -68,7 +63,7 @@
                                         <span class="badge bg-danger">@crit.TipoVertente: @crit.Nota.ToString("F1")</span>
                                         <button class="btn btn-sm btn-outline-danger" @onclick="() => CriarTrabalhoRecuperacao(crit)">Gerar Recuperação</button>
                                     </div>
-                                    <div class="mt-1" style="font-size: 10px;">Trabalho Original: @crit.TrabalhoTitulo</div>
+                                    <div class="mt-1" style="font-size: 10px;">Trabalho: @crit.TrabalhoTitulo</div>
                                 </div>
                             </div>
                         }
@@ -113,7 +108,6 @@
                                     <div class="text-danger">
                                         <i class="bi bi-lock-fill fs-4"></i>
                                         <div class="fw-bold small">TRANCADO</div>
-                                        <div style="font-size: 9px;">Nota suspensa por falha crítica</div>
                                     </div>
                                 }
                                 else
@@ -142,14 +136,24 @@
 
     private async Task CarregarDados()
     {
-        IsLoading = true;
-        AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
-        if (AlunoSelecionado?.UserId != null)
+        try
         {
-            var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
-            ProcessarDados(trabalhos ?? new());
+            IsLoading = true;
+            AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
+            if (AlunoSelecionado?.UserId != null)
+            {
+                var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
+                ProcessarDados(trabalhos ?? new List<Trabalho>());
+            }
         }
-        IsLoading = false;
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     private void ProcessarDados(List<Trabalho> trabalhos)
@@ -157,17 +161,20 @@
         VertentesCriticas.Clear();
         PanoramaModulos.Clear();
 
-        // 1. Identificar Vertentes Críticas (Notas < 9.5)
+        if (trabalhos == null || !trabalhos.Any()) return;
+
         foreach (var t in trabalhos)
         {
+            if (t.TrabalhoVertentes == null) continue;
+
             foreach (var v in t.TrabalhoVertentes.Where(x => x.Nota.HasValue && x.Nota < 9.5m))
             {
                 VertentesCriticas.Add(new CriticaModel
                 {
                     ModuloId = t.ModuloId ?? 0,
                     ModuloNome = t.Modulo?.Nome ?? "N/A",
-                    TrabalhoTitulo = t.Titulo,
-                    TipoVertente = v.Tipo,
+                    TrabalhoTitulo = t.Titulo ?? "Sem Título",
+                    TipoVertente = v.Tipo ?? "Geral",
                     Nota = v.Nota.Value,
                     TrabalhoOriginalId = t.Id,
                     DisciplinaId = t.DisciplinaId ?? 0
@@ -175,64 +182,61 @@
             }
         }
 
-        // 2. Agrupar por Módulo com Média Global de Vertentes
         PanoramaModulos = trabalhos
-            .GroupBy(t => new { t.ModuloId, t.Modulo })
+            .GroupBy(t => new { ModId = t.ModuloId ?? 0, Nome = t.Modulo?.Nome ?? "Módulo" })
             .Select(g =>
             {
-                // Coleta todas as notas de todas as vertentes de todos os trabalhos deste módulo
-                var todasAsNotas = g.SelectMany(t => t.TrabalhoVertentes)
-                                    .Where(v => v.Nota.HasValue)
-                                    .Select(v => v.Nota!.Value)
-                                    .ToList();
+                var notas = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                             .Where(v => v.Nota.HasValue)
+                             .Select(v => v.Nota!.Value)
+                             .ToList();
 
                 return new ModuloAnalise
                 {
-                    ModuloId = g.Key.ModuloId ?? 0,
-                    ModuloNome = g.Key.Modulo?.Nome ?? "Módulo",
+                    ModuloId = g.Key.ModId,
+                    ModuloNome = g.Key.Nome,
                     DisciplinaNome = g.FirstOrDefault()?.Disciplina?.Nome ?? "N/A",
-                    HorasTotais = g.Key.Modulo?.TotalHoras ?? 0,
+                    HorasTotais = g.FirstOrDefault()?.Modulo?.TotalHoras ?? 0,
                     HorasConsumidas = g.Sum(x => x.HorasAtribuidas),
-                    TotalVertentesAvaleadas = todasAsNotas.Count,
-                    MediaModulo = todasAsNotas.Any() ? todasAsNotas.Average() : 0
+                    TotalVertentesAvaleadas = notas.Count,
+                    MediaModulo = notas.Any() ? notas.Average() : 0m // PROTEÇÃO CONTRA DIVISÃO POR ZERO
                 };
             }).ToList();
     }
 
     private async Task CriarTrabalhoRecuperacao(CriticaModel crit)
     {
-        if (AlunoSelecionado == null) return;
-
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var professorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-
-        // Criação de um novo trabalho focado na recuperação da vertente específica
-        var novoTrabalho = new Trabalho
+        try
         {
-            Titulo = $"RECUPERAÇÃO: {crit.TipoVertente} - {crit.TrabalhoTitulo}",
-            ConteudoTexto = $"Trabalho de recuperação específico para a vertente de {crit.TipoVertente}. O aluno deve demonstrar superação da nota {crit.Nota}.",
-            AlunoId = AlunoSelecionado.UserId,
-            ProfessorId = professorId,
-            ModuloId = crit.ModuloId,
-            DisciplinaId = crit.DisciplinaId,
-            DataCriacao = DateTime.UtcNow,
-            PrazoEntrega = DateTime.UtcNow.AddDays(7),
-            HorasAtribuidas = 0 // Geralmente recuperações não somam novas horas ao módulo, mas pode ajustar
-        };
+            if (AlunoSelecionado == null) return;
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var professorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-        int novoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
+            var novoTrabalho = new Trabalho
+            {
+                Titulo = $"RECUPERAÇÃO: {crit.TipoVertente}",
+                ConteudoTexto = "Recuperação de nota.",
+                AlunoId = AlunoSelecionado.UserId,
+                ProfessorId = professorId,
+                ModuloId = crit.ModuloId,
+                DisciplinaId = crit.DisciplinaId,
+                DataCriacao = DateTime.UtcNow,
+                PrazoEntrega = DateTime.UtcNow.AddDays(7),
+                HorasAtribuidas = 0
+            };
 
-        // Adiciona a vertente específica para ser avaliada
-        await TrabalhoService.AddVertenteAsync(new TrabalhoVertente
-        {
-            TrabalhoId = novoId,
-            Tipo = crit.TipoVertente,
-            ConteudoTexto = "Avaliação de recuperação."
-        });
+            int novoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
+            await TrabalhoService.AddVertenteAsync(new TrabalhoVertente { TrabalhoId = novoId, Tipo = crit.TipoVertente });
 
-        Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
+            Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
+        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
     }
 
+    private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
+    private void IrParaAvaliacao() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
+
+    // Classes de Apoio
     public class ModuloAnalise
     {
         public int ModuloId { get; set; }
@@ -255,7 +259,4 @@
         public string TipoVertente { get; set; } = "";
         public decimal Nota { get; set; }
     }
-
-    private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
-    private void IrParaAvaliacao() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
 }
