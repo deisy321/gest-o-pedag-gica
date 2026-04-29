@@ -3,23 +3,30 @@
 @using gestaopedagogica.Services
 @inject TrabalhoService TrabalhoService
 @inject AlunoService AlunoService
+@inject NavigationManager Nav
 
 <div class="container-fluid animate-fade-in">
     @if (aluno == null)
     {
-        <div class="spinner-border text-primary" role="status"></div>
+        <div class="text-center mt-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
     }
     else
     {
-        @* Cabeçalho conforme a imagem Captura de ecrã 2026-04-29 144941_2.png *@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="fw-bold mb-0">Ficha Técnica: @aluno.Nome</h1>
                 <p class="text-muted">Controle de Carga Horária e Aproveitamento por Módulo</p>
             </div>
             <div>
-                <button class="btn btn-success me-2"><i class="fas fa-plus"></i> Avaliar Aluno</button>
-                <button class="btn btn-outline-secondary">Voltar</button>
+                <button class="btn btn-success me-2" @onclick='() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}")'>
+                    <i class="fas fa-plus"></i> Avaliar Aluno
+                </button>
+
+                <button class="btn btn-outline-secondary" @onclick='() => Nav.NavigateTo("/professor/ListaAlunos")'>
+                    Voltar
+                </button>
             </div>
         </div>
 
@@ -37,10 +44,21 @@
                     <tbody>
                         @foreach (var m in ModulosProcessados)
                         {
-                            <tr>
+                            <tr class="@(m.StatusCritico == "Vermelho" ? "table-danger" : m.StatusCritico == "Amarelo" ? "table-warning" : "")">
                                 <td class="ps-4">
                                     <h6 class="text-primary fw-bold mb-0">@m.Nome</h6>
-                                    <small class="text-muted">Físico-química</small>
+                                    @if (m.StatusCritico == "Vermelho")
+                                    {
+                                        <span class="badge bg-danger mt-1"><i class="fas fa-exclamation-triangle"></i> Vertente Crítica Detectada</span>
+                                    }
+                                    else if (m.StatusCritico == "Amarelo")
+                                    {
+                                        <span class="badge bg-warning text-dark mt-1"><i class="fas fa-clock"></i> Plano de Recuperação em Curso</span>
+                                    }
+                                    else
+                                    {
+                                        <small class="text-muted">Desempenho Regular</small>
+                                    }
                                 </td>
                                 <td style="width: 250px;">
                                     <div class="d-flex justify-content-between mb-1">
@@ -58,16 +76,19 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="d-flex gap-2">
-                                        @if (m.ProntoParaMediaFinal)
+                                    <div class="d-flex flex-column gap-1">
+                                        <div class="d-flex gap-2">
+                                            @* Monitoramento constante das vertentes *@
+                                            <span class="badge border @(m.MediaCompParcial < 10 && m.MediaCompParcial > 0 ? "text-danger border-danger" : "text-muted") p-2">Comp: @m.MediaCompParcial.ToString("F1")</span>
+                                            <span class="badge border @(m.MediaConhParcial < 10 && m.MediaConhParcial > 0 ? "text-danger border-danger" : "text-muted") p-2">Conh: @m.MediaConhParcial.ToString("F1")</span>
+                                            <span class="badge border @(m.MediaAptParcial < 10 && m.MediaAptParcial > 0 ? "text-danger border-danger" : "text-muted") p-2">Apt: @m.MediaAptParcial.ToString("F1")</span>
+                                        </div>
+
+                                        @if (m.StatusCritico == "Vermelho")
                                         {
-                                            <span class="badge border text-success p-2">Competência: @m.MediaCompetencia.ToString("F1")</span>
-                                            <span class="badge border text-success p-2">Conhecimento: @m.MediaConhecimento.ToString("F1")</span>
-                                            <span class="badge border text-success p-2">Aptidão: @m.MediaAptidao.ToString("F1")</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted small"><i>Aguardando avaliações...</i></span>
+                                            <button class="btn btn-sm btn-danger mt-2 fw-bold" @onclick='() => Nav.NavigateTo($"/professor/CriarRecuperacao/{AlunoId}/{m.ModuloId}")'>
+                                                <i class="fas fa-tools"></i> Criar Plano de Recuperação
+                                            </button>
                                         }
                                     </div>
                                 </td>
@@ -82,6 +103,10 @@
                                     else
                                     {
                                         <span class="badge bg-warning text-dark px-3 py-2">PENDENTE</span>
+                                        @if (m.HorasConsumidas < m.HorasTotais)
+                                        {
+                                            <div class="x-small text-muted mt-1" style="font-size: 0.7rem;">Horas insuficientes</div>
+                                        }
                                     }
                                 </td>
                             </tr>
@@ -115,52 +140,62 @@
             .Select(grupo =>
             {
                 var modulo = grupo.First().Modulo;
-                int horasCons = grupo.Sum(t => t.HorasAtribuidas);
+                var listaTrabalhos = grupo.ToList();
+                var todasAsVertentes = listaTrabalhos.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).ToList();
+
+                // 1. CÁLCULO DE MÉDIAS PARCIAIS (Sempre calculado para monitoramento)
+                double mComp = todasAsVertentes.Where(v => v.Tipo == "Competência" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
+                double mConh = todasAsVertentes.Where(v => v.Tipo == "Conhecimento" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
+                double mApt = todasAsVertentes.Where(v => v.Tipo == "Aptidão" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
+
+                // 2. LÓGICA DE ALERTA E RECUPERAÇÃO
+                // Vermelho: Média baixa (< 9.5) e sem recuperação em andamento
+                // Amarelo: Existe trabalho com "Recuperação" no título ainda não avaliado
+                // Verde: Tudo normal ou Recuperação concluída e nota subiu
+                string statusCritico = "Verde";
+                bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
+
+                bool temRecupPendente = listaTrabalhos.Any(t => t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase) && t.Status != "Avaliado");
+                bool temRecupConcluida = listaTrabalhos.Any(t => t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase) && t.Status == "Avaliado");
+
+                if (temNotaBaixa && !temRecupPendente) statusCritico = "Vermelho";
+                else if (temRecupPendente) statusCritico = "Amarelo";
+
+                // 3. REGRA DE FECHAMENTO (Sua lógica original preservada)
+                int horasCons = listaTrabalhos.Sum(t => t.HorasAtribuidas);
                 int horasTot = modulo?.TotalHoras ?? 0;
+                bool todosAvaliados = listaTrabalhos.All(t => t.Status == "Avaliado");
+                bool pronto = (horasCons >= horasTot) && todosAvaliados;
 
-                // 1. Verificar se todos os trabalhos deste grupo estão avaliados
-                bool todosAvaliados = grupo.All(t => t.Status == "Avaliado");
-                bool cargaCompleta = horasCons >= horasTot;
-                bool pronto = cargaCompleta && todosAvaliados;
-
-                double mediaComp = 0, mediaConh = 0, mediaApt = 0, mediaFinal = 0;
-
-                if (pronto)
-                {
-                    // 2. Pegar todas as vertentes usando a propriedade 'Tipo' que mostraste no teu modelo
-                    var todasAsVertentes = grupo.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).ToList();
-
-                    // Filtragem correta pelo campo 'Tipo' string
-                    mediaComp = todasAsVertentes.Where(v => v.Tipo == "Competência" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
-                    mediaConh = todasAsVertentes.Where(v => v.Tipo == "Conhecimento" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
-                    mediaApt = todasAsVertentes.Where(v => v.Tipo == "Aptidão" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
-
-                    mediaFinal = (mediaComp + mediaConh + mediaApt) / 3;
-                }
+                double mediaFinal = pronto ? (mComp + mConh + mApt) / 3 : 0;
 
                 return new ModuloResumoUI
                 {
+                    ModuloId = grupo.Key ?? 0,
                     Nome = modulo?.Nome ?? "Módulo",
                     HorasTotais = horasTot,
                     HorasConsumidas = horasCons,
-                    MediaCompetencia = mediaComp,
-                    MediaConhecimento = mediaConh,
-                    MediaAptidao = mediaApt,
+                    MediaCompParcial = mComp,
+                    MediaConhParcial = mConh,
+                    MediaAptParcial = mApt,
                     MediaGlobal = mediaFinal,
-                    ProntoParaMediaFinal = pronto
+                    ProntoParaMediaFinal = pronto,
+                    StatusCritico = statusCritico
                 };
             }).ToList();
     }
 
     public class ModuloResumoUI
     {
+        public int ModuloId { get; set; }
         public string Nome { get; set; } = "";
         public int HorasTotais { get; set; }
         public int HorasConsumidas { get; set; }
-        public double MediaCompetencia { get; set; }
-        public double MediaConhecimento { get; set; }
-        public double MediaAptidao { get; set; }
+        public double MediaCompParcial { get; set; }
+        public double MediaConhParcial { get; set; }
+        public double MediaAptParcial { get; set; }
         public double MediaGlobal { get; set; }
         public bool ProntoParaMediaFinal { get; set; }
+        public string StatusCritico { get; set; } = "Verde";
     }
 }
