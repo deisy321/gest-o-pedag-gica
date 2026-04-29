@@ -9,25 +9,21 @@
 @inject IJSRuntime JS
 
 <style>
-    @* Animação para o botão de recuperação crítica *@
     @@keyframes pulse-red {
-        0%
+        0% {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+        }
 
-    {
-        transform: scale(0.95);
-        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
-    }
+        70% {
+            transform: scale(1);
+            box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+        }
 
-    70% {
-        transform: scale(1);
-        box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
-    }
-
-    100% {
-        transform: scale(0.95);
-        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
-    }
-
+        100% {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+        }
     }
 
     .btn-recuperar-urgente {
@@ -43,7 +39,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold m-0">Ficha Técnica: @(AlunoSelecionado?.Nome ?? "Carregando...")</h2>
-            <p class="text-muted small">Gestão de Progressão e Planos de Recuperação</p>
+            <p class="text-muted small">Média por Vertentes e Planos de Recuperação</p>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-success rounded-pill px-4" @onclick="IrParaAvaliacao">Avaliar Aluno</button>
@@ -57,23 +53,37 @@
     }
     else
     {
-        @* SEÇÃO DE ALERTAS CRÍTICOS *@
+        @* SEÇÃO DE ALERTAS: MÉDIAS DE VERTENTES NEGATIVAS *@
         @if (VertentesCriticas.Any())
         {
             <div class="card border-0 shadow-sm mb-4" style="border-radius: 15px;">
                 <div class="card-body">
-                    <h5 class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Atenção: Vertentes Críticas</h5>
+                    <h5 class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Atenção: Médias Críticas no Módulo</h5>
                     <div class="row g-3">
                         @foreach (var crit in VertentesCriticas)
                         {
                             <div class="col-md-4">
-                                <div class="p-3 border rounded bg-white shadow-sm">
+                                <div class="p-3 border rounded bg-white shadow-sm @(crit.TemRecuperacaoAtiva ? "border-warning border-3" : "border-danger")">
                                     <div class="small text-muted text-uppercase fw-bold">@crit.ModuloNome</div>
                                     <div class="d-flex justify-content-between align-items-center mt-2">
-                                        <span class="badge bg-danger">@crit.TipoVertente: @crit.Nota.ToString("F1")</span>
-                                        <button class="btn btn-sm btn-danger btn-recuperar-urgente" @onclick="() => AbrirPainelRecuperacao(crit)">Recuperar</button>
+                                        <div>
+                                            <span class="badge @(crit.TemRecuperacaoAtiva ? "bg-warning text-dark" : "bg-danger")">
+                                                Média @crit.TipoVertente: @crit.NotaMedia.ToString("F1")
+                                            </span>
+                                        </div>
+
+                                        @if (crit.TemRecuperacaoAtiva)
+                                        {
+                                            <span class="badge bg-info text-dark">Em Recuperação</span>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-danger btn-recuperar-urgente" @onclick="() => AbrirPainelRecuperacao(crit)">Recuperar Vertente</button>
+                                        }
                                     </div>
-                                    <div class="mt-1 text-muted" style="font-size: 10px;">Origem: @crit.TrabalhoTitulo</div>
+                                    <div class="mt-2 text-muted small">
+                                        Calculado com base em @crit.QtdTrabalhos trabalhos.
+                                    </div>
                                 </div>
                             </div>
                         }
@@ -82,49 +92,54 @@
             </div>
         }
 
-        @* TABELA DE PROGRESSO POR MÓDULO *@
+        @* PANORAMA DOS MÓDULOS *@
         <div class="card border-0 shadow-sm p-4" style="border-radius: 15px;">
             <table class="table align-middle">
                 <thead class="table-light">
                     <tr>
-                        <th>Módulo / Disciplina</th>
-                        <th>Carga Horária (Progresso)</th>
-                        <th>Total de Vertentes</th>
-                        <th class="text-center">Estado / Média Global</th>
+                        <th>Módulo</th>
+                        <th>Carga Horária</th>
+                        <th>Estado das Vertentes</th>
+                        <th class="text-center">Média Final do Módulo</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var m in PanoramaModulos)
                     {
-                        bool trancado = VertentesCriticas.Any(vc => vc.ModuloId == m.ModuloId);
+                        bool temNegativa = VertentesCriticas.Any(vc => vc.ModuloId == m.ModuloId);
+                        bool emRecuperacao = VertentesCriticas.Any(vc => vc.ModuloId == m.ModuloId && vc.TemRecuperacaoAtiva);
+
                         <tr>
                             <td>
                                 <div class="fw-bold">@m.ModuloNome</div>
                                 <div class="text-muted small">@m.DisciplinaNome</div>
                             </td>
                             <td>
-                                <div class="d-flex align-items-center">
-                                    <span class="me-2 small fw-bold">@m.HorasConsumidas / @m.HorasTotais h</span>
-                                    <div class="progress flex-grow-1" style="height: 8px;">
-                                        <div class="progress-bar @(m.HorasConsumidas >= m.HorasTotais ? "bg-success" : "bg-primary")"
-                                             style="width: @(m.CalcularPercentualHoras())%"></div>
-                                    </div>
+                                <div class="small fw-bold">@m.HorasConsumidas / @m.HorasTotais h</div>
+                                <div class="progress" style="height: 6px; width: 100px;">
+                                    <div class="progress-bar bg-primary" style="width: @(m.CalcularPercentualHoras())%"></div>
                                 </div>
                             </td>
-                            <td><span class="badge bg-light text-dark border">@m.TotalVertentesAvaleadas Vertentes</span></td>
-                            <td class="text-center">
-                                @if (trancado)
+                            <td>
+                                @foreach (var v in m.MediasPorTipo)
                                 {
-                                    <div class="text-danger">
-                                        <i class="bi bi-lock-fill fs-4"></i>
-                                        <div class="fw-bold small">TRANCADO</div>
-                                    </div>
+                                    <span class="badge @(v.Value >= 9.5m ? "bg-light text-success border-success" : "bg-light text-danger border-danger") border me-1">
+                                        @v.Key: @v.Value.ToString("F1")
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (temNegativa && !emRecuperacao)
+                                {
+                                    <div class="text-danger"><i class="bi bi-lock-fill"></i> <span class="fw-bold">TRANCADO</span></div>
+                                }
+                                else if (emRecuperacao)
+                                {
+                                    <div class="text-warning"><i class="bi bi-hourglass-split"></i> <span class="fw-bold">REVISÃO</span></div>
                                 }
                                 else
                                 {
-                                    <span class="badge @(m.MediaModulo >= 9.5m ? "bg-success" : "bg-warning text-dark") fs-6">
-                                        @m.MediaModulo.ToString("F1")
-                                    </span>
+                                    <span class="badge bg-success fs-6">@m.MediaGlobal.ToString("F1")</span>
                                 }
                             </td>
                         </tr>
@@ -135,39 +150,25 @@
     }
 </div>
 
-@* MODAL DE CRIAÇÃO DO PLANO DE RECUPERAÇÃO *@
+@* MODAL DE RECUPERAÇÃO *@
 @if (MostrarModalRecuperacao)
 {
     <div class="modal-backdrop fade show"></div>
     <div class="modal d-block" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content shadow-lg border-0">
+            <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Criar Plano de Recuperação</h5>
+                    <h5 class="modal-title">Recuperação de Vertente: @CriticaParaRecuperar?.TipoVertente</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="() => MostrarModalRecuperacao = false"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-info small">
-                        Este plano será atribuído ao aluno para recuperar a vertente <strong>@CriticaParaRecuperar?.TipoVertente</strong> do módulo <strong>@CriticaParaRecuperar?.ModuloNome</strong>.
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Título do Trabalho</label>
-                        <input type="text" class="form-control" @bind="TituloRecuperacao" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Instruções de Recuperação</label>
-                        <textarea class="form-control" rows="4" @bind="DescricaoRecuperacao" placeholder="Descreva o que o aluno deve realizar para obter aproveitamento..."></textarea>
-                    </div>
+                    <p>Este trabalho irá somar à média da vertente <strong>@CriticaParaRecuperar?.TipoVertente</strong> para ajudar o aluno a atingir os 9.5 valores necessários no módulo.</p>
+                    <input type="text" class="form-control mb-2" @bind="TituloRecuperacao" placeholder="Título do plano..." />
+                    <textarea class="form-control" rows="3" @bind="DescricaoRecuperacao" placeholder="Instruções..."></textarea>
                 </div>
-                <div class="modal-footer bg-light">
+                <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="() => MostrarModalRecuperacao = false">Cancelar</button>
-                    <button class="btn btn-danger" @onclick="ConfirmarCriacaoRecuperacao" disabled="@IsSaving">
-                        @if (IsSaving)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1"></span>
-                        }
-                        Atribuir Recuperação
-                    </button>
+                    <button class="btn btn-danger" @onclick="ConfirmarCriacaoRecuperacao" disabled="@IsSaving">Atribuir Plano</button>
                 </div>
             </div>
         </div>
@@ -181,7 +182,6 @@
     private List<CriticaModel> VertentesCriticas = new();
     private bool IsLoading = true;
     private bool IsSaving = false;
-
     private bool MostrarModalRecuperacao = false;
     private CriticaModel? CriticaParaRecuperar;
     private string TituloRecuperacao = "";
@@ -201,7 +201,6 @@
                 ProcessarDados(trabalhos ?? new List<Trabalho>());
             }
         }
-        catch (Exception ex) { Console.WriteLine($"Erro ao carregar dados: {ex.Message}"); }
         finally { IsLoading = false; }
     }
 
@@ -210,101 +209,81 @@
         VertentesCriticas.Clear();
         PanoramaModulos.Clear();
 
-        foreach (var t in trabalhos)
+        // Agrupar todos os dados por Módulo para calcular médias de vertentes
+        var gruposPorModulo = trabalhos.GroupBy(t => new { t.ModuloId, Nome = t.Modulo?.Nome });
+
+        foreach (var grupo in gruposPorModulo)
         {
-            if (t.TrabalhoVertentes == null) continue;
-            foreach (var v in t.TrabalhoVertentes.Where(x => x.Nota.HasValue && x.Nota < 9.5m))
+            var moduloId = grupo.Key.ModuloId ?? 0;
+
+            // Calcular Média por cada Tipo de Vertente (Atitude, Prática, etc)
+            var mediasVertentes = grupo.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                .Where(v => v.Nota.HasValue)
+                .GroupBy(v => v.Tipo)
+                .Select(g => new { Tipo = g.Key ?? "Geral", Media = g.Average(v => v.Nota!.Value), Qtd = g.Count() })
+                .ToList();
+
+            // Verificar se alguma dessas médias é < 9.5
+            foreach (var mv in mediasVertentes.Where(x => x.Media < 9.5m))
             {
+                bool recAtiva = trabalhos.Any(t => t.ModuloId == moduloId && t.IsPlanoRecuperacao && t.Status != "Avaliado" && t.TrabalhoVertentes.Any(v => v.Tipo == mv.Tipo));
+
                 VertentesCriticas.Add(new CriticaModel
                 {
-                    ModuloId = t.ModuloId ?? 0,
-                    ModuloNome = t.Modulo?.Nome ?? "N/A",
-                    TrabalhoTitulo = t.Titulo ?? "Sem Título",
-                    TipoVertente = v.Tipo ?? "Geral",
-                    Nota = v.Nota.Value,
-                    TrabalhoOriginalId = t.Id,
-                    DisciplinaId = t.DisciplinaId ?? 0
+                    ModuloId = moduloId,
+                    ModuloNome = grupo.Key.Nome ?? "N/A",
+                    TipoVertente = mv.Tipo,
+                    NotaMedia = mv.Media,
+                    QtdTrabalhos = mv.Qtd,
+                    TemRecuperacaoAtiva = recAtiva,
+                    DisciplinaId = grupo.First().DisciplinaId ?? 0
                 });
             }
-        }
 
-        PanoramaModulos = trabalhos
-            .GroupBy(t => new { ModId = t.ModuloId ?? 0, Nome = t.Modulo?.Nome ?? "Módulo" })
-            .Select(g =>
+            // Criar panorama para a tabela[cite: 1]
+            PanoramaModulos.Add(new ModuloAnalise
             {
-                var notas = g.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                             .Where(v => v.Nota.HasValue)
-                             .Select(v => v.Nota!.Value).ToList();
-                return new ModuloAnalise
-                {
-                    ModuloId = g.Key.ModId,
-                    ModuloNome = g.Key.Nome,
-                    DisciplinaNome = g.FirstOrDefault()?.Disciplina?.Nome ?? "N/A",
-                    HorasTotais = g.FirstOrDefault()?.Modulo?.TotalHoras ?? 0,
-                    HorasConsumidas = g.Sum(x => x.HorasAtribuidas),
-                    TotalVertentesAvaleadas = notas.Count,
-                    MediaModulo = notas.Any() ? notas.Average() : 0m
-                };
-            }).ToList();
+                ModuloId = moduloId,
+                ModuloNome = grupo.Key.Nome ?? "Módulo",
+                DisciplinaNome = grupo.First().Disciplina?.Nome ?? "N/A",
+                HorasTotais = grupo.First().Modulo?.TotalHoras ?? 0,
+                HorasConsumidas = grupo.Sum(x => x.HorasAtribuidas),
+                MediasPorTipo = mediasVertentes.ToDictionary(x => x.Tipo, x => x.Media),
+                MediaGlobal = mediasVertentes.Any() ? mediasVertentes.Average(x => x.Media) : 0
+            });
+        }
     }
 
     private void AbrirPainelRecuperacao(CriticaModel crit)
     {
         CriticaParaRecuperar = crit;
-        TituloRecuperacao = $"PLANO DE RECUPERAÇÃO: {crit.ModuloNome}";
-        DescricaoRecuperacao = "";
+        TituloRecuperacao = $"Plano de Recuperação: {crit.TipoVertente} - {crit.ModuloNome}";
         MostrarModalRecuperacao = true;
     }
 
     private async Task ConfirmarCriacaoRecuperacao()
     {
         if (CriticaParaRecuperar == null || string.IsNullOrWhiteSpace(DescricaoRecuperacao)) return;
-
         try
         {
             IsSaving = true;
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var professorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-
             var novoTrabalho = new Trabalho
             {
                 Titulo = TituloRecuperacao,
                 ConteudoTexto = DescricaoRecuperacao,
                 AlunoId = AlunoSelecionado!.UserId,
-                ProfessorId = professorId,
+                ProfessorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value,
                 ModuloId = CriticaParaRecuperar.ModuloId,
                 DisciplinaId = CriticaParaRecuperar.DisciplinaId,
-                DataCriacao = DateTime.UtcNow,
-                PrazoEntrega = DateTime.UtcNow.AddDays(7),
                 IsPlanoRecuperacao = true,
-                HorasAtribuidas = 0,
                 Status = "Pendente",
-                Ativo = true
+                DataCriacao = DateTime.UtcNow
             };
-
-            int novoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
-
-            await TrabalhoService.AddVertenteAsync(new TrabalhoVertente
-            {
-                TrabalhoId = novoId,
-                Tipo = CriticaParaRecuperar.TipoVertente,
-                ConteudoTexto = "Avaliação resultante do plano de recuperação."
-            });
-
-            // Feedback e Atualização da UI
-            await JS.InvokeVoidAsync("alert", "Plano de recuperação atribuído com sucesso!");
-
+            int id = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
+            await TrabalhoService.AddVertenteAsync(new TrabalhoVertente { TrabalhoId = id, Tipo = CriticaParaRecuperar.TipoVertente });
             MostrarModalRecuperacao = false;
-            TituloRecuperacao = "";
-            DescricaoRecuperacao = "";
-
-            // Recarrega os dados da ficha para refletir as mudanças imediatamente
             await CarregarDados();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Erro ao salvar: {ex.Message}");
-            await JS.InvokeVoidAsync("alert", "Erro ao processar a solicitação.");
         }
         finally { IsSaving = false; }
     }
@@ -319,19 +298,19 @@
         public string DisciplinaNome { get; set; } = "";
         public int HorasTotais { get; set; }
         public int HorasConsumidas { get; set; }
-        public int TotalVertentesAvaleadas { get; set; }
-        public decimal MediaModulo { get; set; }
-        public double CalcularPercentualHoras() => HorasTotais > 0 ? Math.Min(100.0, (double)(HorasConsumidas * 100) / HorasTotais) : 0;
+        public decimal MediaGlobal { get; set; }
+        public Dictionary<string, decimal> MediasPorTipo { get; set; } = new();
+        public double CalcularPercentualHoras() => HorasTotais > 0 ? (double)(HorasConsumidas * 100) / HorasTotais : 0;
     }
 
     public class CriticaModel
     {
         public int ModuloId { get; set; }
         public int DisciplinaId { get; set; }
-        public int TrabalhoOriginalId { get; set; }
         public string ModuloNome { get; set; } = "";
-        public string TrabalhoTitulo { get; set; } = "";
         public string TipoVertente { get; set; } = "";
-        public decimal Nota { get; set; }
+        public decimal NotaMedia { get; set; }
+        public int QtdTrabalhos { get; set; }
+        public bool TemRecuperacaoAtiva { get; set; }
     }
 }
