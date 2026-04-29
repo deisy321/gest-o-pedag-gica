@@ -8,7 +8,7 @@
 @inject NavigationManager Nav
 
 <style>
-    @@keyframes pulse-red {
+    @("@")keyframes pulse-red {
         0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
         70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
         100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
@@ -53,10 +53,7 @@
                         {
                             bool temVertentesNegativas = m.MediasPorTipo.Any(v => v.Value < 9.5m);
                             bool cargaHorariaCompleta = m.HorasConsumidas >= m.HorasTotais && m.HorasTotais > 0;
-                            
-                            // LÓGICA CORRIGIDA: Só mostra nota se as horas acabaram E se todos os trabalhos foram avaliados
                             bool prontoParaMediaFinal = cargaHorariaCompleta && m.TodosTrabalhosAvaliados;
-
                             bool emRecuperacao = VertentesCriticas.Any(vc => vc.ModuloId == m.ModuloId && vc.TemRecuperacaoAtiva);
 
                             <tr>
@@ -170,8 +167,6 @@
             if (trabalhoComModulo == null) continue;
 
             int horasDoModulo = grupo.Sum(t => t.HorasAtribuidas);
-            
-            // Verifica se todos os trabalhos deste módulo já foram avaliados pelo professor
             bool todosAvaliados = grupo.All(t => t.Status == "Avaliado");
 
             var todasVertentes = grupo.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
@@ -204,7 +199,7 @@
                 HorasConsumidas = horasDoModulo,
                 MediasPorTipo = mediasVertentes,
                 MediaGlobal = mediasVertentes.Any() ? mediasVertentes.Values.Average() : 0,
-                TodosTrabalhosAvaliados = todosAvaliados // Atribui o novo check
+                TodosTrabalhosAvaliados = todosAvaliados
             });
         }
     }
@@ -219,7 +214,7 @@
         public int HorasTotais { get; set; }
         public int HorasConsumidas { get; set; }
         public decimal MediaGlobal { get; set; }
-        public bool TodosTrabalhosAvaliados { get; set; } // Nova propriedade
+        public bool TodosTrabalhosAvaliados { get; set; }
         public Dictionary<string, decimal> MediasPorTipo { get; set; } = new();
         public double CalcularPercentualHoras() => HorasTotais > 0 ? Math.Min(100, (double)(HorasConsumidas * 100) / HorasTotais) : 0;
     }
