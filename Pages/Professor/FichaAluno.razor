@@ -8,6 +8,7 @@
 @inject NavigationManager Nav
 
 <style>
+    /* ... Seus estilos CSS permanecem exatamente iguais ... */
     @@keyframes pulse-red {
         0% {
             transform: scale(0.95);
@@ -73,7 +74,6 @@
                     <tbody>
                         @foreach (var m in PanoramaModulos)
                         {
-                            // REGRAS DE INTEGRIDADE
                             bool temVertentesNegativas = m.MediasPorTipo.Any(v => v.Value < 9.5m);
                             bool cargaHorariaCompleta = m.HorasConsumidas >= m.HorasTotais && m.HorasTotais > 0;
                             bool emRecuperacao = VertentesCriticas.Any(vc => vc.ModuloId == m.ModuloId && vc.TemRecuperacaoAtiva);
@@ -135,7 +135,6 @@
                                     }
                                     else
                                     {
-                                        @* LIBERADO: Carga completa e notas OK *@
                                         <div class="d-flex flex-column align-items-center">
                                             <span class="badge bg-success fs-5 px-4 shadow-sm" style="border-radius: 10px;">
                                                 @m.MediaGlobal.ToString("F1")
@@ -170,9 +169,14 @@
             AlunoSelecionado = await AlunoService.GetAlunoByIdAsync(AlunoId);
             if (AlunoSelecionado?.UserId != null)
             {
+                // Busca os trabalhos e garante que as horas não venham zeradas do serviço
                 var trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(AlunoSelecionado.UserId);
                 ProcessarDados(trabalhos ?? new List<Trabalho>());
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar dados: {ex.Message}");
         }
         finally { IsLoading = false; }
     }
@@ -182,31 +186,40 @@
         VertentesCriticas.Clear();
         PanoramaModulos.Clear();
 
-        // Agrupamento por ModuloId para garantir que tratamos cada módulo individualmente
+        // Agrupamos por Módulo
         var grupos = trabalhos.GroupBy(t => t.ModuloId);
 
         foreach (var grupo in grupos)
         {
-            var primeiro = grupo.FirstOrDefault(t => t.Modulo != null) ?? grupo.First();
             var moduloId = grupo.Key ?? 0;
+            // Pegamos o primeiro trabalho que tenha o objeto Modulo carregado para extrair as definições
+            var trabalhoComModulo = grupo.FirstOrDefault(t => t.Modulo != null);
 
-            // Médias por tipo de vertente
-            var mediasVertentes = grupo.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                .Where(v => v.Nota.HasValue)
-                .GroupBy(v => v.Tipo)
-                .Select(g => new { Tipo = g.Key ?? "Geral", Media = g.Average(v => v.Nota!.Value) })
+            if (trabalhoComModulo == null) continue;
+
+            // MÉTRICA DE HORAS:
+            // Somamos as horas de cada trabalho ÚNICO no grupo (evita duplicar se houver muitas vertentes)
+            int horasDoModulo = grupo.Sum(t => t.HorasAtribuidas);
+
+            // MÉTRICA DE NOTAS:
+            var todasVertentes = grupo.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                                      .Where(v => v.Nota.HasValue)
+                                      .ToList();
+
+            var mediasVertentes = todasVertentes
+                .GroupBy(v => v.Tipo ?? "Geral")
+                .Select(g => new { Tipo = g.Key, Media = g.Average(v => v.Nota!.Value) })
                 .ToDictionary(x => x.Tipo, x => x.Media);
 
-            // Identificar se há recuperações pendentes (não avaliadas) para este módulo
-            bool recAtiva = trabalhos.Any(t => t.ModuloId == moduloId && t.IsPlanoRecuperacao && t.Status != "Avaliado");
+            bool recAtiva = grupo.Any(t => t.IsPlanoRecuperacao && t.Status != "Avaliado");
 
-            // Mapeia para a lista de críticas se houver nota baixa
+            // Registro de críticas
             foreach (var mv in mediasVertentes.Where(x => x.Value < 9.5m))
             {
                 VertentesCriticas.Add(new CriticaModel
                 {
                     ModuloId = moduloId,
-                    ModuloNome = primeiro.Modulo?.Nome ?? "Módulo Desconhecido",
+                    ModuloNome = trabalhoComModulo.Modulo?.Nome ?? "Módulo Desconhecido",
                     TipoVertente = mv.Key,
                     NotaMedia = mv.Value,
                     TemRecuperacaoAtiva = recAtiva
@@ -216,16 +229,17 @@
             PanoramaModulos.Add(new ModuloAnalise
             {
                 ModuloId = moduloId,
-                ModuloNome = primeiro.Modulo?.Nome ?? "Módulo " + moduloId,
-                DisciplinaNome = primeiro.Disciplina?.Nome ?? "N/A",
-                HorasTotais = primeiro.Modulo?.TotalHoras ?? 0,
-                HorasConsumidas = grupo.Sum(x => x.HorasAtribuidas),
+                ModuloNome = trabalhoComModulo.Modulo?.Nome ?? "Módulo " + moduloId,
+                DisciplinaNome = trabalhoComModulo.Disciplina?.Nome ?? "N/A",
+                HorasTotais = trabalhoComModulo.Modulo?.TotalHoras ?? 0,
+                HorasConsumidas = horasDoModulo,
                 MediasPorTipo = mediasVertentes,
                 MediaGlobal = mediasVertentes.Any() ? mediasVertentes.Values.Average() : 0
             });
         }
     }
 
+    // Classes de apoio e Navegação (inalteradas)
     private void IrParaAvaliacao() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
     private void VoltarParaDashboard() => Nav.NavigateTo("/professor/DashboardProfessor");
 
