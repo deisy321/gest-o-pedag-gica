@@ -67,9 +67,9 @@
                                 <td>
                                     <div class="d-flex flex-column gap-1">
                                         <div class="d-flex gap-2">
-                                            <span class="badge border @(m.MediaCompParcial < 10 && m.MediaCompParcial > 0 ? "text-danger border-danger" : "text-muted") p-2">Comp: @m.MediaCompParcial.ToString("F1")</span>
-                                            <span class="badge border @(m.MediaConhParcial < 10 && m.MediaConhParcial > 0 ? "text-danger border-danger" : "text-muted") p-2">Conh: @m.MediaConhParcial.ToString("F1")</span>
-                                            <span class="badge border @(m.MediaAptParcial < 10 && m.MediaAptParcial > 0 ? "text-danger border-danger" : "text-muted") p-2">Apt: @m.MediaAptParcial.ToString("F1")</span>
+                                            <span class="badge border @(m.MediaCompParcial < 9.5 && m.MediaCompParcial > 0 ? "text-danger border-danger" : "text-muted") p-2">Comp: @m.MediaCompParcial.ToString("F1")</span>
+                                            <span class="badge border @(m.MediaConhParcial < 9.5 && m.MediaConhParcial > 0 ? "text-danger border-danger" : "text-muted") p-2">Conh: @m.MediaConhParcial.ToString("F1")</span>
+                                            <span class="badge border @(m.MediaAptParcial < 9.5 && m.MediaAptParcial > 0 ? "text-danger border-danger" : "text-muted") p-2">Apt: @m.MediaAptParcial.ToString("F1")</span>
                                         </div>
 
                                         @if (m.StatusCritico == "Vermelho")
@@ -93,7 +93,7 @@
                                         <span class="badge bg-warning text-dark px-3 py-2">PENDENTE</span>
                                         @if (m.HorasConsumidas < m.HorasTotais)
                                         {
-                                            <div class="x-small text-muted mt-1" style="font-size: 0.7rem;">Horas insuficientes</div>
+                                            <div class="x-small text-muted mt-1" style="font-size: 0.7rem;">Horas insuficientes (@(m.HorasTotais - m.HorasConsumidas)h restantes)</div>
                                         }
                                     }
                                 </td>
@@ -104,12 +104,11 @@
             </div>
         </div>
 
-        @* BOTOES NO FUNDO DA PAGINA *@
         <div class="d-flex justify-content-end gap-2 mt-4 mb-5">
-            <button type="button" class="btn btn-outline-secondary px-4" @onclick="Voltar">
+            <button type="button" class="btn btn-outline-secondary px-4 shadow-sm" @onclick="Voltar">
                 <i class="fas fa-arrow-left"></i> Voltar
             </button>
-            <button type="button" class="btn btn-success px-4" @onclick="IrParaAvaliar">
+            <button type="button" class="btn btn-success px-4 shadow-sm" @onclick="IrParaAvaliar">
                 <i class="fas fa-plus"></i> Avaliar Aluno
             </button>
         </div>
@@ -131,10 +130,13 @@
         }
     }
 
-    // Métodos de navegação explícitos para evitar erro de clique
-    private void Voltar() => Nav.NavigateTo("/professor/ListaAlunos");
+    // Resolvido: Redirecionamento para a Dashboard do Professor
+    private void Voltar() => Nav.NavigateTo("/professor/Dashboard");
+
     private void IrParaAvaliar() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
-    private void CriarRecuperacao(int moduloId) => Nav.NavigateTo($"/professor/CriarRecuperacao/{AlunoId}/{moduloId}");
+
+    // Resolvido: Garante que navega para a página de criação de recuperação
+    private void CriarRecuperacao(int moduloId) => Nav.NavigateTo($"/professor/CriarPlanoRecuperacao/{AlunoId}/{moduloId}");
 
     private void ProcessarLogicaVisual(List<Trabalho> trabalhos)
     {
@@ -146,22 +148,27 @@
                 var listaTrabalhos = grupo.ToList();
                 var todasAsVertentes = listaTrabalhos.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).ToList();
 
+                // Médias
                 double mComp = todasAsVertentes.Where(v => v.Tipo == "Competência" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
                 double mConh = todasAsVertentes.Where(v => v.Tipo == "Conhecimento" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
                 double mApt = todasAsVertentes.Where(v => v.Tipo == "Aptidão" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
 
+                // Lógica de Status
                 string statusCritico = "Verde";
                 bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
-
                 bool temRecupPendente = listaTrabalhos.Any(t => t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase) && t.Status != "Avaliado");
 
                 if (temNotaBaixa && !temRecupPendente) statusCritico = "Vermelho";
                 else if (temRecupPendente) statusCritico = "Amarelo";
 
+                // Resolvido: Lógica de Média Final (Pronto)
                 int horasCons = listaTrabalhos.Sum(t => t.HorasAtribuidas);
                 int horasTot = modulo?.TotalHoras ?? 0;
-                bool todosAvaliados = listaTrabalhos.All(t => t.Status == "Avaliado");
-                bool pronto = (horasCons >= horasTot) && todosAvaliados;
+
+                // Um módulo está pronto se as horas foram atingidas E não há vertentes críticas (notas abaixo de 9.5)
+                bool horasOk = horasCons >= horasTot;
+                bool notasOk = (mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5);
+                bool pronto = horasOk && notasOk;
 
                 double mediaFinal = pronto ? (mComp + mConh + mApt) / 3 : 0;
 
