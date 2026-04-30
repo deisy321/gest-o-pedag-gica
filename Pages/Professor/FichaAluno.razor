@@ -237,23 +237,23 @@
                 var modulo = grupo.First().Modulo;
                 var listaTrabalhosDoModulo = grupo.ToList();
 
-                // 1. Identificar todas as vertentes que vieram de trabalhos de "Recuperação" e já foram avaliadas
+                // 1. Encontrar notas de trabalhos de RECUPERAÇÃO que já foram AVALIADOS
                 var vertentesRecuperacaoAvaliadas = listaTrabalhosDoModulo
                     .Where(t => t.Titulo.Contains("Recuperação") && t.Status == "Avaliado")
                     .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
                     .Where(v => v.Nota.HasValue)
                     .ToList();
 
-                // 2. Identificar as vertentes dos trabalhos normais (não recuperação)
+                // 2. Encontrar notas de trabalhos NORMAIS que já foram AVALIADOS
                 var vertentesNormaisAvaliadas = listaTrabalhosDoModulo
-                    .Where(t => !t.Titulo.Contains("Recuperação"))
+                    .Where(t => !t.Titulo.Contains("Recuperação") && t.Status == "Avaliado")
                     .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
                     .Where(v => v.Nota.HasValue)
                     .ToList();
 
-                // Função Minuciosa: A nota da recuperação SUBSTITUI a média normal se existir para aquele tipo
                 double ObterNotaFinalVertente(string tipo)
                 {
+                    // Prioridade 1: Nota de Recuperação (Substitui a original)
                     var notaRecup = vertentesRecuperacaoAvaliadas
                         .Where(v => v.Tipo == tipo)
                         .OrderByDescending(v => v.TrabalhoId)
@@ -263,6 +263,7 @@
                     if (notaRecup.HasValue)
                         return (double)notaRecup.Value;
 
+                    // Prioridade 2: Média das notas normais
                     var vertentesDoTipo = vertentesNormaisAvaliadas.Where(v => v.Tipo == tipo).ToList();
                     return vertentesDoTipo.Any() ? vertentesDoTipo.Average(v => (double)v.Nota!) : 0;
                 }
@@ -271,19 +272,19 @@
                 double mConh = ObterNotaFinalVertente("Conhecimento");
                 double mApt = ObterNotaFinalVertente("Aptidão");
 
-                // Estado de "Recuperação em Curso": apenas se houver trabalho de recuperação que NÃO esteja avaliado
-                bool temRecupPendente = listaTrabalhosDoModulo.Any(t =>
+                // SÓ fica Amarelo se houver um trabalho de recuperação cujo Status NÃO seja "Avaliado"
+                bool temRecupEmAberto = listaTrabalhosDoModulo.Any(t =>
                     t.Titulo.Contains("Recuperação") &&
                     t.Status != "Avaliado");
 
                 string statusCritico = "Verde";
 
-                // Nota baixa: considera as médias após a substituição
+                // Nota baixa após substituição?
                 bool temNotaBaixaAposSubstituicao = (mComp > 0 && mComp < 9.5) ||
                                                     (mConh > 0 && mConh < 9.5) ||
                                                     (mApt > 0 && mApt < 9.5);
 
-                if (temRecupPendente)
+                if (temRecupEmAberto)
                     statusCritico = "Amarelo";
                 else if (temNotaBaixaAposSubstituicao)
                     statusCritico = "Vermelho";
@@ -294,7 +295,8 @@
                 bool horasOk = horasCons >= horasTot;
                 bool notasOk = (mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5);
 
-                bool pronto = horasOk && notasOk && !temRecupPendente;
+                // Pronto se: Horas OK, Notas OK e nenhuma recuperação pendente de nota
+                bool pronto = horasOk && notasOk && !temRecupEmAberto;
 
                 double mediaFinal = pronto ? (mComp + mConh + mApt) / 3 : 0;
 
