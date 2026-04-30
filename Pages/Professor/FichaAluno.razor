@@ -237,24 +237,28 @@
                 var modulo = grupo.First().Modulo;
                 var listaTrabalhosDoModulo = grupo.ToList();
 
-                // 1. Filtra as vertentes de recuperações JÁ AVALIADAS DESTE MÓDULO
+                // 1. Pega as vertentes das recuperações já AVALIADAS (com nota lançada)
                 var recupsAvaliadas = listaTrabalhosDoModulo
                     .Where(t => t.Titulo.Contains("Recuperação") && t.Status == "Avaliado")
                     .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
                     .ToList();
 
-                // 2. Filtra as vertentes normais DESTE MÓDULO
+                // 2. Pega as vertentes dos trabalhos normais
                 var vertentesNormais = listaTrabalhosDoModulo
                     .Where(t => !t.Titulo.Contains("Recuperação"))
                     .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
                     .ToList();
 
-                // Função para calcular média respeitando a substituição pela nota de recuperação
+                // Função que aplica a SUBSTITUIÇÃO da nota
                 double CalcularMedia(string tipo)
                 {
+                    // Busca se existe uma nota de recuperação para este tipo específico (Comp, Conh ou Apt)
                     var notaRecup = recupsAvaliadas.FirstOrDefault(v => v.Tipo == tipo && v.Nota.HasValue)?.Nota;
+
+                    // Se a nota de recuperação existir, ela é a nota oficial (Substituição)
                     if (notaRecup.HasValue) return (double)notaRecup.Value;
 
+                    // Caso contrário, calcula a média normal dos trabalhos
                     return vertentesNormais.Where(v => v.Tipo == tipo && v.Nota.HasValue)
                                            .Average(v => (double?)v.Nota) ?? 0;
                 }
@@ -263,29 +267,30 @@
                 double mConh = CalcularMedia("Conhecimento");
                 double mApt = CalcularMedia("Aptidão");
 
-                // Lógica de Status: Verifica APENAS os trabalhos deste módulo
+                // Estado de "Recuperação em Curso": apenas se houver trabalho de recuperação que NÃO esteja avaliado
                 bool temRecupEmCursoNesteModulo = listaTrabalhosDoModulo.Any(t =>
                     t.Titulo.Contains("Recuperação") &&
                     t.Status != "Avaliado");
 
                 string statusCritico = "Verde";
-                bool temNotaBaixa = (mComp > 0 && mComp < 9.5) ||
-                                   (mConh > 0 && mConh < 9.5) ||
-                                   (mApt > 0 && mApt < 9.5);
+
+                // Nota baixa: considera as médias após a substituição
+                bool temNotaBaixaAposSubstituicao = (mComp > 0 && mComp < 9.5) ||
+                                                   (mConh > 0 && mConh < 9.5) ||
+                                                   (mApt > 0 && mApt < 9.5);
 
                 if (temRecupEmCursoNesteModulo)
-                    statusCritico = "Amarelo";
-                else if (temNotaBaixa)
-                    statusCritico = "Vermelho";
+                    statusCritico = "Amarelo"; // Aviso de "Em curso"
+                else if (temNotaBaixaAposSubstituicao)
+                    statusCritico = "Vermelho"; // Se avaliou a recuperação e a nota ainda é baixa, volta para vermelho
 
-                // Totais de horas deste módulo
                 int horasCons = listaTrabalhosDoModulo.Sum(t => t.HorasAtribuidas);
                 int horasTot = modulo?.TotalHoras ?? 0;
 
                 bool horasOk = horasCons >= horasTot;
                 bool notasOk = (mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5);
 
-                // Módulo só está "Pronto" se não houver recuperação pendente NELE
+                // Pronto apenas se não houver nada pendente e as notas (substituídas) forem boas
                 bool pronto = horasOk && notasOk && !temRecupEmCursoNesteModulo;
 
                 double mediaFinal = pronto ? (mComp + mConh + mApt) / 3 : 0;
