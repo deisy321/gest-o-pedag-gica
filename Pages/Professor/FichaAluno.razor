@@ -129,7 +129,8 @@
                     <p>Você está criando um plano para: <strong>@moduloSelecionadoNome</strong></p>
                     <div class="mb-3">
                         <label class="form-label fw-bold">Descrição da Atividade de Recuperação</label>
-                        <textarea class="form-control" rows="3" placeholder="Ex: Refazer prova teórica ou trabalho prático..."></textarea>
+                        @* Alteração: Adicionado @bind para capturar o texto *@
+                        <textarea class="form-control" rows="3" @bind="descricaoRecuperacao" placeholder="Ex: Refazer prova teórica ou trabalho prático..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -145,32 +146,38 @@
     [Parameter] public int AlunoId { get; set; }
     private Aluno? aluno;
     private List<ModuloResumoUI> ModulosProcessados = new();
+    private List<Trabalho> ListaOriginalTrabalhos = new(); // Para referenciar dados ao salvar
 
     // Lógica do Modal
     private bool exibirModal = false;
     private int moduloSelecionadoId;
     private string moduloSelecionadoNome = "";
+    private string descricaoRecuperacao = "";
 
     protected override async Task OnInitializedAsync()
+    {
+        await CarregarDados();
+    }
+
+    private async Task CarregarDados()
     {
         aluno = await AlunoService.GetAlunoByIdAsync(AlunoId);
         if (aluno != null)
         {
-            var trabalhos = await TrabalhoService.GetTrabalhosByAlunoAsync(aluno.UserId);
-            ProcessarLogicaVisual(trabalhos);
+            ListaOriginalTrabalhos = await TrabalhoService.GetTrabalhosByAlunoAsync(aluno.UserId);
+            ProcessarLogicaVisual(ListaOriginalTrabalhos);
         }
     }
 
-    // Botão Voltar Corrigido (Link minúsculo conforme padrão de rotas do sistema)
     private void Voltar() => Nav.NavigateTo("/professor/dashboard");
 
     private void IrParaAvaliar() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
 
-    // Funções do Modal
     private void AbrirModalRecuperacao(int id, string nome)
     {
         moduloSelecionadoId = id;
         moduloSelecionadoNome = nome;
+        descricaoRecuperacao = "";
         exibirModal = true;
     }
 
@@ -178,9 +185,34 @@
 
     private async Task SalvarRecuperacao()
     {
-        // Aqui você pode adicionar a chamada ao serviço para salvar no banco
+        if (aluno != null && !string.IsNullOrWhiteSpace(descricaoRecuperacao))
+        {
+            // Busca o trabalho anterior deste módulo para copiar DisciplinaId e ProfessorId
+            var refTrabalho = ListaOriginalTrabalhos.FirstOrDefault(t => t.ModuloId == moduloSelecionadoId);
+
+            if (refTrabalho != null)
+            {
+                var novoTrabalho = new Trabalho
+                {
+                    Titulo = "Recuperação", // Essencial para ativar sua lógica do status "Amarelo"
+                    ConteudoTexto = descricaoRecuperacao,
+                    AlunoId = aluno.UserId,
+                    ModuloId = moduloSelecionadoId,
+                    DisciplinaId = refTrabalho.DisciplinaId,
+                    ProfessorId = refTrabalho.ProfessorId,
+                    Status = "Pendente",
+                    DataCriacao = DateTime.Now,
+                    PrazoEntrega = DateTime.Now.AddDays(7),
+                    HorasAtribuidas = 0
+                };
+
+                await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
+            }
+        }
+
         exibirModal = false;
-        Nav.NavigateTo(Nav.Uri, forceLoad: true); // Atualiza a tela
+        await CarregarDados(); // Recarrega os dados para atualizar a tabela e as cores
+        StateHasChanged();
     }
 
     private void ProcessarLogicaVisual(List<Trabalho> trabalhos)
