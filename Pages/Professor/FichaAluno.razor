@@ -74,7 +74,7 @@
 
                                         @if (m.StatusCritico == "Vermelho")
                                         {
-                                            <button class="btn btn-sm btn-danger mt-2 fw-bold" @onclick="() => CriarRecuperacao(m.ModuloId)">
+                                            <button class="btn btn-sm btn-danger mt-2 fw-bold" @onclick="() => AbrirModalRecuperacao(m.ModuloId, m.Nome)">
                                                 <i class="fas fa-tools"></i> Criar Plano de Recuperação
                                             </button>
                                         }
@@ -115,10 +115,41 @@
     }
 </div>
 
+@* MODAL DE RECUPERAÇÃO *@
+@if (exibirModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="fas fa-tools"></i> Novo Plano de Recuperação</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="FecharModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Você está criando um plano para: <strong>@moduloSelecionadoNome</strong></p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descrição da Atividade de Recuperação</label>
+                        <textarea class="form-control" rows="3" placeholder="Ex: Refazer prova teórica ou trabalho prático..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" @onclick="FecharModal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" @onclick="SalvarRecuperacao">Salvar Plano</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public int AlunoId { get; set; }
     private Aluno? aluno;
     private List<ModuloResumoUI> ModulosProcessados = new();
+
+    // Lógica do Modal
+    private bool exibirModal = false;
+    private int moduloSelecionadoId;
+    private string moduloSelecionadoNome = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -130,13 +161,27 @@
         }
     }
 
-    // Resolvido: Redirecionamento para a Dashboard do Professor
-    private void Voltar() => Nav.NavigateTo("/professor/Dashboard");
+    // Botão Voltar Corrigido (Link minúsculo conforme padrão de rotas do sistema)
+    private void Voltar() => Nav.NavigateTo("/professor/dashboard");
 
     private void IrParaAvaliar() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
 
-    // Resolvido: Garante que navega para a página de criação de recuperação
-    private void CriarRecuperacao(int moduloId) => Nav.NavigateTo($"/professor/CriarPlanoRecuperacao/{AlunoId}/{moduloId}");
+    // Funções do Modal
+    private void AbrirModalRecuperacao(int id, string nome)
+    {
+        moduloSelecionadoId = id;
+        moduloSelecionadoNome = nome;
+        exibirModal = true;
+    }
+
+    private void FecharModal() => exibirModal = false;
+
+    private async Task SalvarRecuperacao()
+    {
+        // Aqui você pode adicionar a chamada ao serviço para salvar no banco
+        exibirModal = false;
+        Nav.NavigateTo(Nav.Uri, forceLoad: true); // Atualiza a tela
+    }
 
     private void ProcessarLogicaVisual(List<Trabalho> trabalhos)
     {
@@ -148,12 +193,10 @@
                 var listaTrabalhos = grupo.ToList();
                 var todasAsVertentes = listaTrabalhos.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).ToList();
 
-                // Médias
                 double mComp = todasAsVertentes.Where(v => v.Tipo == "Competência" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
                 double mConh = todasAsVertentes.Where(v => v.Tipo == "Conhecimento" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
                 double mApt = todasAsVertentes.Where(v => v.Tipo == "Aptidão" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
 
-                // Lógica de Status
                 string statusCritico = "Verde";
                 bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
                 bool temRecupPendente = listaTrabalhos.Any(t => t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase) && t.Status != "Avaliado");
@@ -161,11 +204,9 @@
                 if (temNotaBaixa && !temRecupPendente) statusCritico = "Vermelho";
                 else if (temRecupPendente) statusCritico = "Amarelo";
 
-                // Resolvido: Lógica de Média Final (Pronto)
                 int horasCons = listaTrabalhos.Sum(t => t.HorasAtribuidas);
                 int horasTot = modulo?.TotalHoras ?? 0;
 
-                // Um módulo está pronto se as horas foram atingidas E não há vertentes críticas (notas abaixo de 9.5)
                 bool horasOk = horasCons >= horasTot;
                 bool notasOk = (mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5);
                 bool pronto = horasOk && notasOk;
