@@ -129,7 +129,6 @@
                     <p>Você está criando um plano para: <strong>@moduloSelecionadoNome</strong></p>
                     <div class="mb-3">
                         <label class="form-label fw-bold">Descrição da Atividade de Recuperação</label>
-                        @* Alteração: Adicionado @bind para capturar o texto *@
                         <textarea class="form-control" rows="3" @bind="descricaoRecuperacao" placeholder="Ex: Refazer prova teórica ou trabalho prático..."></textarea>
                     </div>
                 </div>
@@ -146,9 +145,8 @@
     [Parameter] public int AlunoId { get; set; }
     private Aluno? aluno;
     private List<ModuloResumoUI> ModulosProcessados = new();
-    private List<Trabalho> ListaOriginalTrabalhos = new(); // Para referenciar dados ao salvar
+    private List<Trabalho> ListaOriginalTrabalhos = new();
 
-    // Lógica do Modal
     private bool exibirModal = false;
     private int moduloSelecionadoId;
     private string moduloSelecionadoNome = "";
@@ -169,7 +167,7 @@
         }
     }
 
-    private void Voltar() => Nav.NavigateTo("/professor/dashboard");
+    private void Voltar() => Nav.NavigateTo("/professor/dashboardprof");
 
     private void IrParaAvaliar() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
 
@@ -187,14 +185,15 @@
     {
         if (aluno != null && !string.IsNullOrWhiteSpace(descricaoRecuperacao))
         {
-            // Busca o trabalho anterior deste módulo para copiar DisciplinaId e ProfessorId
             var refTrabalho = ListaOriginalTrabalhos.FirstOrDefault(t => t.ModuloId == moduloSelecionadoId);
+            var resumoModulo = ModulosProcessados.FirstOrDefault(m => m.ModuloId == moduloSelecionadoId);
 
-            if (refTrabalho != null)
+            if (refTrabalho != null && resumoModulo != null)
             {
+                // 1. Cria o objeto Trabalho
                 var novoTrabalho = new Trabalho
                 {
-                    Titulo = "Recuperação", // Essencial para ativar sua lógica do status "Amarelo"
+                    Titulo = "Recuperação",
                     ConteudoTexto = descricaoRecuperacao,
                     AlunoId = aluno.UserId,
                     ModuloId = moduloSelecionadoId,
@@ -206,12 +205,30 @@
                     HorasAtribuidas = 0
                 };
 
-                await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
+                // 2. Salva o trabalho e recupera o ID gerado
+                var trabalhoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
+
+                // 3. Identifica qual vertente precisa ser recuperada (Nota < 9.5)
+                string tipoVertente = "Conhecimento"; // Default
+                if (resumoModulo.MediaCompParcial < 9.5 && resumoModulo.MediaCompParcial > 0) tipoVertente = "Competência";
+                else if (resumoModulo.MediaAptParcial < 9.5 && resumoModulo.MediaAptParcial > 0) tipoVertente = "Aptidão";
+                else if (resumoModulo.MediaConhParcial < 9.5 && resumoModulo.MediaConhParcial > 0) tipoVertente = "Conhecimento";
+
+                // 4. CRIA A VERTENTE VINCULADA (Isso resolve o problema da imagem image_0104fc.png)
+                var novaVertente = new TrabalhoVertente
+                {
+                    TrabalhoId = trabalhoId,
+                    Tipo = tipoVertente,
+                    ConteudoTexto = "Atividade: " + descricaoRecuperacao,
+                    Feedback = ""
+                };
+
+                await TrabalhoService.AddVertenteAsync(novaVertente);
             }
         }
 
         exibirModal = false;
-        await CarregarDados(); // Recarrega os dados para atualizar a tabela e as cores
+        await CarregarDados();
         StateHasChanged();
     }
 
