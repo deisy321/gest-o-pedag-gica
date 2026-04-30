@@ -223,17 +223,17 @@
 
                 double ObterNotaFinalVertente(string tipo)
                 {
-                    // Prioridade 1: Nota de Recuperação AVALIADA
+                    // 1. Procurar primeiro em trabalhos de "Recuperação" que já foram AVALIADOS
                     var notaRecup = listaTrabalhosDoModulo
-                        .Where(t => t.Titulo.Contains("Recuperação") && t.Status == "Avaliado")
+                        .Where(t => t.Titulo != null && t.Titulo.Contains("Recuperação") && t.Status == "Avaliado")
                         .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
                         .FirstOrDefault(v => v.Tipo == tipo && v.Nota.HasValue)?.Nota;
 
                     if (notaRecup.HasValue) return (double)notaRecup.Value;
 
-                    // Prioridade 2: Notas Normais (Mesmo que não estejam explicitamente "Avaliadas", se têm nota, mostramos)
+                    // 2. Se não houver recuperação avaliada, usa as notas normais
                     var notasNormais = listaTrabalhosDoModulo
-                        .Where(t => !t.Titulo.Contains("Recuperação"))
+                        .Where(t => t.Titulo == null || !t.Titulo.Contains("Recuperação"))
                         .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
                         .Where(v => v.Tipo == tipo && v.Nota.HasValue)
                         .ToList();
@@ -245,7 +245,11 @@
                 double mConh = ObterNotaFinalVertente("Conhecimento");
                 double mApt = ObterNotaFinalVertente("Aptidão");
 
-                bool temRecupEmAberto = listaTrabalhosDoModulo.Any(t => t.Titulo.Contains("Recuperação") && t.Status != "Avaliado");
+                // Lógica de Status (Cores):
+                // AMARELO: Existe trabalho de Recuperação criado, mas ainda está "Pendente"
+                bool temRecupEmAberto = listaTrabalhosDoModulo.Any(t => t.Titulo != null && t.Titulo.Contains("Recuperação") && t.Status != "Avaliado");
+
+                // VERMELHO: Alguma nota está abaixo de 9.5 (e não há recuperação pendente)
                 bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
 
                 string statusCritico = "Verde";
@@ -254,6 +258,8 @@
 
                 int horasCons = listaTrabalhosDoModulo.Sum(t => t.HorasAtribuidas);
                 int horasTot = modulo?.TotalHoras ?? 0;
+
+                // Só gera média final se: Horas OK, Notas OK (>= 9.5) e nenhuma recuperação por avaliar
                 bool pronto = horasCons >= horasTot && mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5 && !temRecupEmAberto;
 
                 return new ModuloResumoUI
