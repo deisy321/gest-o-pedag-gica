@@ -115,7 +115,6 @@
     }
 </div>
 
-@* MODAL DE RECUPERAÇÃO *@
 @if (exibirModal)
 {
     <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
@@ -146,16 +145,12 @@
     private Aluno? aluno;
     private List<ModuloResumoUI> ModulosProcessados = new();
     private List<Trabalho> ListaOriginalTrabalhos = new();
-
     private bool exibirModal = false;
     private int moduloSelecionadoId;
     private string moduloSelecionadoNome = "";
     private string descricaoRecuperacao = "";
 
-    protected override async Task OnInitializedAsync()
-    {
-        await CarregarDados();
-    }
+    protected override async Task OnInitializedAsync() => await CarregarDados();
 
     private async Task CarregarDados()
     {
@@ -168,17 +163,8 @@
     }
 
     private void Voltar() => Nav.NavigateTo("/professor/dashboard");
-
     private void IrParaAvaliar() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
-
-    private void AbrirModalRecuperacao(int id, string nome)
-    {
-        moduloSelecionadoId = id;
-        moduloSelecionadoNome = nome;
-        descricaoRecuperacao = "";
-        exibirModal = true;
-    }
-
+    private void AbrirModalRecuperacao(int id, string nome) { moduloSelecionadoId = id; moduloSelecionadoNome = nome; exibirModal = true; }
     private void FecharModal() => exibirModal = false;
 
     private async Task SalvarRecuperacao()
@@ -209,7 +195,6 @@
                 string tipoVertente = "Conhecimento";
                 if (resumoModulo.MediaCompParcial < 9.5 && resumoModulo.MediaCompParcial > 0) tipoVertente = "Competência";
                 else if (resumoModulo.MediaAptParcial < 9.5 && resumoModulo.MediaAptParcial > 0) tipoVertente = "Aptidão";
-                else if (resumoModulo.MediaConhParcial < 9.5 && resumoModulo.MediaConhParcial > 0) tipoVertente = "Conhecimento";
 
                 var novaVertente = new TrabalhoVertente
                 {
@@ -222,7 +207,6 @@
                 await TrabalhoService.AddVertenteAsync(novaVertente);
             }
         }
-
         exibirModal = false;
         await CarregarDados();
         StateHasChanged();
@@ -237,68 +221,40 @@
                 var modulo = grupo.First().Modulo;
                 var listaTrabalhosDoModulo = grupo.ToList();
 
-                // 1. Encontrar notas de trabalhos de RECUPERAÇÃO que já foram AVALIADOS
-                var vertentesRecuperacaoAvaliadas = listaTrabalhosDoModulo
-                    .Where(t => t.Titulo.Contains("Recuperação") && t.Status == "Avaliado")
-                    .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                    .Where(v => v.Nota.HasValue)
-                    .ToList();
-
-                // 2. Encontrar notas de trabalhos NORMAIS que já foram AVALIADOS
-                var vertentesNormaisAvaliadas = listaTrabalhosDoModulo
-                    .Where(t => !t.Titulo.Contains("Recuperação") && t.Status == "Avaliado")
-                    .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                    .Where(v => v.Nota.HasValue)
-                    .ToList();
-
                 double ObterNotaFinalVertente(string tipo)
                 {
-                    // Prioridade 1: Nota de Recuperação (Substitui a original)
-                    var notaRecup = vertentesRecuperacaoAvaliadas
-                        .Where(v => v.Tipo == tipo)
-                        .OrderByDescending(v => v.TrabalhoId)
-                        .Select(v => v.Nota)
-                        .FirstOrDefault();
+                    // Prioridade 1: Nota de Recuperação AVALIADA
+                    var notaRecup = listaTrabalhosDoModulo
+                        .Where(t => t.Titulo.Contains("Recuperação") && t.Status == "Avaliado")
+                        .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                        .FirstOrDefault(v => v.Tipo == tipo && v.Nota.HasValue)?.Nota;
 
-                    if (notaRecup.HasValue)
-                        return (double)notaRecup.Value;
+                    if (notaRecup.HasValue) return (double)notaRecup.Value;
 
-                    // Prioridade 2: Média das notas normais
-                    var vertentesDoTipo = vertentesNormaisAvaliadas.Where(v => v.Tipo == tipo).ToList();
-                    return vertentesDoTipo.Any() ? vertentesDoTipo.Average(v => (double)v.Nota!) : 0;
+                    // Prioridade 2: Notas Normais (Mesmo que não estejam explicitamente "Avaliadas", se têm nota, mostramos)
+                    var notasNormais = listaTrabalhosDoModulo
+                        .Where(t => !t.Titulo.Contains("Recuperação"))
+                        .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                        .Where(v => v.Tipo == tipo && v.Nota.HasValue)
+                        .ToList();
+
+                    return notasNormais.Any() ? notasNormais.Average(v => (double)v.Nota!) : 0;
                 }
 
                 double mComp = ObterNotaFinalVertente("Competência");
                 double mConh = ObterNotaFinalVertente("Conhecimento");
                 double mApt = ObterNotaFinalVertente("Aptidão");
 
-                // SÓ fica Amarelo se houver um trabalho de recuperação cujo Status NÃO seja "Avaliado"
-                bool temRecupEmAberto = listaTrabalhosDoModulo.Any(t =>
-                    t.Titulo.Contains("Recuperação") &&
-                    t.Status != "Avaliado");
+                bool temRecupEmAberto = listaTrabalhosDoModulo.Any(t => t.Titulo.Contains("Recuperação") && t.Status != "Avaliado");
+                bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
 
                 string statusCritico = "Verde";
-
-                // Nota baixa após substituição?
-                bool temNotaBaixaAposSubstituicao = (mComp > 0 && mComp < 9.5) ||
-                                                    (mConh > 0 && mConh < 9.5) ||
-                                                    (mApt > 0 && mApt < 9.5);
-
-                if (temRecupEmAberto)
-                    statusCritico = "Amarelo";
-                else if (temNotaBaixaAposSubstituicao)
-                    statusCritico = "Vermelho";
+                if (temRecupEmAberto) statusCritico = "Amarelo";
+                else if (temNotaBaixa) statusCritico = "Vermelho";
 
                 int horasCons = listaTrabalhosDoModulo.Sum(t => t.HorasAtribuidas);
                 int horasTot = modulo?.TotalHoras ?? 0;
-
-                bool horasOk = horasCons >= horasTot;
-                bool notasOk = (mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5);
-
-                // Pronto se: Horas OK, Notas OK e nenhuma recuperação pendente de nota
-                bool pronto = horasOk && notasOk && !temRecupEmAberto;
-
-                double mediaFinal = pronto ? (mComp + mConh + mApt) / 3 : 0;
+                bool pronto = horasCons >= horasTot && mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5 && !temRecupEmAberto;
 
                 return new ModuloResumoUI
                 {
@@ -309,7 +265,7 @@
                     MediaCompParcial = mComp,
                     MediaConhParcial = mConh,
                     MediaAptParcial = mApt,
-                    MediaGlobal = mediaFinal,
+                    MediaGlobal = pronto ? (mComp + mConh + mApt) / 3 : 0,
                     ProntoParaMediaFinal = pronto,
                     StatusCritico = statusCritico
                 };
