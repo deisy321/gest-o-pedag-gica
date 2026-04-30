@@ -167,7 +167,7 @@
         }
     }
 
-    private void Voltar() => Nav.NavigateTo("/professor/dashboardprof");
+    private void Voltar() => Nav.NavigateTo("/professor/dashboard");
 
     private void IrParaAvaliar() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
 
@@ -190,7 +190,6 @@
 
             if (refTrabalho != null && resumoModulo != null)
             {
-                // 1. Cria o objeto Trabalho
                 var novoTrabalho = new Trabalho
                 {
                     Titulo = "Recuperação",
@@ -205,16 +204,13 @@
                     HorasAtribuidas = 0
                 };
 
-                // 2. Salva o trabalho e recupera o ID gerado
                 var trabalhoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
 
-                // 3. Identifica qual vertente precisa ser recuperada (Nota < 9.5)
-                string tipoVertente = "Conhecimento"; // Default
+                string tipoVertente = "Conhecimento";
                 if (resumoModulo.MediaCompParcial < 9.5 && resumoModulo.MediaCompParcial > 0) tipoVertente = "Competência";
                 else if (resumoModulo.MediaAptParcial < 9.5 && resumoModulo.MediaAptParcial > 0) tipoVertente = "Aptidão";
                 else if (resumoModulo.MediaConhParcial < 9.5 && resumoModulo.MediaConhParcial > 0) tipoVertente = "Conhecimento";
 
-                // 4. CRIA A VERTENTE VINCULADA (Isso resolve o problema da imagem image_0104fc.png)
                 var novaVertente = new TrabalhoVertente
                 {
                     TrabalhoId = trabalhoId,
@@ -240,25 +236,46 @@
             {
                 var modulo = grupo.First().Modulo;
                 var listaTrabalhos = grupo.ToList();
-                var todasAsVertentes = listaTrabalhos.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).ToList();
 
-                double mComp = todasAsVertentes.Where(v => v.Tipo == "Competência" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
-                double mConh = todasAsVertentes.Where(v => v.Tipo == "Conhecimento" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
-                double mApt = todasAsVertentes.Where(v => v.Tipo == "Aptidão" && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
+                // Separa trabalhos normais de recuperações avaliadas
+                var recupsAvaliadas = listaTrabalhos
+                    .Where(t => t.Titulo.Contains("Recuperação") && t.Status == "Avaliado")
+                    .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                    .ToList();
+
+                var vertentesNormais = listaTrabalhos
+                    .Where(t => !t.Titulo.Contains("Recuperação"))
+                    .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                    .ToList();
+
+                // Lógica de substituição: Se houver nota de recuperação para a vertente, ela substitui a média baixa
+                double CalcularMedia(string tipo)
+                {
+                    var notaRecup = recupsAvaliadas.FirstOrDefault(v => v.Tipo == tipo && v.Nota.HasValue)?.Nota;
+                    if (notaRecup.HasValue) return (double)notaRecup.Value;
+
+                    return vertentesNormais.Where(v => v.Tipo == tipo && v.Nota.HasValue).Average(v => (double?)v.Nota) ?? 0;
+                }
+
+                double mComp = CalcularMedia("Competência");
+                double mConh = CalcularMedia("Conhecimento");
+                double mApt = CalcularMedia("Aptidão");
 
                 string statusCritico = "Verde";
                 bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
-                bool temRecupPendente = listaTrabalhos.Any(t => t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase) && t.Status != "Avaliado");
 
-                if (temNotaBaixa && !temRecupPendente) statusCritico = "Vermelho";
-                else if (temRecupPendente) statusCritico = "Amarelo";
+                // Amarelo apenas se existir recuperação com status diferente de "Avaliado"
+                bool temRecupEmCurso = listaTrabalhos.Any(t => t.Titulo.Contains("Recuperação") && t.Status != "Avaliado");
+
+                if (temRecupEmCurso) statusCritico = "Amarelo";
+                else if (temNotaBaixa) statusCritico = "Vermelho";
 
                 int horasCons = listaTrabalhos.Sum(t => t.HorasAtribuidas);
                 int horasTot = modulo?.TotalHoras ?? 0;
 
                 bool horasOk = horasCons >= horasTot;
                 bool notasOk = (mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5);
-                bool pronto = horasOk && notasOk;
+                bool pronto = horasOk && notasOk && !temRecupEmCurso;
 
                 double mediaFinal = pronto ? (mComp + mConh + mApt) / 3 : 0;
 
