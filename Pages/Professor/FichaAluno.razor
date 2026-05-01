@@ -159,7 +159,7 @@
         }
     }
 
-    private void Voltar() => Nav.NavigateTo("/professor/dashboard");
+    private void Voltar() => Nav.NavigateTo("/professor/DashboardProfessor");
     private void IrParaAvaliar() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
     private void AbrirModalRecuperacao(int id, string nome) { moduloSelecionadoId = id; moduloSelecionadoNome = nome; exibirModal = true; }
     private void FecharModal() => exibirModal = false;
