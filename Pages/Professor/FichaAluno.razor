@@ -215,20 +215,27 @@
 
                 double ObterNotaFinalVertente(string tipo)
                 {
-                    // 1. BUSCA RECUPERAÇÃO AVALIADA (Pega o ID mais alto/recente)
-                    var notaRecuperacao = listaTrabalhos
-                        .Where(t => t.Titulo != null && t.Titulo.Contains("Recuperação") && t.Status == "Avaliado")
+                    // 1. BUSCA RECUPERAÇÃO (Insensível a maiúsculas/minúsculas e espaços)
+                    var trabalhoRecuperacao = listaTrabalhos
+                        .Where(t => t.Titulo != null &&
+                               t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase) &&
+                               (t.Status != null && t.Status.Trim().Equals("Avaliado", StringComparison.OrdinalIgnoreCase)))
                         .OrderByDescending(t => t.Id)
-                        .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                        .FirstOrDefault(v => v.Tipo == tipo && v.Nota.HasValue)?.Nota;
+                        .FirstOrDefault();
 
-                    if (notaRecuperacao.HasValue) return (double)notaRecuperacao.Value;
+                    if (trabalhoRecuperacao != null)
+                    {
+                        var notaRec = trabalhoRecuperacao.TrabalhoVertentes?
+                            .FirstOrDefault(v => v.Tipo != null && v.Tipo.Trim().Equals(tipo.Trim(), StringComparison.OrdinalIgnoreCase))?.Nota;
+
+                        if (notaRec.HasValue) return (double)notaRec.Value;
+                    }
 
                     // 2. SE NÃO TEM RECUPERAÇÃO AVALIADA, PEGA A MÉDIA DOS TRABALHOS NORMAIS
                     var notasNormais = listaTrabalhos
-                        .Where(t => t.Titulo == null || !t.Titulo.Contains("Recuperação"))
+                        .Where(t => t.Titulo == null || !t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase))
                         .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                        .Where(v => v.Tipo == tipo && v.Nota.HasValue)
+                        .Where(v => v.Tipo != null && v.Tipo.Trim().Equals(tipo.Trim(), StringComparison.OrdinalIgnoreCase) && v.Nota.HasValue)
                         .ToList();
 
                     return notasNormais.Any() ? notasNormais.Average(v => (double)v.Nota!) : 0;
@@ -238,11 +245,12 @@
                 double mConh = ObterNotaFinalVertente("Conhecimento");
                 double mApt = ObterNotaFinalVertente("Aptidão");
 
-                // LÓGICA DE STATUS (CORES)
-                // Amarelo: Só se existir recuperação que ainda NÃO foi avaliada
-                bool recupPendente = listaTrabalhos.Any(t => t.Titulo != null && t.Titulo.Contains("Recuperação") && t.Status != "Avaliado");
+                // Lógica de Status (Cores)
+                bool recupPendente = listaTrabalhos.Any(t =>
+                    t.Titulo != null &&
+                    t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase) &&
+                    (t.Status == null || !t.Status.Trim().Equals("Avaliado", StringComparison.OrdinalIgnoreCase)));
 
-                // Vermelho: Se a nota final (já considerando recuperações) ainda for baixa
                 bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
 
                 string status = "Verde";
