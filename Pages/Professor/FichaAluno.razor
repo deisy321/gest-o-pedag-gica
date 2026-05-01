@@ -1,6 +1,7 @@
 ﻿@page "/professor/FichaAluno/{AlunoId:int}"
 @using gestaopedagogica.Models
 @using gestaopedagogica.Services
+@using System.Globalization
 @inject TrabalhoService TrabalhoService
 @inject AlunoService AlunoService
 @inject NavigationManager Nav
@@ -139,8 +140,8 @@
 @code {
     [Parameter] public int AlunoId { get; set; }
     private Aluno? aluno;
-    private List<ModuloResumoUI> ModulosProcessados = new();
-    private List<Trabalho> ListaOriginalTrabalhos = new();
+    private List<ModuloResumoUI> ModulosProcessados = [];
+    private List<Trabalho> ListaOriginalTrabalhos = [];
     private bool exibirModal = false;
     private int moduloSelecionadoId;
     private string moduloSelecionadoNome = "";
@@ -205,6 +206,20 @@
 
     private void ProcessarLogicaVisual(List<Trabalho> trabalhos)
     {
+        // Correção: StringComparison está em System. CompareOptions em System.Globalization
+        bool CompararTexto(string? t1, string t2)
+        {
+            if (t1 == null) return false;
+            return string.Compare(t1, t2, CultureInfo.CurrentCulture,
+                   CompareOptions.IgnoreNonSpace | CompareOptions.IgnoreCase) == 0;
+        }
+
+        bool TextoContem(string? texto, string busca)
+        {
+            if (string.IsNullOrEmpty(texto)) return false;
+            return CultureInfo.CurrentCulture.CompareInfo.IndexOf(texto, busca, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
+        }
+
         ModulosProcessados = trabalhos
             .GroupBy(t => t.ModuloId)
             .Select(grupo =>
@@ -213,29 +228,25 @@
                 var modulo = grupo.First().Modulo;
                 var listaTrabalhos = grupo.ToList();
 
-                double ObterNotaFinalVertente(string tipo)
+                double ObterNotaFinalVertente(string tipoAlvo)
                 {
-                    // 1. BUSCA RECUPERAÇÃO (Insensível a maiúsculas/minúsculas e espaços)
                     var trabalhoRecuperacao = listaTrabalhos
-                        .Where(t => t.Titulo != null &&
-                               t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase) &&
-                               (t.Status != null && t.Status.Trim().Equals("Avaliado", StringComparison.OrdinalIgnoreCase)))
+                        .Where(t => TextoContem(t.Titulo, "Recuperação") && CompararTexto(t.Status, "Avaliado"))
                         .OrderByDescending(t => t.Id)
                         .FirstOrDefault();
 
                     if (trabalhoRecuperacao != null)
                     {
                         var notaRec = trabalhoRecuperacao.TrabalhoVertentes?
-                            .FirstOrDefault(v => v.Tipo != null && v.Tipo.Trim().Equals(tipo.Trim(), StringComparison.OrdinalIgnoreCase))?.Nota;
+                            .FirstOrDefault(v => CompararTexto(v.Tipo, tipoAlvo))?.Nota;
 
                         if (notaRec.HasValue) return (double)notaRec.Value;
                     }
 
-                    // 2. SE NÃO TEM RECUPERAÇÃO AVALIADA, PEGA A MÉDIA DOS TRABALHOS NORMAIS
                     var notasNormais = listaTrabalhos
-                        .Where(t => t.Titulo == null || !t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase))
-                        .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                        .Where(v => v.Tipo != null && v.Tipo.Trim().Equals(tipo.Trim(), StringComparison.OrdinalIgnoreCase) && v.Nota.HasValue)
+                        .Where(t => !TextoContem(t.Titulo, "Recuperação"))
+                        .SelectMany(t => t.TrabalhoVertentes ?? [])
+                        .Where(v => CompararTexto(v.Tipo, tipoAlvo) && v.Nota.HasValue)
                         .ToList();
 
                     return notasNormais.Any() ? notasNormais.Average(v => (double)v.Nota!) : 0;
@@ -245,11 +256,8 @@
                 double mConh = ObterNotaFinalVertente("Conhecimento");
                 double mApt = ObterNotaFinalVertente("Aptidão");
 
-                // Lógica de Status (Cores)
                 bool recupPendente = listaTrabalhos.Any(t =>
-                    t.Titulo != null &&
-                    t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase) &&
-                    (t.Status == null || !t.Status.Trim().Equals("Avaliado", StringComparison.OrdinalIgnoreCase)));
+                    TextoContem(t.Titulo, "Recuperação") && !CompararTexto(t.Status, "Avaliado"));
 
                 bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
 
