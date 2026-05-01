@@ -206,47 +206,42 @@
 
     private void ProcessarLogicaVisual(List<Trabalho> trabalhos)
     {
-        // Correção: StringComparison está em System. CompareOptions em System.Globalization
-        bool CompararTexto(string? t1, string t2)
-        {
-            if (t1 == null) return false;
-            return string.Compare(t1, t2, CultureInfo.CurrentCulture,
-                   CompareOptions.IgnoreNonSpace | CompareOptions.IgnoreCase) == 0;
-        }
-
-        bool TextoContem(string? texto, string busca)
-        {
-            if (string.IsNullOrEmpty(texto)) return false;
-            return CultureInfo.CurrentCulture.CompareInfo.IndexOf(texto, busca, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
-        }
-
         ModulosProcessados = trabalhos
             .GroupBy(t => t.ModuloId)
             .Select(grupo =>
             {
                 var moduloId = grupo.Key ?? 0;
                 var modulo = grupo.First().Modulo;
-                var listaTrabalhos = grupo.ToList();
+                var listaTrabalhosDoModulo = grupo.ToList();
 
                 double ObterNotaFinalVertente(string tipoAlvo)
                 {
-                    var trabalhoRecuperacao = listaTrabalhos
-                        .Where(t => TextoContem(t.Titulo, "Recuperação") && CompararTexto(t.Status, "Avaliado"))
-                        .OrderByDescending(t => t.Id)
+                    // 1. Tentar encontrar nota em trabalho de Recuperação AVALIADO
+                    var notaRecuperacao = listaTrabalhosDoModulo
+                        .Where(t => t.Titulo != null &&
+                                    t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase) &&
+                                    t.Status != null &&
+                                    t.Status.Equals("Avaliado", StringComparison.OrdinalIgnoreCase))
+                        .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                        .Where(v => v.Tipo != null &&
+                                    v.Tipo.Contains(tipoAlvo, StringComparison.OrdinalIgnoreCase) &&
+                                    v.Nota.HasValue)
+                        .OrderByDescending(v => v.Id)
+                        .Select(v => (double?)v.Nota)
                         .FirstOrDefault();
 
-                    if (trabalhoRecuperacao != null)
+                    if (notaRecuperacao.HasValue)
                     {
-                        var notaRec = trabalhoRecuperacao.TrabalhoVertentes?
-                            .FirstOrDefault(v => CompararTexto(v.Tipo, tipoAlvo))?.Nota;
-
-                        if (notaRec.HasValue) return (double)notaRec.Value;
+                        return notaRecuperacao.Value;
                     }
 
-                    var notasNormais = listaTrabalhos
-                        .Where(t => !TextoContem(t.Titulo, "Recuperação"))
-                        .SelectMany(t => t.TrabalhoVertentes ?? [])
-                        .Where(v => CompararTexto(v.Tipo, tipoAlvo) && v.Nota.HasValue)
+                    // 2. Se não houver recuperação avaliada, calcular média dos trabalhos normais
+                    var notasNormais = listaTrabalhosDoModulo
+                        .Where(t => t.Titulo == null || !t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase))
+                        .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                        .Where(v => v.Tipo != null &&
+                                    v.Tipo.Contains(tipoAlvo, StringComparison.OrdinalIgnoreCase) &&
+                                    v.Nota.HasValue)
                         .ToList();
 
                     return notasNormais.Any() ? notasNormais.Average(v => (double)v.Nota!) : 0;
@@ -256,8 +251,10 @@
                 double mConh = ObterNotaFinalVertente("Conhecimento");
                 double mApt = ObterNotaFinalVertente("Aptidão");
 
-                bool recupPendente = listaTrabalhos.Any(t =>
-                    TextoContem(t.Titulo, "Recuperação") && !CompararTexto(t.Status, "Avaliado"));
+                // Verificar se há alguma recuperação ainda por avaliar (Amarelo)
+                bool recupPendente = listaTrabalhosDoModulo.Any(t =>
+                    t.Titulo != null && t.Titulo.Contains("Recuperação", StringComparison.OrdinalIgnoreCase) &&
+                    (t.Status == null || !t.Status.Equals("Avaliado", StringComparison.OrdinalIgnoreCase)));
 
                 bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
 
@@ -265,7 +262,7 @@
                 if (recupPendente) status = "Amarelo";
                 else if (temNotaBaixa) status = "Vermelho";
 
-                int hCons = listaTrabalhos.Sum(t => t.HorasAtribuidas);
+                int hCons = listaTrabalhosDoModulo.Sum(t => t.HorasAtribuidas);
                 int hTot = modulo?.TotalHoras ?? 0;
 
                 bool aprovado = hCons >= hTot && mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5 && !recupPendente;
