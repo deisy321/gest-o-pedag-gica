@@ -166,45 +166,72 @@
 
     private async Task SalvarRecuperacao()
     {
-        if (aluno != null && !string.IsNullOrWhiteSpace(descricaoRecuperacao))
+        // Validação inicial
+        if (aluno == null || string.IsNullOrWhiteSpace(descricaoRecuperacao)) return;
+
+        // 1. Procurar os dados de referência
+        var refTrabalho = ListaOriginalTrabalhos.FirstOrDefault(t => t.ModuloId == moduloSelecionadoId);
+        var resumoModulo = ModulosProcessados.FirstOrDefault(m => m.ModuloId == moduloSelecionadoId);
+
+        // Se não houver resumo, não sabemos que vertente recuperar
+        if (resumoModulo == null) return;
+
+        try
         {
-            var refTrabalho = ListaOriginalTrabalhos.FirstOrDefault(t => t.ModuloId == moduloSelecionadoId);
-            var resumoModulo = ModulosProcessados.FirstOrDefault(m => m.ModuloId == moduloSelecionadoId);
+            // Pega um trabalho qualquer da lista como plano B caso o refTrabalho seja nulo
+            var trabalhoQualquer = ListaOriginalTrabalhos.FirstOrDefault();
 
-            if (refTrabalho != null && resumoModulo != null)
+            var novoTrabalho = new Trabalho
             {
-                var novoTrabalho = new Trabalho
-                {
-                    Titulo = "Recuperação",
-                    ConteudoTexto = descricaoRecuperacao,
-                    AlunoId = aluno.UserId,
-                    ModuloId = moduloSelecionadoId,
-                    DisciplinaId = refTrabalho.DisciplinaId,
-                    ProfessorId = refTrabalho.ProfessorId,
-                    Status = "Pendente",
-                    DataCriacao = DateTime.Now,
-                    DataEntrega = DateTime.Now.AddDays(7),
-                    HorasAtribuidas = 0
-                };
+                Titulo = "Recuperação",
+                ConteudoTexto = descricaoRecuperacao,
+                AlunoId = aluno.UserId,
+                ModuloId = moduloSelecionadoId,
 
-                var trabalhoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
+                // CORREÇÃO DOS TIPOS:
+                // DisciplinaId é int? -> O fallback deve ser um número ou null
+                DisciplinaId = refTrabalho?.DisciplinaId ?? trabalhoQualquer?.DisciplinaId,
 
-                string tipoVertente = "Conhecimento";
-                if (resumoModulo.MediaCompParcial < 9.5 && resumoModulo.MediaCompParcial > 0) tipoVertente = "Competência";
-                else if (resumoModulo.MediaAptParcial < 9.5 && resumoModulo.MediaAptParcial > 0) tipoVertente = "Aptidão";
+                // ProfessorId é string? -> O fallback deve ser string
+                ProfessorId = refTrabalho?.ProfessorId ?? trabalhoQualquer?.ProfessorId ?? "",
 
-                await TrabalhoService.AddVertenteAsync(new TrabalhoVertente
-                {
-                    TrabalhoId = trabalhoId,
-                    Tipo = tipoVertente,
-                    ConteudoTexto = "Recuperação de: " + tipoVertente
-                });
-            }
+                Status = "Pendente",
+                IsPlanoRecuperacao = true, // Marcamos como plano de recuperação conforme o teu modelo
+                DataCriacao = DateTime.Now,
+                PrazoEntrega = DateTime.Now.AddDays(7), // No teu modelo é PrazoEntrega, não DataEntrega
+                HorasAtribuidas = 0,
+                Ativo = true
+            };
+
+            // Salvar o trabalho e obter o ID gerado
+            var trabalhoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
+
+            // 2. Determinar a vertente logicamente
+            string tipoVertente = "Conhecimento";
+            if (resumoModulo.MediaCompParcial < 9.5 && resumoModulo.MediaCompParcial > 0) tipoVertente = "Competência";
+            else if (resumoModulo.MediaAptParcial < 9.5 && resumoModulo.MediaAptParcial > 0) tipoVertente = "Aptidão";
+
+            // Adicionar a vertente ligada ao trabalho
+            await TrabalhoService.AddVertenteAsync(new TrabalhoVertente
+            {
+                TrabalhoId = trabalhoId,
+                Tipo = tipoVertente,
+                ConteudoTexto = "Recuperação de: " + tipoVertente
+            });
+
+            // Limpar interface e fechar modal
+            descricaoRecuperacao = "";
+            exibirModal = false;
+
+            // Atualizar a tabela de notas
+            await CarregarDados();
         }
-        exibirModal = false;
-        await CarregarDados();
+        catch (Exception ex)
+        {
+            // Log do erro para depuração
+            Console.WriteLine($"Erro ao salvar recuperação: {ex.Message}");
+        }
     }
-
     private void ProcessarLogicaVisual(List<Trabalho> trabalhos)
     {
         ModulosProcessados = trabalhos
