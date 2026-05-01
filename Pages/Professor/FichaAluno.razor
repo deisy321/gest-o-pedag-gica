@@ -166,19 +166,15 @@
 
     private async Task SalvarRecuperacao()
     {
-        // Validação inicial
         if (aluno == null || string.IsNullOrWhiteSpace(descricaoRecuperacao)) return;
 
-        // 1. Procurar os dados de referência
         var refTrabalho = ListaOriginalTrabalhos.FirstOrDefault(t => t.ModuloId == moduloSelecionadoId);
         var resumoModulo = ModulosProcessados.FirstOrDefault(m => m.ModuloId == moduloSelecionadoId);
 
-        // Se não houver resumo, não sabemos que vertente recuperar
         if (resumoModulo == null) return;
 
         try
         {
-            // Pega um trabalho qualquer da lista como plano B caso o refTrabalho seja nulo
             var trabalhoQualquer = ListaOriginalTrabalhos.FirstOrDefault();
 
             var novoTrabalho = new Trabalho
@@ -187,31 +183,22 @@
                 ConteudoTexto = descricaoRecuperacao,
                 AlunoId = aluno.UserId,
                 ModuloId = moduloSelecionadoId,
-
-                // CORREÇÃO DOS TIPOS:
-                // DisciplinaId é int? -> O fallback deve ser um número ou null
                 DisciplinaId = refTrabalho?.DisciplinaId ?? trabalhoQualquer?.DisciplinaId,
-
-                // ProfessorId é string? -> O fallback deve ser string
                 ProfessorId = refTrabalho?.ProfessorId ?? trabalhoQualquer?.ProfessorId ?? "",
-
                 Status = "Pendente",
-                IsPlanoRecuperacao = true, // Marcamos como plano de recuperação conforme o teu modelo
+                IsPlanoRecuperacao = true,
                 DataCriacao = DateTime.Now,
-                PrazoEntrega = DateTime.Now.AddDays(7), // No teu modelo é PrazoEntrega, não DataEntrega
+                PrazoEntrega = DateTime.Now.AddDays(7),
                 HorasAtribuidas = 0,
                 Ativo = true
             };
 
-            // Salvar o trabalho e obter o ID gerado
             var trabalhoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
 
-            // 2. Determinar a vertente logicamente
             string tipoVertente = "Conhecimento";
             if (resumoModulo.MediaCompParcial < 9.5 && resumoModulo.MediaCompParcial > 0) tipoVertente = "Competência";
             else if (resumoModulo.MediaAptParcial < 9.5 && resumoModulo.MediaAptParcial > 0) tipoVertente = "Aptidão";
 
-            // Adicionar a vertente ligada ao trabalho
             await TrabalhoService.AddVertenteAsync(new TrabalhoVertente
             {
                 TrabalhoId = trabalhoId,
@@ -219,19 +206,16 @@
                 ConteudoTexto = "Recuperação de: " + tipoVertente
             });
 
-            // Limpar interface e fechar modal
             descricaoRecuperacao = "";
             exibirModal = false;
-
-            // Atualizar a tabela de notas
             await CarregarDados();
         }
         catch (Exception ex)
         {
-            // Log do erro para depuração
             Console.WriteLine($"Erro ao salvar recuperação: {ex.Message}");
         }
     }
+
     private void ProcessarLogicaVisual(List<Trabalho> trabalhos)
     {
         ModulosProcessados = trabalhos
@@ -242,77 +226,60 @@
                 var modulo = grupo.First().Modulo;
                 var lista = grupo.ToList();
 
-                double ObterNotaFinalVertente(string tipo)
+                double ObterNotaFinalVertente(string termoBusca)
                 {
-                    tipo = tipo.ToLower();
+                    termoBusca = termoBusca.ToLower();
 
-                    // 1. Recuperação avaliada (SUBSTITUI tudo)
+                    // 1. BUSCA NA RECUPERAÇÃO (Prioridade Máxima)
+                    // Buscamos se existe nota na vertente, independente do status do trabalho pai
                     var notaRec = lista
-                        .Where(t =>
-                            t.Titulo != null &&
-                            t.Titulo.ToLower().Contains("recuper") &&
-                            t.Status != null &&
-                            t.Status.Trim().ToLower() == "avaliado")
+                        .Where(t => t.Titulo != null && t.Titulo.ToLower().Contains("recuper"))
                         .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                        .Where(v =>
-                            v.Tipo != null &&
-                            v.Tipo.ToLower().Contains(tipo) &&
-                            v.Nota.HasValue)
+                        .Where(v => v.Tipo != null &&
+                                    v.Tipo.ToLower().Contains(termoBusca.Substring(0, 4)) &&
+                                    v.Nota.HasValue)
                         .OrderByDescending(v => v.Id)
                         .Select(v => (double?)v.Nota)
                         .FirstOrDefault();
 
-                    if (notaRec.HasValue)
-                        return notaRec.Value;
+                    if (notaRec.HasValue) return notaRec.Value;
 
-                    // 2. Média normal
-                    var notas = lista
+                    // 2. MÉDIA DOS TRABALHOS NORMAIS
+                    var notasNormais = lista
                         .Where(t => t.Titulo == null || !t.Titulo.ToLower().Contains("recuper"))
                         .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                        .Where(v =>
-                            v.Tipo != null &&
-                            v.Tipo.ToLower().Contains(tipo) &&
-                            v.Nota.HasValue)
+                        .Where(v => v.Tipo != null &&
+                                    v.Tipo.ToLower().Contains(termoBusca.Substring(0, 4)) &&
+                                    v.Nota.HasValue)
                         .Select(v => (double)v.Nota!)
                         .ToList();
 
-                    return notas.Any() ? notas.Average() : 0;
+                    return notasNormais.Any() ? notasNormais.Average() : 0;
                 }
 
-                double mComp = ObterNotaFinalVertente("compet");
-                double mConh = ObterNotaFinalVertente("conhec");
-                double mApt = ObterNotaFinalVertente("apt");
+                // Obtendo médias usando radicais para evitar erros de acentuação
+                double mComp = ObterNotaFinalVertente("comp");
+                double mConh = ObterNotaFinalVertente("conh");
+                double mApt = ObterNotaFinalVertente("apti");
 
-                // Estado correto
-                bool existeRec = lista.Any(t =>
-                    t.Titulo != null && t.Titulo.ToLower().Contains("recuper"));
+                // Lógica de Status Baseada em Dados
+                var trabalhosRec = lista.Where(t => t.Titulo != null && t.Titulo.ToLower().Contains("recuper")).ToList();
+                bool existeRec = trabalhosRec.Any();
 
-                bool existeRecAvaliada = lista.Any(t =>
-                    t.Titulo != null &&
-                    t.Titulo.ToLower().Contains("recuper") &&
-                    t.Status != null &&
-                    t.Status.Trim().ToLower() == "avaliado");
+                // Uma recuperação é considerada "Avaliada" se houver pelo menos uma nota lançada em suas vertentes
+                bool recAvaliada = trabalhosRec.Any(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => v.Nota.HasValue));
+                bool recupPendente = existeRec && !recAvaliada;
 
-                bool recupPendente = existeRec && !existeRecAvaliada;
+                bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
 
-                bool temNotaBaixa =
-                    (mComp > 0 && mComp < 9.5) ||
-                    (mConh > 0 && mConh < 9.5) ||
-                    (mApt > 0 && mApt < 9.5);
+                string statusCor = "Verde";
+                if (recupPendente) statusCor = "Amarelo";
+                else if (temNotaBaixa) statusCor = "Vermelho";
 
-                string status = "Verde";
-                if (recupPendente) status = "Amarelo";
-                else if (temNotaBaixa) status = "Vermelho";
-
+                // Verificação de Aprovação (Horas + Notas + Sem Pendências)
                 int hCons = lista.Sum(t => t.HorasAtribuidas);
                 int hTot = modulo?.TotalHoras ?? 0;
-
-                bool aprovado =
-                    hCons >= hTot &&
-                    mComp >= 9.5 &&
-                    mConh >= 9.5 &&
-                    mApt >= 9.5 &&
-                    !recupPendente;
+                bool aprovado = hCons >= hTot && mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5 && !recupPendente;
 
                 return new ModuloResumoUI
                 {
@@ -325,7 +292,7 @@
                     MediaAptParcial = mApt,
                     MediaGlobal = (mComp + mConh + mApt) / 3,
                     ProntoParaMediaFinal = aprovado,
-                    StatusCritico = status
+                    StatusCritico = statusCor
                 };
             }).ToList();
     }
