@@ -25,9 +25,9 @@
                     <thead class="bg-light">
                         <tr>
                             <th class="ps-4">Módulo / Disciplina</th>
-                            <th>Carga Horária</th>
+                            <th>Carga Horária (Progresso)</th>
                             <th>Média por Vertente</th>
-                            <th class="text-center">Estado</th>
+                            <th class="text-center">Média Final / Estado</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -38,20 +38,26 @@
                                     <h6 class="text-primary fw-bold mb-0">@m.Nome</h6>
                                     @if (m.StatusCritico == "Vermelho")
                                     {
-                                        <span class="badge bg-danger mt-1"><i class="fas fa-exclamation-triangle"></i> Nota Crítica</span>
+                                        <span class="badge bg-danger mt-1"><i class="fas fa-exclamation-triangle"></i> Vertente Crítica Detectada</span>
                                     }
                                     else if (m.StatusCritico == "Amarelo")
                                     {
-                                        <span class="badge bg-warning text-dark mt-1"><i class="fas fa-clock"></i> Recuperação em Aberto</span>
+                                        <span class="badge bg-warning text-dark mt-1"><i class="fas fa-clock"></i> Plano de Recuperação em Curso</span>
                                     }
                                     else
                                     {
-                                        <small class="text-muted">Concluído/Regular</small>
+                                        <small class="text-muted">Desempenho Regular</small>
                                     }
                                 </td>
-                                <td style="width: 200px;">
-                                    <small class="fw-bold">@m.HorasConsumidas / @m.HorasTotais h</small>
-                                    <div class="progress" style="height: 6px;">
+                                <td style="width: 250px;">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <small class="fw-bold">@m.HorasConsumidas / @m.HorasTotais h</small>
+                                        @if (m.HorasConsumidas >= m.HorasTotais)
+                                        {
+                                            <i class="fas fa-check-circle text-success"></i>
+                                        }
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
                                         @{
                                             var percent = m.HorasTotais > 0 ? Math.Min((m.HorasConsumidas * 100) / m.HorasTotais, 100) : 0;
                                         }
@@ -59,32 +65,32 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="d-flex gap-2">
-                                        <span class="badge border @(m.MediaCompParcial < 9.5 ? "text-danger border-danger" : "bg-light text-dark") p-2">
-                                            Comp: @m.MediaCompParcial.ToString("F1")
-                                        </span>
-                                        <span class="badge border @(m.MediaConhParcial < 9.5 ? "text-danger border-danger" : "bg-light text-dark") p-2">
-                                            Conh: @m.MediaConhParcial.ToString("F1")
-                                        </span>
-                                        <span class="badge border @(m.MediaAptParcial < 9.5 ? "text-danger border-danger" : "bg-light text-dark") p-2">
-                                            Apt: @m.MediaAptParcial.ToString("F1")
-                                        </span>
+                                    <div class="d-flex flex-column gap-1">
+                                        <div class="d-flex gap-2">
+                                            <span class="badge border @(m.MediaCompParcial < 9.5 && m.MediaCompParcial > 0 ? "text-danger border-danger" : "text-muted") p-2">Comp: @m.MediaCompParcial.ToString("F1")</span>
+                                            <span class="badge border @(m.MediaConhParcial < 9.5 && m.MediaConhParcial > 0 ? "text-danger border-danger" : "text-muted") p-2">Conh: @m.MediaConhParcial.ToString("F1")</span>
+                                            <span class="badge border @(m.MediaAptParcial < 9.5 && m.MediaAptParcial > 0 ? "text-danger border-danger" : "text-muted") p-2">Apt: @m.MediaAptParcial.ToString("F1")</span>
+                                        </div>
+
+                                        @if (m.StatusCritico == "Vermelho")
+                                        {
+                                            <button class="btn btn-sm btn-danger mt-2 fw-bold" @onclick="() => AbrirModalRecuperacao(m.ModuloId, m.Nome)">
+                                                <i class="fas fa-tools"></i> Criar Plano de Recuperação
+                                            </button>
+                                        }
                                     </div>
-                                    @if (m.StatusCritico == "Vermelho")
-                                    {
-                                        <button class="btn btn-sm btn-outline-danger mt-2" @onclick="() => AbrirModalRecuperacao(m.ModuloId, m.Nome)">
-                                            + Plano de Recuperação
-                                        </button>
-                                    }
                                 </td>
                                 <td class="text-center">
                                     @if (m.ProntoParaMediaFinal)
                                     {
-                                        <span class="badge bg-success px-3 py-2">APROVADO (@m.MediaGlobal.ToString("F1"))</span>
+                                        <div class="bg-success text-white rounded p-2 d-inline-block" style="min-width: 80px;">
+                                            <h4 class="mb-0 fw-bold">@m.MediaGlobal.ToString("F1")</h4>
+                                        </div>
+                                        <div class="small text-success fw-bold mt-1">APROVADO</div>
                                     }
                                     else
                                     {
-                                        <span class="badge bg-secondary px-3 py-2">@m.StatusTexto</span>
+                                        <span class="badge bg-warning text-dark px-3 py-2">PENDENTE</span>
                                     }
                                 </td>
                             </tr>
@@ -94,9 +100,13 @@
             </div>
         </div>
 
-        <div class="d-flex justify-content-end gap-2">
-            <button class="btn btn-outline-secondary" @onclick="Voltar">Voltar</button>
-            <button class="btn btn-primary" @onclick="IrParaAvaliar">Avaliar Aluno</button>
+        <div class="d-flex justify-content-end gap-2 mt-4 mb-5">
+            <button type="button" class="btn btn-outline-secondary px-4 shadow-sm" @onclick="Voltar">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </button>
+            <button type="button" class="btn btn-success px-4 shadow-sm" @onclick="IrParaAvaliar">
+                <i class="fas fa-plus"></i> Avaliar Aluno
+            </button>
         </div>
     }
 </div>
@@ -104,19 +114,22 @@
 @if (exibirModal)
 {
     <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">Novo Plano de Recuperação</h5>
-                    <button type="button" class="btn-close" @onclick="FecharModal"></button>
+                    <h5 class="modal-title"><i class="fas fa-tools"></i> Novo Plano de Recuperação</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="FecharModal"></button>
                 </div>
                 <div class="modal-body">
-                    <label>Descrição da Atividade:</label>
-                    <textarea class="form-control" @bind="descricaoRecuperacao"></textarea>
+                    <p>Módulo: <strong>@moduloSelecionadoNome</strong></p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Atividade de Recuperação</label>
+                        <textarea class="form-control" rows="3" @bind="descricaoRecuperacao" placeholder="Descreva o que o aluno deve realizar..."></textarea>
+                    </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="FecharModal">Sair</button>
-                    <button class="btn btn-danger" @onclick="SalvarRecuperacao">Confirmar</button>
+                    <button type="button" class="btn btn-light" @onclick="FecharModal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" @onclick="SalvarRecuperacao">Salvar e Atribuir</button>
                 </div>
             </div>
         </div>
@@ -140,84 +153,11 @@
         aluno = await AlunoService.GetAlunoByIdAsync(AlunoId);
         if (aluno != null)
         {
-            // Importante: Verifique se o serviço está trazendo as Vertentes incluídas (.Include(t => t.TrabalhoVertentes))
             ListaOriginalTrabalhos = await TrabalhoService.GetTrabalhosByAlunoAsync(aluno.UserId);
             ProcessarLogicaVisual(ListaOriginalTrabalhos);
         }
     }
 
-    private void ProcessarLogicaVisual(List<Trabalho> trabalhos)
-    {
-        ModulosProcessados = trabalhos
-            .GroupBy(t => t.ModuloId)
-            .Select(grupo =>
-            {
-                var moduloId = grupo.Key ?? 0;
-                var modulo = grupo.First().Modulo;
-                var todosTrabalhosMódulo = grupo.ToList();
-
-                double ObterNotaDefinitiva(string tipo)
-                {
-                    // 1. Procurar em trabalhos de Recuperação AVALIADOS (do mais novo para o mais antigo)
-                    var notaRecuperacao = todosTrabalhosMódulo
-                        .Where(t => t.Titulo != null && t.Titulo.Contains("Recuperação") && t.Status == "Avaliado")
-                        .OrderByDescending(t => t.Id) // O mais recente primeiro
-                        .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                        .FirstOrDefault(v => v.Tipo == tipo && v.Nota.HasValue)?.Nota;
-
-                    if (notaRecuperacao.HasValue) return (double)notaRecuperacao.Value;
-
-                    // 2. Se não achou recuperação, faz a média dos normais
-                    var notasNormais = todosTrabalhosMódulo
-                        .Where(t => t.Titulo == null || !t.Titulo.Contains("Recuperação"))
-                        .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                        .Where(v => v.Tipo == tipo && v.Nota.HasValue)
-                        .ToList();
-
-                    return notasNormais.Any() ? notasNormais.Average(v => (double)v.Nota!) : 0;
-                }
-
-                double mediaComp = ObterNotaDefinitiva("Competência");
-                double mediaConh = ObterNotaDefinitiva("Conhecimento");
-                double mediaApt = ObterNotaDefinitiva("Aptidão");
-
-                // CRÍTICO: Um módulo só é "AMARELO" se existir um trabalho de recuperação que ainda NÃO foi avaliado
-                bool temRecuperacaoPendente = todosTrabalhosMódulo.Any(t =>
-                    t.Titulo != null &&
-                    t.Titulo.Contains("Recuperação") &&
-                    t.Status != "Avaliado");
-
-                bool notaBaixa = (mediaComp > 0 && mediaComp < 9.5) ||
-                                 (mediaConh > 0 && mediaConh < 9.5) ||
-                                 (mediaApt > 0 && mediaApt < 9.5);
-
-                string statusCor = "Verde";
-                if (temRecuperacaoPendente) statusCor = "Amarelo";
-                else if (notaBaixa) statusCor = "Vermelho";
-
-                int hCons = todosTrabalhosMódulo.Sum(t => t.HorasAtribuidas);
-                int hTot = modulo?.TotalHoras ?? 0;
-
-                bool aprovado = hCons >= hTot && mediaComp >= 9.5 && mediaConh >= 9.5 && mediaApt >= 9.5 && !temRecuperacaoPendente;
-
-                return new ModuloResumoUI
-                {
-                    ModuloId = moduloId,
-                    Nome = modulo?.Nome ?? "Módulo",
-                    HorasTotais = hTot,
-                    HorasConsumidas = hCons,
-                    MediaCompParcial = mediaComp,
-                    MediaConhParcial = mediaConh,
-                    MediaAptParcial = mediaApt,
-                    MediaGlobal = (mediaComp + mediaConh + mediaApt) / 3,
-                    ProntoParaMediaFinal = aprovado,
-                    StatusCritico = statusCor,
-                    StatusTexto = aprovado ? "APROVADO" : (temRecuperacaoPendente ? "RECUPERAÇÃO EM CURSO" : "PENDENTE")
-                };
-            }).ToList();
-    }
-
-    // Métodos de navegação e modal (SalvarRecuperacao, AbrirModalRecuperacao, etc.) permanecem iguais aos anteriores
     private void Voltar() => Nav.NavigateTo("/professor/dashboard");
     private void IrParaAvaliar() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
     private void AbrirModalRecuperacao(int id, string nome) { moduloSelecionadoId = id; moduloSelecionadoNome = nome; exibirModal = true; }
@@ -228,9 +168,9 @@
         if (aluno != null && !string.IsNullOrWhiteSpace(descricaoRecuperacao))
         {
             var refTrabalho = ListaOriginalTrabalhos.FirstOrDefault(t => t.ModuloId == moduloSelecionadoId);
-            var resumo = ModulosProcessados.FirstOrDefault(m => m.ModuloId == moduloSelecionadoId);
+            var resumoModulo = ModulosProcessados.FirstOrDefault(m => m.ModuloId == moduloSelecionadoId);
 
-            if (refTrabalho != null && resumo != null)
+            if (refTrabalho != null && resumoModulo != null)
             {
                 var novoTrabalho = new Trabalho
                 {
@@ -241,20 +181,21 @@
                     DisciplinaId = refTrabalho.DisciplinaId,
                     ProfessorId = refTrabalho.ProfessorId,
                     Status = "Pendente",
-                    DataCriacao = DateTime.Now
+                    DataCriacao = DateTime.Now,
+                    HorasAtribuidas = 0
                 };
 
-                var tid = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
+                var trabalhoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
 
-                string vertenteAlvo = "Conhecimento";
-                if (resumo.MediaCompParcial < 9.5) vertenteAlvo = "Competência";
-                else if (resumo.MediaAptParcial < 9.5) vertenteAlvo = "Aptidão";
+                string tipoVertente = "Conhecimento";
+                if (resumoModulo.MediaCompParcial < 9.5 && resumoModulo.MediaCompParcial > 0) tipoVertente = "Competência";
+                else if (resumoModulo.MediaAptParcial < 9.5 && resumoModulo.MediaAptParcial > 0) tipoVertente = "Aptidão";
 
                 await TrabalhoService.AddVertenteAsync(new TrabalhoVertente
                 {
-                    TrabalhoId = tid,
-                    Tipo = vertenteAlvo,
-                    ConteudoTexto = "Recuperação"
+                    TrabalhoId = trabalhoId,
+                    Tipo = tipoVertente,
+                    ConteudoTexto = "Recuperação de: " + tipoVertente
                 });
             }
         }
@@ -262,10 +203,77 @@
         await CarregarDados();
     }
 
+    private void ProcessarLogicaVisual(List<Trabalho> trabalhos)
+    {
+        ModulosProcessados = trabalhos
+            .GroupBy(t => t.ModuloId)
+            .Select(grupo =>
+            {
+                var moduloId = grupo.Key ?? 0;
+                var modulo = grupo.First().Modulo;
+                var listaTrabalhos = grupo.ToList();
+
+                double ObterNotaFinalVertente(string tipo)
+                {
+                    // 1. BUSCA RECUPERAÇÃO AVALIADA (Pega o ID mais alto/recente)
+                    var notaRecuperacao = listaTrabalhos
+                        .Where(t => t.Titulo != null && t.Titulo.Contains("Recuperação") && t.Status == "Avaliado")
+                        .OrderByDescending(t => t.Id)
+                        .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                        .FirstOrDefault(v => v.Tipo == tipo && v.Nota.HasValue)?.Nota;
+
+                    if (notaRecuperacao.HasValue) return (double)notaRecuperacao.Value;
+
+                    // 2. SE NÃO TEM RECUPERAÇÃO AVALIADA, PEGA A MÉDIA DOS TRABALHOS NORMAIS
+                    var notasNormais = listaTrabalhos
+                        .Where(t => t.Titulo == null || !t.Titulo.Contains("Recuperação"))
+                        .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                        .Where(v => v.Tipo == tipo && v.Nota.HasValue)
+                        .ToList();
+
+                    return notasNormais.Any() ? notasNormais.Average(v => (double)v.Nota!) : 0;
+                }
+
+                double mComp = ObterNotaFinalVertente("Competência");
+                double mConh = ObterNotaFinalVertente("Conhecimento");
+                double mApt = ObterNotaFinalVertente("Aptidão");
+
+                // LÓGICA DE STATUS (CORES)
+                // Amarelo: Só se existir recuperação que ainda NÃO foi avaliada
+                bool recupPendente = listaTrabalhos.Any(t => t.Titulo != null && t.Titulo.Contains("Recuperação") && t.Status != "Avaliado");
+
+                // Vermelho: Se a nota final (já considerando recuperações) ainda for baixa
+                bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
+
+                string status = "Verde";
+                if (recupPendente) status = "Amarelo";
+                else if (temNotaBaixa) status = "Vermelho";
+
+                int hCons = listaTrabalhos.Sum(t => t.HorasAtribuidas);
+                int hTot = modulo?.TotalHoras ?? 0;
+
+                bool aprovado = hCons >= hTot && mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5 && !recupPendente;
+
+                return new ModuloResumoUI
+                {
+                    ModuloId = moduloId,
+                    Nome = modulo?.Nome ?? "Módulo",
+                    HorasTotais = hTot,
+                    HorasConsumidas = hCons,
+                    MediaCompParcial = mComp,
+                    MediaConhParcial = mConh,
+                    MediaAptParcial = mApt,
+                    MediaGlobal = (mComp + mConh + mApt) / 3,
+                    ProntoParaMediaFinal = aprovado,
+                    StatusCritico = status
+                };
+            }).ToList();
+    }
+
     public class ModuloResumoUI
     {
         public int ModuloId { get; set; }
-        public string Nome { get; set; }
+        public string Nome { get; set; } = "";
         public int HorasTotais { get; set; }
         public int HorasConsumidas { get; set; }
         public double MediaCompParcial { get; set; }
@@ -273,7 +281,6 @@
         public double MediaAptParcial { get; set; }
         public double MediaGlobal { get; set; }
         public bool ProntoParaMediaFinal { get; set; }
-        public string StatusCritico { get; set; }
-        public string StatusTexto { get; set; }
+        public string StatusCritico { get; set; } = "Verde";
     }
 }
