@@ -250,7 +250,6 @@
         ListaDisciplinas = await DisciplinaService.GetDisciplinasAsync() ?? new();
     }
 
-    // LÓGICA CORRIGIDA: d.Modulos.Any(m => m.Id == id)
     private void OnModuloChanged(ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out int id))
@@ -306,15 +305,31 @@
                 return;
             }
 
+            // --- LÓGICA DE VALIDAÇÃO DE CARGA HORÁRIA ISOLADA POR TURMA ---
             var modulo = ListaModulos.FirstOrDefault(m => m.Id == ModuloSelecionadoId);
             if (modulo != null)
             {
-                int horasConsumidas = await TrabalhoService.GetHorasConsumidasNoModuloAsync(ModuloSelecionadoId);
-                if (horasConsumidas + HorasAtribuidas > modulo.TotalHoras)
+                // Definimos os alunos para saber de quem verificar o histórico
+                var alunosParaAtribuir = TipoAtribuicao == "aluno"
+                    ? TurmaSelecionada!.Alunos.Where(a => a.Id == AlunoSelecionadoId && !string.IsNullOrEmpty(a.UserId)).ToList()
+                    : TurmaSelecionada!.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)).ToList();
+
+                // Usamos o primeiro aluno da lista como referência para validar o limite na turma
+                var alunoRef = alunosParaAtribuir.FirstOrDefault();
+                if (alunoRef != null)
                 {
-                    StatusMessage = $"❌ Limite excedido! O módulo tem {modulo.TotalHoras}h. Já usou {horasConsumidas}h. Restam apenas {modulo.TotalHoras - horasConsumidas}h.";
-                    IsSaving = false;
-                    return;
+                    // Chamada atualizada com Modulo, Turma e Aluno
+                    int horasConsumidas = await TrabalhoService.GetHorasConsumidasNoModuloAsync(
+                        ModuloSelecionadoId,
+                        TurmaSelecionada!.Id,
+                        alunoRef.UserId!);
+
+                    if (horasConsumidas + HorasAtribuidas > modulo.TotalHoras)
+                    {
+                        StatusMessage = $"❌ Limite excedido na TURMA ATUAL! O módulo tem {modulo.TotalHoras}h. Já usou {horasConsumidas}h nesta turma. Restam {modulo.TotalHoras - horasConsumidas}h.";
+                        IsSaving = false;
+                        return;
+                    }
                 }
             }
 
@@ -326,14 +341,15 @@
                 return;
             }
 
-            var alunosParaAtribuir = TipoAtribuicao == "aluno"
+            // Recalculamos a lista para garantir integridade no foreach de gravação
+            var alunosGravar = TipoAtribuicao == "aluno"
                 ? TurmaSelecionada!.Alunos.Where(a => a.Id == AlunoSelecionadoId && !string.IsNullOrEmpty(a.UserId)).ToList()
                 : TurmaSelecionada!.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)).ToList();
 
             int sucessos = 0;
             string detalheErro = "";
 
-            foreach (var aluno in alunosParaAtribuir)
+            foreach (var aluno in alunosGravar)
             {
                 try
                 {

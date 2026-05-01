@@ -11,20 +11,25 @@ public class TrabalhoService(ApplicationDbContext context, IAService iaService, 
     private readonly IAService _iaService = iaService;
     private readonly PushService _pushService = pushService;
 
-    // --- NOVA LÓGICA DE GESTÃO DE CARGA HORÁRIA ---
+    // --- NOVA LÓGICA DE GESTÃO DE CARGA HORÁRIA (AJUSTADA PARA TURMAS) ---
 
-    public async Task<int> GetHorasConsumidasNoModuloAsync(int? moduloId)
+    /// <summary>
+    /// Calcula as horas já atribuídas a um aluno num módulo específico, mas ISOLADO por Turma.
+    /// </summary>
+    public async Task<int> GetHorasConsumidasNoModuloAsync(int? moduloId, int? turmaId, string alunoId)
     {
-        if (moduloId == null) return 0;
+        if (moduloId == null || turmaId == null || string.IsNullOrEmpty(alunoId))
+            return 0;
 
         return await _context.Trabalhos
-            .Where(t => t.ModuloId == moduloId)
+            .Where(t => t.ModuloId == moduloId
+                     && t.TurmaId == turmaId  // O segredo está aqui: isolar pela turma
+                     && t.AlunoId == alunoId)
             .SumAsync(t => t.HorasAtribuidas);
     }
 
     // --- MÉTODOS DE CONSULTA PARA O ALUNO ---
 
-    // RESOLUÇÃO DO ERRO: Adicionado para compatibilidade com a FichaAluno.razor
     public async Task<List<Trabalho>> GetTrabalhosByAlunoAsync(string alunoUserId)
     {
         return await GetTrabalhosDoAlunoComVertentesAsync(alunoUserId);
