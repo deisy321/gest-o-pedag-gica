@@ -13,6 +13,17 @@ namespace gestaopedagogica.Services
             _context = context;
         }
 
+        // --- NOVO MÉTODO PARA FILTRAR DISCIPLINAS E MÓDULOS POR PROFESSOR E TURMA ---
+        public async Task<List<Disciplina>> GetDisciplinasPorProfessorETurmaAsync(string professorUserId, int turmaId)
+        {
+            return await _context.TurmaProfessores
+                .Where(tp => tp.ProfessorId == professorUserId && tp.TurmaId == turmaId)
+                .Select(tp => tp.Disciplina)
+                .Include(d => d.Modulos) // Garante que os módulos venham junto com a disciplina
+                .OrderBy(d => d.Nome)
+                .ToListAsync();
+        }
+
         public async Task<List<Curso>> GetCursosAsync() =>
             await _context.Cursos.OrderBy(c => c.Nome).ToListAsync();
 
@@ -26,7 +37,7 @@ namespace gestaopedagogica.Services
 
             try
             {
-                disciplina.Curso = null; // ✅ Resolve o erro de criação
+                disciplina.Curso = null;
                 _context.Disciplinas.Add(disciplina);
                 await _context.SaveChangesAsync();
             }
