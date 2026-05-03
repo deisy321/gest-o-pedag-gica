@@ -16,10 +16,17 @@ namespace gestaopedagogica.Services
         // --- NOVO MÉTODO PARA FILTRAR DISCIPLINAS E MÓDULOS POR PROFESSOR E TURMA ---
         public async Task<List<Disciplina>> GetDisciplinasPorProfessorETurmaAsync(string professorUserId, int turmaId)
         {
+            // 1. Primeiro, buscamos o ID numérico do Professor correspondente ao UserId da Identity
+            var professor = await _context.Professores
+                .FirstOrDefaultAsync(p => p.UserId == professorUserId);
+
+            if (professor == null) return new List<Disciplina>();
+
+            // 2. Agora usamos o professor.Id (int) para comparar com tp.ProfessorId (int)
             return await _context.TurmaProfessores
-                .Where(tp => tp.ProfessorId == professorUserId && tp.TurmaId == turmaId)
+                .Where(tp => tp.ProfessorId == professor.Id && tp.TurmaId == turmaId)
                 .Select(tp => tp.Disciplina)
-                .Include(d => d.Modulos) // Garante que os módulos venham junto com a disciplina
+                .Include(d => d.Modulos)
                 .OrderBy(d => d.Nome)
                 .ToListAsync();
         }
