@@ -3,7 +3,6 @@
 @using gestaopedagogica.Models
 @using gestaopedagogica.Data
 @using Microsoft.EntityFrameworkCore
-@using System.Linq
 @inject TurmaService TurmaService
 @inject TrabalhoService TrabalhoService
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
@@ -20,171 +19,125 @@
         border: none;
         border-radius: 12px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        transition: transform 0.2s;
+        transition: 0.2s;
     }
 
         .admin-card:hover {
             transform: translateY(-5px);
         }
 
-    .border-5 {
-        border-width: 5px !important;
-    }
-
+    /* O SEGREDO: Usar @@ para evitar o erro "media não existe" */
     @@media print {
-        .btn, .sidebar, .no-print {
+        .no-print {
             display: none !important;
-        }
-
-        .page-admin {
-            padding: 0;
-        }
-
-        .admin-card {
-            box-shadow: none;
-            border: 1px solid #eee;
         }
     }
 </style>
 
-<div class="page-admin animate-fade-in p-4">
+<div class="page-admin p-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="text-gradient fw-bold mb-0">Relatórios Estratégicos</h2>
-            <p class="text-muted small">Indicadores de Desempenho Institucional e Conformidade</p>
+            <p class="text-muted small">Indicadores Institucionais</p>
         </div>
-        <button class="btn btn-dark shadow-sm no-print" onclick="window.print()">
-            <i class="bi bi-printer me-2"></i>Gerar PDF/Imprimir
-        </button>
+        <button class="btn btn-dark no-print" onclick="window.print()"><i class="bi bi-printer me-2"></i>Imprimir PDF</button>
     </div>
 
-    @* KPIs Principais *@
-    <div class="row g-4 mb-4">
-        <div class="col-md-3">
-            <div class="card admin-card p-3 border-start border-primary border-5 h-100">
-                <h6 class="text-muted mb-1 small text-uppercase">Corpo Discente</h6>
-                <div class="d-flex align-items-center">
-                    <h2 class="fw-bold mb-0">@TotalAlunos</h2>
-                    <i class="bi bi-people ms-auto text-primary opacity-50 fs-4"></i>
+    @if (isLoading)
+    {
+        <div class="text-center p-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else
+    {
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="card admin-card p-3 border-start border-primary border-5 h-100">
+                    <small class="text-muted text-uppercase fw-bold small">Corpo Discente</small>
+                    <h2 class="fw-bold">@TotalAlunos</h2>
                 </div>
-                <small class="text-muted">Alunos Matriculados</small>
+            </div>
+            <div class="col-md-3">
+                <div class="card admin-card p-3 border-start border-info border-5 h-100">
+                    <small class="text-muted text-uppercase fw-bold small">Média Geral</small>
+                    <h2 class="fw-bold">@MediaGlobalGeral.ToString("F1")</h2>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card admin-card p-3 border-start border-danger border-5 h-100">
+                    <small class="text-muted text-uppercase fw-bold small">Recuperações</small>
+                    <h2 class="fw-bold text-danger">@TotalRecuperacoes</h2>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card admin-card p-3 bg-dark text-white h-100">
+                    <small class="text-white-50 text-uppercase fw-bold small">Taxa de Entrega</small>
+                    <h2 class="fw-bold text-warning">@MediaParticipacaoGlobal.ToString("F0")%</h2>
+                </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card admin-card p-3 border-start border-info border-5 h-100">
-                <h6 class="text-muted mb-1 small text-uppercase">Média Institucional</h6>
-                <div class="d-flex align-items-center">
-                    <h2 class="fw-bold mb-0">@MediaGlobalGeral.ToString("F1")</h2>
-                    <i class="bi bi-graph-up-arrow ms-auto text-info opacity-50 fs-4"></i>
-                </div>
-                <small class="text-muted">Desempenho Geral</small>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card admin-card p-3 border-start border-danger border-5 h-100">
-                <h6 class="text-muted mb-1 small text-uppercase">Recuperações Ativas</h6>
-                <div class="d-flex align-items-center">
-                    <h2 class="fw-bold mb-0 text-danger">@TotalRecuperacoes</h2>
-                    <i class="bi bi-exclamation-triangle ms-auto text-danger opacity-50 fs-4"></i>
-                </div>
-                <small class="text-muted">Planos de Apoio Criados</small>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card admin-card p-3 bg-dark h-100">
-                <h6 class="text-white-50 mb-1 small text-uppercase">Taxa de Pontualidade</h6>
-                <div class="d-flex align-items-center">
-                    <h2 class="fw-bold mb-0 text-warning">@MediaPontualidadeGlobal.ToString("F0")%</h2>
-                    <i class="bi bi-clock-history ms-auto text-warning opacity-50 fs-4"></i>
-                </div>
-                <small class="text-white-50">Entregas dentro do Prazo</small>
-            </div>
-        </div>
-    </div>
 
-    @* Tabela Detalhada *@
-    <div class="card admin-card shadow-sm border-0">
-        <div class="card-header bg-white border-bottom py-3">
-            <h5 class="fw-bold mb-0 text-primary">Análise de Eficácia por Turma</h5>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="bg-light">
-                    <tr>
-                        <th class="ps-4">Turma</th>
-                        <th>Aproveitamento</th>
-                        <th>Taxa de Entrega</th>
-                        <th>Pontualidade</th>
-                        <th class="text-center">Recuperações</th>
-                        <th class="text-center">Status Operacional</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (ListaParaExibir != null && ListaParaExibir.Any())
-                    {
-                        @foreach (var item in ListaParaExibir)
-                        {
-                            <tr>
-                                <td class="ps-4">
-                                    <div class="fw-bold">@item.Nome</div>
-                                    <small class="text-muted">@item.QtdAlunos Alunos</small>
-                                </td>
-                                <td>
-                                    <span class="badge @(item.MediaNota >= 9.5 ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") border px-2 py-1">
-                                        @(item.MediaNota > 0 ? item.MediaNota.ToString("F1") : "---")
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="progress" style="height: 6px; width: 60px;">
-                                            <div class="progress-bar bg-primary" style="width: @item.TaxaParticipacao%"></div>
-                                        </div>
-                                        <small>@item.TaxaParticipacao%</small>
-                                    </div>
-                                </td>
-                                <td>
-                                    <small class="@(item.TaxaPontualidade < 70 ? "text-danger fw-bold" : "text-muted")">
-                                        <i class="bi bi-alarm me-1"></i>@item.TaxaPontualidade%
-                                    </small>
-                                </td>
-                                <td class="text-center">
-                                    <span class="badge bg-light text-dark border">@item.QtdRecuperacoes</span>
-                                </td>
-                                <td class="text-center">
-                                    @if (item.TaxaParticipacao < 50 || item.MediaNota < 9.5)
-                                    {
-                                        <span class="badge bg-danger rounded-pill px-3">Crítico</span>
-                                    }
-                                    else if (item.TaxaPontualidade < 80)
-                                    {
-                                        <span class="badge bg-warning text-dark rounded-pill px-3">Atenção</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-success rounded-pill px-3">Estável</span>
-                                    }
-                                </td>
-                            </tr>
-                        }
-                    }
-                    else if (isLoading)
-                    {
+        <div class="card admin-card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
                         <tr>
-                            <td colspan="6" class="text-center py-5">
-                                <div class="spinner-border text-primary" role="status"></div>
-                            </td>
+                            <th class="ps-4">Turma</th>
+                            <th>Aproveitamento</th>
+                            <th>Taxa de Entrega</th>
+                            <th>Status Operacional</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @if (ListaParaExibir.Any())
+                        {
+                            @foreach (var item in ListaParaExibir)
+                            {
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-bold">@item.Nome</div>
+                                        <small class="text-muted">@item.QtdAlunos Alunos</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(item.MediaNota >= 9.5 ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") border">
+                                            @item.MediaNota.ToString("F1")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress" style="height: 6px; width: 60px;">
+                                                <div class="progress-bar bg-primary" style="width: @item.TaxaParticipacao%"></div>
+                                            </div>
+                                            <small>@item.TaxaParticipacao.ToString("F0")%</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (item.TaxaParticipacao < 50 || item.MediaNota < 9.5)
+                                        {
+                                            <span class="badge bg-danger rounded-pill px-3">Crítico</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success rounded-pill px-3">Estável</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr><td colspan="4" class="text-center py-4">Nenhum dado encontrado.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
+    }
 </div>
 
 @code {
     private List<ViewRelatorioGlobal> ListaParaExibir = new();
-    private int TotalAlunos, TotalProfessores, TotalRecuperacoes;
-    private double MediaGlobalGeral, MediaParticipacaoGlobal, MediaPontualidadeGlobal;
+    private int TotalAlunos, TotalRecuperacoes;
+    private double MediaGlobalGeral, MediaParticipacaoGlobal;
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
@@ -192,51 +145,51 @@
         try
         {
             isLoading = true;
-            var turmasDoBanco = await TurmaService.GetTurmasAsync() ?? new List<Turma>();
+            var turmas = await TurmaService.GetTurmasAsync() ?? new List<Turma>();
             var trabalhos = await TrabalhoService.GetTodosTrabalhosComNotasAsync() ?? new List<Trabalho>();
 
             using var context = await DbFactory.CreateDbContextAsync();
             TotalAlunos = await context.Alunos.CountAsync();
-            TotalProfessores = await context.Professores.CountAsync();
             TotalRecuperacoes = trabalhos.Count(t => t.IsPlanoRecuperacao);
 
-            ListaParaExibir = turmasDoBanco.Select(turma =>
+            ListaParaExibir = turmas.Select(turma =>
             {
-                var trabTurma = trabalhos.Where(t => t.TurmaId == turma.Id).ToList();
-                var vertentes = trabTurma.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).ToList();
+                var trabT = trabalhos.Where(t => t.TurmaId == turma.Id).ToList();
+                var vert = trabT.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).ToList();
 
-                // Média de Notas
-                var notas = vertentes.Where(v => v.Nota.HasValue).Select(v => (double)v.Nota!.Value).ToList();
+                var notasValidas = vert.Where(v => v.Nota.HasValue).Select(v => (double)v.Nota!.Value).ToList();
+                double mediaTurma = notasValidas.Any() ? notasValidas.Average() : 0;
 
-                // Participação (Enviou algo?)
-                var entregues = vertentes.Count(v => v.DataEnvio.HasValue || !string.IsNullOrEmpty(v.ConteudoTextoAluno));
-                double participacao = vertentes.Any() ? (double)entregues / vertentes.Count * 100 : 0;
-
-                // Pontualidade (Enviou antes do prazo do trabalho?)
-                var pontuais = trabTurma.SelectMany(t => (t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                                        .Where(v => v.DataEnvio.HasValue && v.DataEnvio <= t.PrazoEntrega)).Count();
-
-                double pontualidade = entregues > 0 ? (double)pontuais / entregues * 100 : 0;
+                int totalEsperado = vert.Count;
+                int entregues = vert.Count(v => v.DataEnvio.HasValue || !string.IsNullOrEmpty(v.ConteudoTextoAluno));
+                double part = totalEsperado > 0 ? ((double)entregues / totalEsperado) * 100 : 0;
 
                 return new ViewRelatorioGlobal
                 {
-                    Nome = turma.Nome ?? "Turma",
+                    Nome = turma.Nome ?? "Sem Nome",
                     QtdAlunos = turma.Alunos?.Count ?? 0,
-                    MediaNota = notas.Any() ? notas.Average() : 0,
-                    TaxaParticipacao = Math.Round(participacao, 1),
-                    TaxaPontualidade = Math.Round(pontualidade, 1),
-                    QtdRecuperacoes = trabTurma.Count(t => t.IsPlanoRecuperacao)
+                    MediaNota = mediaTurma,
+                    TaxaParticipacao = part
                 };
             }).OrderByDescending(x => x.MediaNota).ToList();
 
-            if (ListaParaExibir.Any(x => x.MediaNota > 0))
-                MediaGlobalGeral = ListaParaExibir.Where(x => x.MediaNota > 0).Average(x => x.MediaNota);
+            if (ListaParaExibir.Any())
+            {
+                var turmasComNota = ListaParaExibir.Where(x => x.MediaNota > 0).ToList();
+                MediaGlobalGeral = turmasComNota.Any() ? turmasComNota.Average(x => x.MediaNota) : 0;
+                MediaParticipacaoGlobal = ListaParaExibir.Average(x => x.TaxaParticipacao);
+            }
 
-            MediaParticipacaoGlobal = ListaParaExibir.Any() ? ListaParaExibir.Average(x => x.TaxaParticipacao) : 0;
-            MediaPontualidadeGlobal = ListaParaExibir.Any() ? ListaParaExibir.Average(x => x.TaxaPontualidade) : 0;
         }
-        catch (Exception ex) { Console.WriteLine(ex.Message); }
-        finally { isLoading = false; StateHasChanged(); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
     public class ViewRelatorioGlobal
@@ -245,7 +198,5 @@
         public int QtdAlunos { get; set; }
         public double MediaNota { get; set; }
         public double TaxaParticipacao { get; set; }
-        public double TaxaPontualidade { get; set; }
-        public int QtdRecuperacoes { get; set; }
     }
 }

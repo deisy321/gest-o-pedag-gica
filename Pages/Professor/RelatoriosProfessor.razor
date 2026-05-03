@@ -17,7 +17,7 @@
         <span class="badge bg-primary px-3 py-2">Sessão: @DateTime.Now.Year/@(DateTime.Now.Year + 1)</span>
     </div>
 
-    @* Cartões de Resumo Rápido *@
+    @* Cartões de Resumo *@
     <div class="row mb-4 g-3">
         <div class="col-md-4">
             <div class="card border-0 shadow-sm p-3 border-start border-primary border-4">
@@ -40,11 +40,10 @@
     </div>
 
     <div class="row mb-4">
-        @* Gráfico Principal *@
         <div class="col-md-8">
             <div class="card border-0 shadow-sm p-4 h-100">
                 <h5 class="fw-bold mb-4 text-muted">Desempenho por Turma</h5>
-                @if (Labels == null || !Labels.Any())
+                @if (!Labels.Any())
                 {
                     <div class="d-flex justify-content-center align-items-center" style="height: 300px;">
                         <div class="spinner-border text-primary" role="status"></div>
@@ -56,29 +55,25 @@
             </div>
         </div>
 
-        @* Insights da IA e Detalhes *@
         <div class="col-md-4">
             <div class="card border-0 shadow-sm p-4 bg-white h-100 d-flex flex-column">
                 <h5 class="fw-bold mb-3"><i class="bi bi-robot text-primary me-2"></i>Análise Inteligente</h5>
-
                 @if (isGerandoAnalise)
                 {
                     <div class="text-center py-5">
                         <div class="spinner-grow text-primary" role="status"></div>
-                        <p class="small text-muted mt-2">Processando dados pedagógicos...</p>
+                        <p class="small text-muted mt-2">Processando dados...</p>
                     </div>
                 }
                 else
                 {
                     <div class="p-3 rounded-3 mb-3" style="background: #f8f9fc; border-left: 4px solid #4e73df;">
-                        <p class="small mb-0 text-dark" style="line-height: 1.6; white-space: pre-line;">
-                            @analiseIA
-                        </p>
+                        <p class="small mb-0 text-dark" style="line-height: 1.6; white-space: pre-line;">@analiseIA</p>
                     </div>
                 }
 
                 <h6 class="fw-bold mt-3 mb-3 small">Métricas por Turma:</h6>
-                <div class="list-group list-group-flush small">
+                <div class="list-group list-group-flush small" style="max-height: 300px; overflow-y: auto;">
                     @foreach (var item in DadosTurmas)
                     {
                         <div class="list-group-item d-flex justify-content-between align-items-center px-0">
@@ -86,7 +81,7 @@
                                 <span class="fw-bold">@item.Nome</span>
                                 <div class="text-muted" style="font-size: 0.75rem;">Recuperações: @item.QtdRecuperacao</div>
                             </div>
-                            <span class="badge @(item.Media >= 10 ? "bg-success" : "bg-danger")">@item.Media.ToString("F1")</span>
+                            <span class="badge @(item.Media >= 10 ? "bg-success" : "bg-warning text-dark")">@item.Media.ToString("F1")</span>
                         </div>
                     }
                 </div>
@@ -101,10 +96,9 @@
     private List<TurmaDashboardItem> DadosTurmas = new();
     private int TotalEmRecuperacao = 0;
     private double TaxaEntregaGlobal = 0;
-
-    private string analiseIA = "";
+    private string analiseIA = "Aguardando processamento...";
     private bool isGerandoAnalise = false;
-    private bool initialized = false;
+    private bool shouldRenderChart = false;
 
     public class TurmaDashboardItem
     {
@@ -128,19 +122,18 @@
 
         DadosTurmas = turmas.Select(turma =>
         {
-            var trabalhosTurma = trabalhos.Where(t => t.TurmaId == turma.Id && t.ProfessorId == userId).ToList();
-            var vertentes = trabalhosTurma.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).ToList();
-
+            var trabTurma = trabalhos.Where(t => t.TurmaId == turma.Id && t.ProfessorId == userId).ToList();
+            var vertentes = trabTurma.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>()).ToList();
             var notas = vertentes.Where(v => v.Nota.HasValue).Select(v => (double)v.Nota!.Value).ToList();
 
             int totalEsperado = vertentes.Count;
-            int totalEntregue = vertentes.Count(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null);
+            int totalEntregue = vertentes.Count(v => v.DataEnvio.HasValue || !string.IsNullOrEmpty(v.ConteudoTextoAluno));
 
             return new TurmaDashboardItem
             {
                 Nome = turma.Nome,
                 Media = notas.Any() ? Math.Round(notas.Average(), 1) : 0,
-                QtdRecuperacao = trabalhosTurma.Count(t => t.IsPlanoRecuperacao),
+                QtdRecuperacao = trabTurma.Count(t => t.IsPlanoRecuperacao),
                 PercentualEntrega = totalEsperado > 0 ? ((double)totalEntregue / totalEsperado) * 100 : 0
             };
         }).OrderByDescending(x => x.Media).ToList();
@@ -150,11 +143,16 @@
         TotalEmRecuperacao = DadosTurmas.Sum(d => d.QtdRecuperacao);
         TaxaEntregaGlobal = DadosTurmas.Any() ? DadosTurmas.Average(d => d.PercentualEntrega) : 0;
 
-        initialized = true;
+        shouldRenderChart = true;
+        _ = GerarAnaliseIA(userId);
+    }
 
-        if (DadosTurmas.Any())
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (shouldRenderChart && Labels.Any())
         {
-            _ = GerarAnaliseIA(userId);
+            await JS.InvokeVoidAsync("site.renderBarChart", "chartTurmas", Labels.ToArray(), Medias.ToArray(), Labels.Select(_ => "#4e73df").ToArray());
+            shouldRenderChart = false;
         }
     }
 
@@ -164,42 +162,17 @@
         {
             isGerandoAnalise = true;
             StateHasChanged();
-
-            var resumoParaIA = string.Join(" | ", DadosTurmas.Select(d =>
-                $"{d.Nome}: Média {d.Media}, Entregas {d.PercentualEntrega:F0}%, Planos Recup: {d.QtdRecuperacao}"));
-
-            analiseIA = await IAService.ObterSugestoes(
-                promptSistemaOriginal: "És um Coordenador Pedagógico. Analisas médias, taxas de entrega e planos de recuperação.",
-                instrucaoPrincipal: "Dá um diagnóstico curto. Prioriza turmas com baixa entrega ou muitas recuperações. Seja motivador mas direto.",
-                conteudoParaAnalisar: resumoParaIA,
-                alunoId: professorId,
-                trabalhoId: "REPORT_PROF_ADVANCED",
-                vertenteId: "0",
-                arquivoBytes: null
-            );
+            var resumo = string.Join(" | ", DadosTurmas.Select(d => $"{d.Nome}: Média {d.Media}, Entregas {d.PercentualEntrega:F0}%"));
+            analiseIA = await IAService.ObterSugestoes("Coordenador Pedagógico", "Analise as turmas e dê um diagnóstico curto.", resumo, professorId, "REPORT_PROF", "0", null);
         }
-        catch (Exception)
+        catch
         {
-            analiseIA = "Análise indisponível no momento. O desempenho geral parece seguir a média institucional.";
+            analiseIA = "Análise indisponível no momento.";
         }
         finally
         {
             isGerandoAnalise = false;
             StateHasChanged();
-        }
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (initialized && Labels.Any())
-        {
-            await JS.InvokeVoidAsync("site.renderBarChart",
-                "chartTurmas",
-                Labels.ToArray(),
-                Medias.ToArray(),
-                Labels.Select(_ => "#4e73df").ToArray());
-
-            initialized = false;
         }
     }
 }
