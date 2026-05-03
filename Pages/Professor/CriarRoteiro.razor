@@ -191,7 +191,6 @@
     private Turma? TurmaSelecionada;
     private Professor? ProfessorLogado;
 
-    // Listas filtradas para o formulário
     private List<Modulo> ModulosFiltrados = [];
     private List<Disciplina> DisciplinasFiltradas = [];
 
@@ -247,30 +246,28 @@
 
     private async Task CarregarDados()
     {
+        // 1. Carrega a turma com todos os módulos já vinculados a ela (via TurmaModulo)
         TurmaSelecionada = await TurmaService.GetTurmaByIdAsync(TurmaId);
 
-        // Carregamos o professor com os Includes necessários (Turmas/Disciplinas)
+        // 2. Carrega o professor com seus vínculos
         ProfessorLogado = await ProfessorService.GetProfessorByUserIdAsync(ProfessorUserId!);
 
-        if (ProfessorLogado != null)
+        if (TurmaSelecionada != null && ProfessorLogado != null)
         {
-            // LÓGICA DE FILTRAGEM:
-            // Pegamos as relações TurmaProfessor onde a Turma é a atual
-            var vinculosDestaTurma = ProfessorLogado.Turmas
-                .Where(tp => tp.TurmaId == TurmaId)
+            // NOVA LÓGICA: Pegamos todos os módulos que pertencem à TURMA.
+            // Se o módulo está vinculado à turma, o professor deve poder selecioná-lo.
+            ModulosFiltrados = TurmaSelecionada.Modulos
+                .Select(tm => tm.Modulo)
+                .Where(m => m != null)
+                .OrderBy(m => m.Nome)
                 .ToList();
 
-            // 1. Extraímos as disciplinas que ele dá NESTA turma
-            var disciplinasDoProfNestaTurma = vinculosDestaTurma
+            // Filtramos as disciplinas que o professor efetivamente leciona NESTA turma
+            DisciplinasFiltradas = ProfessorLogado.Turmas
+                .Where(tp => tp.TurmaId == TurmaId)
                 .Select(tp => tp.Disciplina)
                 .Where(d => d != null)
-                .ToList();
-
-            // 2. Extraímos os módulos associados a essas disciplinas
-            ModulosFiltrados = disciplinasDoProfNestaTurma
-                .SelectMany(d => d.Modulos)
-                .DistinctBy(m => m.Id)
-                .OrderBy(m => m.Nome)
+                .DistinctBy(d => d.Id)
                 .ToList();
         }
     }
@@ -284,7 +281,7 @@
 
             if (modId > 0 && ProfessorLogado != null)
             {
-                // Filtramos as disciplinas do professor nesta turma que pertencem ao módulo selecionado
+                // Filtramos as disciplinas do professor nesta turma que possuam este módulo
                 DisciplinasFiltradas = ProfessorLogado.Turmas
                     .Where(tp => tp.TurmaId == TurmaId)
                     .Select(tp => tp.Disciplina)
@@ -336,12 +333,10 @@
 
             var modulo = ModulosFiltrados.FirstOrDefault(m => m.Id == ModuloSelecionadoId);
 
-            // Definimos os alunos para saber de quem verificar o histórico
             var alunosParaAtribuir = TipoAtribuicao == "aluno"
                 ? TurmaSelecionada!.Alunos.Where(a => a.Id == AlunoSelecionadoId && !string.IsNullOrEmpty(a.UserId)).ToList()
                 : TurmaSelecionada!.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)).ToList();
 
-            // Validação de carga horária (usando o primeiro aluno como referência)
             var alunoRef = alunosParaAtribuir.FirstOrDefault();
             if (alunoRef != null && modulo != null)
             {
