@@ -28,6 +28,8 @@ namespace gestaopedagogica.Models
 
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
         public DateTime PrazoEntrega { get; set; }
+        // NOVO: Este campo guarda o prazo real para efeitos de Badge
+        public DateTime PrazoOriginal { get; set; }
         public DateTime? DataEntrega { get; set; }
 
         public int HorasAtribuidas { get; set; }
