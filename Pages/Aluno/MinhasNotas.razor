@@ -15,6 +15,7 @@
                 <div class="d-flex align-items-center mb-3">
                     <div class="bg-primary rounded-circle me-2" style="width: 12px; height: 12px;"></div>
                     <h4 class="fw-bold m-0 text-dark">@disciplina.Key</h4>
+                    <span class="badge bg-dark ms-3 shadow-sm">Média Global: @disciplina.MediaFinalDisciplina.ToString("F1")</span>
                     <hr class="flex-grow-1 ms-3 opacity-25">
                 </div>
 
@@ -22,9 +23,9 @@
                     @foreach (var modulo in disciplina.Modulos)
                     {
                         <div class="col-md-6 mb-3">
-                            <div class="card shadow-sm border-0 @(modulo.EstaBloqueado ? "border-start border-danger border-5" : "border-start border-primary border-5")" style="border-radius: 12px;">
+                            <div class="card shadow-sm border-0 @(modulo.EstaBloqueado ? "border-start border-danger border-5" : (modulo.Concluido ? "border-start border-success border-5" : "border-start border-primary border-5"))" style="border-radius: 12px;">
                                 <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="d-flex justify-content-between align-start mb-2">
                                         <div>
                                             <h5 class="fw-bold mb-0">@modulo.ModuloNome</h5>
                                             <small class="text-muted">@modulo.HorasTotais h totais</small>
@@ -32,9 +33,9 @@
                                         <div class="text-end">
                                             @if (modulo.EstaBloqueado)
                                             {
-                                                <div class="text-danger" title="Módulo retido por negativa em vertente específica">
+                                                <div class="text-danger">
                                                     <i class="bi bi-lock-fill fs-5"></i>
-                                                    <span class="d-block fw-bold" style="font-size: 0.7rem;">BLOQUEADO</span>
+                                                    <span class="d-block fw-bold" style="font-size: 0.7rem;">RETIDO</span>
                                                 </div>
                                             }
                                             else if (modulo.Concluido)
@@ -43,22 +44,22 @@
                                             }
                                             else
                                             {
-                                                <span class="badge bg-secondary">Em Curso</span>
+                                                <span class="badge bg-secondary">Em Curso / Pendente</span>
                                             }
                                         </div>
                                     </div>
 
-                                    @if (modulo.EstaBloqueado)
+                                    @if (modulo.VertentesCriticas.Any())
                                     {
                                         <div class="alert alert-danger py-1 px-2 mb-2" style="font-size: 0.8rem;">
                                             <i class="bi bi-exclamation-circle me-1"></i>
-                                            Recuperação em: <strong>@string.Join(", ", modulo.VertentesCriticas)</strong>
+                                            Recuperação necessária: <strong>@string.Join(", ", modulo.VertentesCriticas)</strong>
                                         </div>
                                     }
 
                                     <div class="mt-3">
                                         <div class="d-flex justify-content-between small mb-1">
-                                            <span>Progresso: @modulo.HorasAtuais h</span>
+                                            <span>Progresso: @modulo.HorasAtuais / @modulo.HorasTotais h</span>
                                             <span>@(modulo.HorasTotais > 0 ? (modulo.HorasAtuais * 100 / modulo.HorasTotais) : 0)%</span>
                                         </div>
                                         <div class="progress" style="height: 8px; border-radius: 4px; background-color: #e9ecef;">
@@ -82,51 +83,6 @@
             <p>Nenhum registo encontrado.</p>
         </div>
     }
-
-    <!-- Histórico Detalhado -->
-    <div class="card shadow-sm border-0 p-4 mt-4" style="border-radius: 15px;">
-        <h5 class="fw-bold mb-3">Histórico de Avaliações</h5>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Trabalho / Módulo</th>
-                        <th>Vertente</th>
-                        <th class="text-center">Nota</th>
-                        <th>Feedback do Professor</th>
-                        <th>Data</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (trabalhos != null && trabalhos.Any())
-                    {
-                        @foreach (var trabalho in trabalhos.OrderByDescending(t => t.DataCriacao))
-                        {
-                            @foreach (var vert in trabalho.TrabalhoVertentes.Where(v => v.Nota.HasValue || !string.IsNullOrEmpty(v.Feedback)))
-                            {
-                                <tr>
-                                    <td>
-                                        <div class="fw-bold">@trabalho.Titulo</div>
-                                        <small class="text-muted">@trabalho.Modulo?.Nome</small>
-                                    </td>
-                                    <td><span class="badge bg-light text-dark border">@vert.Tipo</span></td>
-                                    <td class="text-center">
-                                        <span class="fw-bold @(vert.Nota >= 9.5m ? "text-success" : "text-danger")">
-                                            @(vert.Nota.HasValue? vert.Nota.Value.ToString("F1") : "-")
-                                        </span>
-                                    </td>
-                                    <td class="small text-muted" style="max-width: 300px;">
-                                        @(!string.IsNullOrEmpty(vert.Feedback) ? vert.Feedback : "Sem comentários")
-                                    </td>
-                                    <td><small>@(vert.DataEnvio?.ToShortDateString() ?? "-")</small></td>
-                                </tr>
-                            }
-                        }
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
 </div>
 
 @code {
@@ -140,7 +96,6 @@
 
         if (!string.IsNullOrEmpty(userId))
         {
-            // CORREÇÃO: Utilizando o método correto do TrabalhoService
             trabalhos = await TrabalhoService.GetTrabalhosDoAlunoComVertentesAsync(userId);
             ProcessarResumoPorDisciplina();
         }
@@ -152,39 +107,74 @@
 
         DisciplinasAgrupadas = trabalhos
             .GroupBy(t => t.Disciplina?.Nome ?? "Outros")
-            .Select(gd => new DisciplinaAgrupada
+            .Select(gd =>
             {
-                Key = gd.Key,
-                Modulos = gd.GroupBy(m => new { m.ModuloId, Nome = m.Modulo?.Nome ?? "Geral", Horas = m.Modulo?.TotalHoras ?? 25 })
+                var modulos = gd.GroupBy(m => new { m.ModuloId, Nome = m.Modulo?.Nome ?? "Geral", Horas = m.Modulo?.TotalHoras ?? 25 })
                 .Select(g =>
                 {
-                    var statusVertentes = g.SelectMany(t => t.TrabalhoVertentes)
-                        .Where(v => v.Nota.HasValue)
-                        .GroupBy(v => v.Tipo)
-                        .Select(vType => new
-                        {
-                            Tipo = vType.Key,
-                            MelhorNota = (double)vType.Max(x => x.Nota!.Value)
-                        }).ToList();
+                    var listaTrabalhosModulo = g.ToList();
 
-                    var criticas = statusVertentes.Where(x => x.MelhorNota < 9.5).Select(x => x.Tipo ?? "Indefinida").ToList();
+                    // LÓGICA IDÊNTICA À DA FICHA TÉCNICA
+                    double ObterNotaFinalVertente(string termo)
+                    {
+                        termo = termo.ToLower();
+
+                        // 1. Prioridade para Recuperação
+                        var notaRec = listaTrabalhosModulo
+                            .Where(t => t.Titulo != null && t.Titulo.ToLower().Contains("recuper"))
+                            .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                            .Where(v => v.Tipo != null && v.Tipo.ToLower().Contains(termo.Substring(0, 4)) && v.Nota.HasValue)
+                            .OrderByDescending(v => v.Id)
+                            .Select(v => (double?)v.Nota)
+                            .FirstOrDefault();
+
+                        if (notaRec.HasValue) return notaRec.Value;
+
+                        // 2. Média dos trabalhos normais
+                        var notasNormais = listaTrabalhosModulo
+                            .Where(t => t.Titulo == null || !t.Titulo.ToLower().Contains("recuper"))
+                            .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                            .Where(v => v.Tipo != null && v.Tipo.ToLower().Contains(termo.Substring(0, 4)) && v.Nota.HasValue)
+                            .Select(v => (double)v.Nota!)
+                            .ToList();
+
+                        return notasNormais.Any() ? notasNormais.Average() : 0;
+                    }
+
+                    double mComp = ObterNotaFinalVertente("comp");
+                    double mConh = ObterNotaFinalVertente("conh");
+                    double mApt = ObterNotaFinalVertente("apti");
+
+                    var criticas = new List<string>();
+                    if (mComp > 0 && mComp < 9.5) criticas.Add("Competência");
+                    if (mConh > 0 && mConh < 9.5) criticas.Add("Conhecimento");
+                    if (mApt > 0 && mApt < 9.5) criticas.Add("Aptidão");
 
                     return new ModuloResumo
                     {
                         ModuloNome = g.Key.Nome,
                         HorasTotais = g.Key.Horas,
                         HorasAtuais = g.Sum(t => t.HorasAtribuidas),
-                        Media = statusVertentes.Any() ? statusVertentes.Average(v => v.MelhorNota) : 0,
+                        Media = (mComp + mConh + mApt) / 3,
                         VertentesCriticas = criticas
                     };
-                }).ToList()
-            }).OrderBy(d => d.Key).ToList();
+                }).ToList();
+
+                return new DisciplinaAgrupada
+                {
+                    Key = gd.Key,
+                    Modulos = modulos
+                };
+            })
+            .OrderBy(d => d.Key)
+            .ToList();
     }
 
     public class DisciplinaAgrupada
     {
         public string Key { get; set; } = "";
         public List<ModuloResumo> Modulos { get; set; } = new();
+        public double MediaFinalDisciplina => Modulos.Any(m => m.Media > 0) ? Modulos.Where(m => m.Media > 0).Average(m => m.Media) : 0;
     }
 
     public class ModuloResumo
@@ -195,6 +185,6 @@
         public double Media { get; set; }
         public List<string> VertentesCriticas { get; set; } = new();
         public bool EstaBloqueado => VertentesCriticas.Any();
-        public bool Concluido => HorasAtuais >= HorasTotais && !EstaBloqueado;
+        public bool Concluido => HorasAtuais >= HorasTotais && !EstaBloqueado && Media >= 9.5;
     }
 }
