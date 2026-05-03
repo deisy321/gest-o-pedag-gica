@@ -26,7 +26,7 @@
             transform: translateY(-5px);
         }
 
-    /* O SEGREDO: Usar @@ para evitar o erro "media não existe" */
+    /* Correção para evitar erro de compilação no Blazor */
     @@media print {
         .no-print {
             display: none !important;
@@ -69,9 +69,9 @@
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card admin-card p-3 bg-dark text-white h-100">
-                    <small class="text-white-50 text-uppercase fw-bold small">Taxa de Entrega</small>
-                    <h2 class="fw-bold text-warning">@MediaParticipacaoGlobal.ToString("F0")%</h2>
+                <div class="card admin-card p-3 bg-white border border-primary h-100">
+                    <small class="text-primary text-uppercase fw-bold small">Taxa de Entrega</small>
+                    <h2 class="fw-bold text-primary">@MediaParticipacaoGlobal.ToString("F0")%</h2>
                 </div>
             </div>
         </div>
@@ -83,7 +83,7 @@
                         <tr>
                             <th class="ps-4">Turma</th>
                             <th>Aproveitamento</th>
-                            <th>Taxa de Entrega</th>
+                            <th class="text-primary">Taxa de Entrega</th>
                             <th>Status Operacional</th>
                         </tr>
                     </thead>
@@ -107,7 +107,7 @@
                                             <div class="progress" style="height: 6px; width: 60px;">
                                                 <div class="progress-bar bg-primary" style="width: @item.TaxaParticipacao%"></div>
                                             </div>
-                                            <small>@item.TaxaParticipacao.ToString("F0")%</small>
+                                            <small class="text-primary fw-bold">@item.TaxaParticipacao.ToString("F0")%</small>
                                         </div>
                                     </td>
                                     <td>
