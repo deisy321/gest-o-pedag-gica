@@ -313,35 +313,55 @@
     {
         if (TrabalhoEmEdicao == null) return;
 
-        // 1. ATUALIZA NA BASE DE DADOS
+        // 1. Atualiza a data
         TrabalhoEmEdicao.PrazoEntrega = NovaData;
 
-        // ALTERADO: De UpdateTrabalhoAsync para AtualizarTrabalhoAsync
+        // 2. ENVIA PARA O BANCO (O serviço usa o ID para encontrar e atualizar no SQL)
         await TrabalhoService.AtualizarTrabalhoAsync(TrabalhoEmEdicao);
 
-        // 2. Atualiza a lista local
+        // 3. Atualiza a UI (o que o professor vê na tabela sem dar F5)
         var t = TodosTrabalhos.FirstOrDefault(x => x.Id == TrabalhoEmEdicao.Id);
         if (t != null)
         {
             t.Titulo = TrabalhoEmEdicao.Titulo;
-            t.ConteudoTexto = TrabalhoEmEdicao.ConteudoTexto; // Verifique se é Descricao ou ConteudoTexto no seu Model
+            t.Descricao = TrabalhoEmEdicao.Descricao;
+            t.ConteudoTexto = TrabalhoEmEdicao.ConteudoTexto; // Atualiza ambos
             t.PrazoEntrega = NovaData;
         }
 
         FecharModal();
         FiltrarTrabalhos();
     }
-
     private void AumentarPrazo(Trabalho trabalho) { TrabalhoSelecionado = trabalho; MostrarModalPrazo = true; }
 
     private async Task SalvarNovaData()
     {
         if (TrabalhoSelecionado == null) return;
 
-        // await TrabalhoService.UpdatePrazoAsync(TrabalhoSelecionado.Id, DiasAdicionais);
+        // Calcula a nova data
+        var novaDataCalculada = TrabalhoSelecionado.PrazoEntrega.AddDays(DiasAdicionais);
 
-        var t = TodosTrabalhos.FirstOrDefault(x => x.Id == TrabalhoSelecionado.Id);
-        if (t != null) t.PrazoEntrega = t.PrazoEntrega.AddDays(DiasAdicionais);
+        // 1. ATUALIZA NO BANCO DE DADOS (Chamando o serviço que já existe)
+        // Criamos um objeto temporário para enviar a atualização
+        var trabalhoParaUpdate = new Trabalho
+        {
+            Id = TrabalhoSelecionado.Id,
+            PrazoEntrega = novaDataCalculada,
+            Titulo = TrabalhoSelecionado.Titulo // O service precisa dos dados básicos
+        };
+
+        bool sucesso = await TrabalhoService.AtualizarTrabalhoAsync(trabalhoParaUpdate);
+
+        if (sucesso)
+        {
+            // 2. Só atualiza a UI se gravou com sucesso no banco
+            var t = TodosTrabalhos.FirstOrDefault(x => x.Id == TrabalhoSelecionado.Id);
+            if (t != null)
+            {
+                t.PrazoEntrega = novaDataCalculada;
+            }
+        }
+
         FecharModalPrazo();
         FiltrarTrabalhos();
     }
