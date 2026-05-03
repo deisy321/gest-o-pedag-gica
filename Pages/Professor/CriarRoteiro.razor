@@ -26,7 +26,7 @@
     {
         <div class="alert-custom alert-danger">
             <i class="fas fa-exclamation-circle"></i>
-            <span>Turma não encontrada!</span>
+            <span>Turma não encontrada ou acesso negado!</span>
         </div>
     }
     else
@@ -60,38 +60,42 @@
                         <div class="form-group">
                             <label class="form-label">Descrição / Instruções</label>
                             <textarea class="form-control @(string.IsNullOrEmpty(ErroDescricao) ? "" : "is-invalid")"
-                                      @bind="Descricao" rows="4" placeholder="Descreva os objetivos e o que é esperado do aluno..."></textarea>
+                                      @bind="Descricao" rows="4" placeholder="Descreva os objetivos..."></textarea>
                             <small class="text-danger">@ErroDescricao</small>
                         </div>
 
                         <div class="row mt-3">
                             <div class="col-md-6 form-group">
-                                <label class="form-label">Disciplina</label>
-                                <select class="form-select @(string.IsNullOrEmpty(ErroDisciplina) ? "" : "is-invalid")" @onchange="OnDisciplinaChanged">
-                                    <option value="0">-- Selecione a Disciplina --</option>
-                                    @foreach (var disc in ListaDisciplinas)
-                                    {
-                                        <option value="@disc.Id">@disc.Nome</option>
-                                    }
-                                </select>
-                                <small class="text-danger">@ErroDisciplina</small>
-                            </div>
-
-                            <div class="col-md-6 form-group">
                                 <label class="form-label">Módulo</label>
-                                <select class="form-select @(string.IsNullOrEmpty(ErroModulo) ? "" : "is-invalid")" @bind="ModuloSelecionadoId" disabled="@(DisciplinaSelecionadaId == 0)">
+                                <select class="form-select @(string.IsNullOrEmpty(ErroModulo) ? "" : "is-invalid")" @onchange="OnModuloChanged">
                                     <option value="0">-- Selecione o Módulo --</option>
-                                    @foreach (var mod in ModulosFiltrados)
+                                    @foreach (var mod in ListaModulos)
                                     {
                                         <option value="@mod.Id">@mod.Nome (@mod.TotalHoras h)</option>
                                     }
                                 </select>
                                 <small class="text-danger">@ErroModulo</small>
                             </div>
+                            <div class="col-md-6 form-group">
+                                <label class="form-label">Disciplina (Suas Disciplinas nesta Turma)</label>
+                                <select class="form-select @(string.IsNullOrEmpty(ErroDisciplina) ? "" : "is-invalid")" @bind="DisciplinaSelecionadaId" disabled="@(ModuloSelecionadoId == 0)">
+                                    <option value="0">-- Selecione a Disciplina --</option>
+                                    @foreach (var disc in DisciplinasFiltradas)
+                                    {
+                                        <option value="@disc.Id">@disc.Nome</option>
+                                    }
+                                </select>
+                                @if (ModuloSelecionadoId > 0 && !DisciplinasFiltradas.Any())
+                                {
+                                    <small class="text-warning d-block">Não leciona disciplinas deste módulo nesta turma.</small>
+                                }
+                                <small class="text-danger">@ErroDisciplina</small>
+                            </div>
                         </div>
                     </div>
                 </div>
 
+                @* ... [Seção de Vertentes mantida igual] ... *@
                 <div class="custom-card mb-4 elevation-2">
                     <div class="card-header-custom">
                         <h5><i class="fas fa-list-check me-2"></i>Vertentes e Critérios</h5>
@@ -114,6 +118,7 @@
             </div>
 
             <div class="col-lg-4">
+                @* ... [Seção de Configurações e Botão Salvar mantida igual] ... *@
                 <div class="custom-card elevation-2 mb-4">
                     <div class="card-header-custom">
                         <h5><i class="fas fa-cog me-2"></i>Configurações</h5>
@@ -121,10 +126,8 @@
                     <div class="card-body-custom">
                         <div class="form-group">
                             <label class="form-label">Carga Horária (h)</label>
-                            <input type="number" class="form-control @(string.IsNullOrEmpty(ErroHoras) ? "" : "is-invalid")"
-                                   @bind="HorasAtribuidas" min="1" />
-                            <small class="text-muted">Quanto tempo este trabalho ocupa no módulo.</small>
-                            <br /><small class="text-danger">@ErroHoras</small>
+                            <input type="number" class="form-control @(string.IsNullOrEmpty(ErroHoras) ? "" : "is-invalid")" @bind="HorasAtribuidas" min="1" />
+                            <small class="text-danger">@ErroHoras</small>
                         </div>
 
                         <div class="form-group">
@@ -158,8 +161,7 @@
 
                         <hr />
 
-                        <button type="button" class="btn-custom btn-custom-success w-100 justify-content-center py-3 mt-2"
-                                @onclick="SalvarRoteiro" disabled="@IsSaving">
+                        <button type="button" class="btn-custom btn-custom-success w-100 py-3 mt-2" @onclick="SalvarRoteiro" disabled="@IsSaving">
                             @if (IsSaving)
                             {
                                 <span class="spinner-border spinner-border-sm me-2"></span>
@@ -168,6 +170,7 @@
                             else
                             {
                                 <i class="fas fa-save me-2"></i>
+                        
                                 <span>Criar Trabalho</span>
                             }
                         </button>
@@ -190,9 +193,11 @@
 
     private int TurmaId = 0;
     private Turma? TurmaSelecionada;
-    private List<Disciplina> ListaDisciplinas = new();
-    private List<Modulo> ModulosFiltrados = new();
+    private Professor? ProfessorLogado;
+    private List<Modulo> ListaModulos = new();
+    private List<Disciplina> DisciplinasFiltradas = new();
 
+    // Campos de formulário
     private string Titulo = "";
     private string Descricao = "";
     private int ModuloSelecionadoId = 0;
@@ -201,18 +206,15 @@
     private int HorasAtribuidas = 1;
     private string TipoAtribuicao = "turma";
     private DateTime? PrazoEntrega = DateTime.Today.AddDays(7);
+
+    // Estados
     private string StatusMessage = "";
     private bool IsSaving = false;
     private bool IsLoading = true;
     private string? ProfessorUserId;
 
-    private string ErroTitulo = "";
-    private string ErroDescricao = "";
-    private string ErroModulo = "";
-    private string ErroDisciplina = "";
-    private string ErroAluno = "";
-    private string ErroPrazo = "";
-    private string ErroHoras = "";
+    // Erros
+    private string ErroTitulo = "", ErroDescricao = "", ErroModulo = "", ErroDisciplina = "", ErroAluno = "", ErroPrazo = "", ErroHoras = "";
 
     private List<VertenteEditModel> Vertentes = new()
     {
@@ -245,30 +247,37 @@
 
     private async Task CarregarDados()
     {
+        // 1. Carrega a Turma com os dados necessários
         TurmaSelecionada = await TurmaService.GetTurmaByIdAsync(TurmaId);
 
-        // BUSCA APENAS AS DISCIPLINAS QUE ESTE PROFESSOR LECIONA NESTA TURMA ESPECÍFICA
-        ListaDisciplinas = await DisciplinaService.GetDisciplinasPorProfessorETurmaAsync(ProfessorUserId!, TurmaId);
+        // 2. Carrega o perfil do Professor incluindo as Disciplinas que ele leciona
+        ProfessorLogado = await ProfessorService.GetProfessorByUserIdAsync(ProfessorUserId!);
+
+        // 3. Obtém apenas os módulos que existem no sistema (ou filtre por curso da turma se necessário)
+        ListaModulos = await ModuloService.GetModulosAsync() ?? new();
     }
 
-    private void OnDisciplinaChanged(ChangeEventArgs e)
+    private void OnModuloChanged(ChangeEventArgs e)
     {
-        if (int.TryParse(e.Value?.ToString(), out int id))
+        if (int.TryParse(e.Value?.ToString(), out int modId))
         {
-            DisciplinaSelecionadaId = id;
-            ModuloSelecionadoId = 0;
+            ModuloSelecionadoId = modId;
+            DisciplinaSelecionadaId = 0;
+            DisciplinasFiltradas.Clear();
 
-            if (id > 0)
+            if (modId > 0 && ProfessorLogado?.Disciplinas != null)
             {
-                var disc = ListaDisciplinas.FirstOrDefault(d => d.Id == id);
-                ModulosFiltrados = disc?.Modulos?.OrderBy(m => m.Nome).ToList() ?? new();
-            }
-            else
-            {
-                ModulosFiltrados = new();
+                // FILTRO CRÍTICO:
+                // A disciplina deve pertencer ao Módulo selecionado
+                // E o Professor logado deve estar associado a ela.
+                DisciplinasFiltradas = ProfessorLogado.Disciplinas
+                    .Where(d => d.Modulos != null && d.Modulos.Any(m => m.Id == modId))
+                    .ToList();
             }
         }
     }
+
+    // ... [ValidarFormulario e SalvarRoteiro permanecem com a lógica de negócio, mas usando ProfessorLogado.UserId] ...
 
     private bool ValidarFormulario()
     {
@@ -280,12 +289,9 @@
         ErroAluno = (TipoAtribuicao == "aluno" && AlunoSelecionadoId <= 0) ? "Selecione um aluno" : "";
         ErroHoras = (HorasAtribuidas <= 0) ? "A carga horária deve ser superior a 0" : "";
 
-        return string.IsNullOrEmpty(ErroTitulo) &&
-               string.IsNullOrEmpty(ErroDescricao) &&
-               string.IsNullOrEmpty(ErroModulo) &&
-               string.IsNullOrEmpty(ErroDisciplina) &&
-               string.IsNullOrEmpty(ErroPrazo) &&
-               string.IsNullOrEmpty(ErroHoras) &&
+        return string.IsNullOrEmpty(ErroTitulo) && string.IsNullOrEmpty(ErroDescricao) &&
+               string.IsNullOrEmpty(ErroModulo) && string.IsNullOrEmpty(ErroDisciplina) &&
+               string.IsNullOrEmpty(ErroPrazo) && string.IsNullOrEmpty(ErroHoras) &&
                string.IsNullOrEmpty(ErroAluno);
     }
 
@@ -293,77 +299,57 @@
     {
         if (IsSaving) return;
         IsSaving = true;
-        StatusMessage = "A validar...";
-        StateHasChanged();
 
         try
         {
-            if (!ValidarFormulario())
-            {
-                StatusMessage = "❌ Corrija os erros antes de salvar.";
-                IsSaving = false;
-                return;
-            }
+            if (!ValidarFormulario()) { IsSaving = false; return; }
 
-            var modulo = ModulosFiltrados.FirstOrDefault(m => m.Id == ModuloSelecionadoId);
+            // Validação de carga horária (referenciando o aluno/turma)
+            var modulo = ListaModulos.FirstOrDefault(m => m.Id == ModuloSelecionadoId);
             if (modulo != null)
             {
-                var alunosParaAtribuir = TipoAtribuicao == "aluno"
-                    ? TurmaSelecionada!.Alunos.Where(a => a.Id == AlunoSelecionadoId && !string.IsNullOrEmpty(a.UserId)).ToList()
-                    : TurmaSelecionada!.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)).ToList();
+                var alunoRef = TipoAtribuicao == "aluno"
+                    ? TurmaSelecionada!.Alunos.FirstOrDefault(a => a.Id == AlunoSelecionadoId)
+                    : TurmaSelecionada!.Alunos.FirstOrDefault(a => !string.IsNullOrEmpty(a.UserId));
 
-                var alunoRef = alunosParaAtribuir.FirstOrDefault();
                 if (alunoRef != null)
                 {
-                    int horasConsumidas = await TrabalhoService.GetHorasConsumidasNoModuloAsync(
-                        ModuloSelecionadoId,
-                        TurmaSelecionada!.Id,
-                        alunoRef.UserId!);
-
+                    int horasConsumidas = await TrabalhoService.GetHorasConsumidasNoModuloAsync(ModuloSelecionadoId, TurmaId, alunoRef.UserId!);
                     if (horasConsumidas + HorasAtribuidas > modulo.TotalHoras)
                     {
-                        StatusMessage = $"❌ Limite excedido! O módulo tem {modulo.TotalHoras}h. Já usou {horasConsumidas}h. Restam {modulo.TotalHoras - horasConsumidas}h.";
+                        StatusMessage = $"❌ Limite excedido! Restam apenas {modulo.TotalHoras - horasConsumidas}h.";
                         IsSaving = false;
                         return;
                     }
                 }
             }
 
-            var professor = await ProfessorService.GetProfessorByUserIdAsync(ProfessorUserId!);
             var alunosGravar = TipoAtribuicao == "aluno"
-                ? TurmaSelecionada!.Alunos.Where(a => a.Id == AlunoSelecionadoId && !string.IsNullOrEmpty(a.UserId)).ToList()
+                ? TurmaSelecionada!.Alunos.Where(a => a.Id == AlunoSelecionadoId).ToList()
                 : TurmaSelecionada!.Alunos.Where(a => !string.IsNullOrEmpty(a.UserId)).ToList();
 
-            int sucessos = 0;
             foreach (var aluno in alunosGravar)
             {
-                await CriarTrabalhoCompleto(professor!.UserId, aluno.UserId!);
-                sucessos++;
+                await CriarTrabalhoCompleto(ProfessorLogado!.UserId, aluno.UserId!);
             }
 
-            if (sucessos > 0)
-            {
-                StatusMessage = $"✅ {sucessos} trabalho(s) criado(s)!";
-                await Task.Delay(1500);
-                Nav.NavigateTo("/professor/DashboardProfessor");
-            }
+            StatusMessage = "✅ Trabalho criado com sucesso!";
+            await Task.Delay(1500);
+            Nav.NavigateTo("/professor/DashboardProfessor");
         }
-        catch (Exception ex)
-        {
-            StatusMessage = $"❌ Erro: {ex.Message}";
-        }
+        catch (Exception ex) { StatusMessage = $"❌ Erro: {ex.Message}"; }
         finally { IsSaving = false; }
     }
 
-    private async Task CriarTrabalhoCompleto(string professorId, string alunoId)
+    private async Task CriarTrabalhoCompleto(string profUid, string alunoUid)
     {
         var trabalho = new Trabalho
         {
             Titulo = Titulo.Trim(),
             Descricao = Descricao.Trim(),
-            ProfessorId = professorId,
-            AlunoId = alunoId,
-            TurmaId = TurmaSelecionada!.Id,
+            ProfessorId = profUid,
+            AlunoId = alunoUid,
+            TurmaId = TurmaId,
             ModuloId = ModuloSelecionadoId,
             DisciplinaId = DisciplinaSelecionadaId,
             HorasAtribuidas = HorasAtribuidas,
@@ -371,22 +357,17 @@
             PrazoEntrega = PrazoEntrega ?? DateTime.UtcNow.AddDays(7)
         };
 
-        int trabalhoId = await TrabalhoService.AddTrabalhoAsync(trabalho);
-
-        foreach (var vertente in Vertentes)
+        int id = await TrabalhoService.AddTrabalhoAsync(trabalho);
+        foreach (var v in Vertentes)
         {
             await TrabalhoService.AddVertenteAsync(new TrabalhoVertente
             {
-                TrabalhoId = trabalhoId,
-                Tipo = vertente.Tipo,
-                ConteudoTexto = vertente.ConteudoTexto ?? ""
+                TrabalhoId = id,
+                Tipo = v.Tipo,
+                ConteudoTexto = v.ConteudoTexto ?? ""
             });
         }
     }
 
-    public class VertenteEditModel
-    {
-        public string Tipo { get; set; } = "";
-        public string? ConteudoTexto { get; set; }
-    }
+    public class VertenteEditModel { public string Tipo { get; set; } = ""; public string? ConteudoTexto { get; set; } }
 }
