@@ -50,16 +50,30 @@ namespace gestaopedagogica.Services
 
         public async Task UpdateModuloAsync(Modulo modulo)
         {
-            // Evita conflito de tracking
-            _context.Entry(modulo).State = EntityState.Modified;
-
-            // Garante que o Professor não seja alterado
-            if (modulo.Professor != null)
+            try
             {
-                _context.Entry(modulo.Professor).State = EntityState.Unchanged;
-            }
+                // 1. Busca a versão atual do banco sem tracking para comparar
+                var dbModulo = await _context.Modulos.FirstOrDefaultAsync(m => m.Id == modulo.Id);
 
-            await _context.SaveChangesAsync();
+                if (dbModulo == null) throw new Exception("Módulo não encontrado no banco de dados.");
+
+                // 2. Atualiza apenas os campos de dados
+                dbModulo.Nome = modulo.Nome;
+                dbModulo.Numero = modulo.Numero;
+                dbModulo.ProfessorId = modulo.ProfessorId;
+
+                // Se o seu modelo tiver carga horária ou critérios na edição, atualize aqui também:
+                // dbModulo.TotalHoras = modulo.TotalHoras;
+
+                // 3. Informa ao EF que esta entidade foi alterada
+                _context.Modulos.Update(dbModulo);
+
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Erro ao atualizar módulo: {ex.Message}");
+            }
         }
 
         public async Task RemoveModuloAsync(Modulo modulo)
