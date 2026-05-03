@@ -30,14 +30,17 @@ namespace gestaopedagogica.Services
                                  .ToListAsync();
         }
 
-        // Retorna professor pelo UserId do Identity
+        // Retorna professor pelo UserId do Identity (MODIFICADO PARA CARREGAR DISCIPLINAS E MÓDULOS)
         public async Task<Professor?> GetProfessorByUserIdAsync(string userId)
         {
             if (string.IsNullOrEmpty(userId)) return null;
 
             return await _context.Professores
-                                 .AsNoTracking()
-                                 .FirstOrDefaultAsync(p => p.UserId == userId);
+                .Include(p => p.Turmas) // Carrega a tabela de ligação TurmaProfessor
+                    .ThenInclude(tp => tp.Disciplina) // Carrega a Disciplina do vínculo
+                        .ThenInclude(d => d.Modulos) // Carrega os Módulos dessa disciplina
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserId == userId);
         }
 
         // Retorna professor pelo Email (Username) do login
