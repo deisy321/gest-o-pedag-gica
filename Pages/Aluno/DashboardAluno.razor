@@ -309,9 +309,9 @@
 
     private Dictionary<string, (string Icon, string Descricao, string Tooltip)> TodosBadges = new()
     {
-        { "Entrega no Prazo", ("", "Pontualidade Rigorosa", "Não ter mais de 3 falhas de prazo ou trabalhos incompletos.") },
+        { "Entrega no Prazo", ("", "Pontualidade Rigorosa", "Não ter mais de 3 falhas de prazo (Data de Envio > Prazo).") },
         { "Notas Altas", ("", "Excelência por Módulos", "Ter concluído pelo menos 5 módulos com uma média final de módulos ≥ 15.0.") },
-        { "Envio Consistente", ("", "Rigor Máximo", "Garantir que todos os envios têm Texto E PDF. Se enviar uma vertente vazia, perde o badge.") },
+        { "Envio Consistente", ("", "Rigor Máximo", "Garantir que todos os envios realizados têm Texto E PDF. Se enviar apenas um, perde o badge.") },
         { "Top Performer", ("", "Destaque Académico", "Ter nota ≥ 15.0 em pelo menos 3 trabalhos diferentes.") },
         { "Participação Ativa", ("", "Envio Qualitativo", "Ter feito pelo menos um envio que contenha Texto e Ficheiro PDF em simultâneo.") }
     };
@@ -337,53 +337,50 @@
         BadgesConquistados.Clear();
         if (!TodosTrabalhos.Any()) return;
 
-        // --- Lógica de Falhas (Endurecida) ---
-        int falhasDeRigor = TodosTrabalhos.Count(t =>
-        {
-            var vertentes = t.TrabalhoVertentes;
-            if (vertentes == null || !vertentes.Any()) return true;
+        // --- 1. Entrega no Prazo (Focado em Pontualidade) ---
+        int atrasos = TodosTrabalhos.Count(t =>
+            t.TrabalhoVertentes != null &&
+            t.TrabalhoVertentes.Any(v => v.DataEnvio.HasValue && v.DataEnvio.Value.Date > t.PrazoEntrega.Date)
+        );
+        if (atrasos <= 3) BadgesConquistados.Add("Entrega no Prazo");
 
-            bool temVertenteVazia = vertentes.Any(v => string.IsNullOrEmpty(v.ConteudoTextoAluno) && v.FicheiroBytes == null);
-            bool envioIncompleto = vertentes.Any(v => string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes == null);
-            bool atrasado = vertentes.Any(v => v.DataEnvio.HasValue && v.DataEnvio.Value.Date > t.PrazoEntrega.Date);
-
-            return temVertenteVazia || envioIncompleto || atrasado;
-        });
-
-        if (falhasDeRigor <= 3)
-        {
-            BadgesConquistados.Add("Entrega no Prazo");
-            BadgesConquistados.Add("Envio Consistente");
-        }
-
-        // --- 2. Notas Altas (Média de Módulos) INTEGRADA ---
+        // --- 2. Notas Altas (Excelência de Módulos) ---
         var gruposModulo = TodosTrabalhos
             .Where(t => t.ModuloId.HasValue && t.TrabalhoVertentes != null)
             .GroupBy(t => t.ModuloId)
             .Select(g => new
             {
-                MediaMod = g.SelectMany(t => t.TrabalhoVertentes)
+                MediaMod = g.SelectMany(t => t.TrabalhoVertentes!)
                             .Where(v => v.Nota.HasValue)
                             .Select(v => (double)v.Nota!)
                             .DefaultIfEmpty(-1)
                             .Average()
             })
-            .Where(x => x.MediaMod >= 0)
-            .ToList();
+            .Where(x => x.MediaMod >= 0).ToList();
 
         if (gruposModulo.Count >= 5 && gruposModulo.Average(x => x.MediaMod) >= 15.0)
         {
             BadgesConquistados.Add("Notas Altas");
         }
 
-        // --- 4. Top Performer ---
+        // --- 3. Envio Consistente (Rigor Técnico) ---
+        bool temEnvioIncompleto = TodosTrabalhos.Any(t =>
+            t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v =>
+                (v.DataEnvio.HasValue) && (string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes == null)
+            )
+        );
+        if (!temEnvioIncompleto) BadgesConquistados.Add("Envio Consistente");
+
+        // --- 4. Top Performer (Picos de Performance) ---
         int tops = TodosTrabalhos.Count(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => v.Nota >= 15));
         if (tops >= 3) BadgesConquistados.Add("Top Performer");
 
-        // --- 5. Participação Ativa ---
-        if (TodosTrabalhos.Any(t => t.TrabalhoVertentes != null &&
-            t.TrabalhoVertentes.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) && v.FicheiroBytes != null)))
-            BadgesConquistados.Add("Participação Ativa");
+        // --- 5. Participação Ativa (Esforço Mínimo Qualitativo) ---
+        bool temPeloMenosUmQualitativo = TodosTrabalhos.Any(t =>
+            t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v =>
+                !string.IsNullOrEmpty(v.ConteudoTextoAluno) && v.FicheiroBytes != null)
+        );
+        if (temPeloMenosUmQualitativo) BadgesConquistados.Add("Participação Ativa");
     }
 
     private async Task CarregarDados()
