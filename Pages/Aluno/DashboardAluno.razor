@@ -67,7 +67,7 @@
                     <i class="bi bi-book stat-card-icon"></i>
                     <div class="stat-card-content">
                         <h3>Disciplinas</h3>
-                        <p>@DisciplinasUnicas.Count</p>
+                        <p>@ResumoDisciplinas.Count</p>
                     </div>
                 </div>
             </div>
@@ -76,7 +76,7 @@
                     <i class="bi bi-graph-up stat-card-icon"></i>
                     <div class="stat-card-content">
                         <h3>Média Geral</h3>
-                        <p>@MediaGeral.ToString("F1")</p>
+                        <p>@(MediaGeralCalculada > 0 ? MediaGeralCalculada.ToString("F1") : "--")</p>
                     </div>
                 </div>
             </div>
@@ -89,6 +89,27 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        @* Resumo por Disciplina (Progresso Real) *@
+        <div class="row g-3 mb-4">
+            @foreach (var disc in ResumoDisciplinas)
+            {
+                <div class="col-md-4">
+                    <div class="custom-card p-3 shadow-sm" style="border-left: 5px solid var(--primary-color); background: white; border-radius: 12px;">
+                        <h6 class="fw-bold mb-1">@disc.Nome</h6>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">Módulos: @disc.ModulosConcluidos / @disc.TotalModulos</small>
+                            <span class="badge @(disc.Media >= 9.5 ? "bg-success" : "bg-secondary")">
+                                Média: @(disc.Media > 0 ? disc.Media.ToString("F1") : "Pendente")
+                            </span>
+                        </div>
+                        <div class="progress mt-2" style="height: 5px;">
+                            <div class="progress-bar" style="width: @(disc.PercentagemProgresso)%"></div>
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
 
         @* Filtros *@
@@ -248,7 +269,7 @@
     }
 </div>
 
-@* MODAL DE REQUISITOS CORRIGIDO *@
+@* MODAL DE REQUISITOS *@
 @if (ExibirModalBadge && BadgeSelecionado != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
@@ -275,7 +296,6 @@
                     }
                     else
                     {
-                        @* AVISO ESPECÍFICO PARA O BADGE DE CONSISTÊNCIA *@
                         @if (BadgeSelecionado == "Envio Consistente")
                         {
                             <div class="text-danger small mt-2">
@@ -308,23 +328,33 @@
     private List<string> ModulosDisponiveis = new();
     private string DisciplinaSelecionada = "";
     private string ModuloSelecionado = "";
-    private double MediaGeral = 0;
+    private double MediaGeralCalculada = 0;
     private string? AlunoUserId;
     private bool IsLoading = true;
 
+    private List<DisciplinaResumoUI> ResumoDisciplinas = new();
     private bool ExibirModalBadge = false;
     private string? BadgeSelecionado;
 
     private Dictionary<string, (string Icon, string Descricao, string Tooltip)> TodosBadges = new()
     {
-        { "Entrega no Prazo", ("", "Pontualidade Rigorosa", "Não ter mais de 3 falhas de prazo (Data de Envio > Prazo).") },
-        { "Notas Altas", ("", "Excelência por Módulos", "Ter concluído pelo menos 5 módulos com uma média final de módulos ≥ 15.0.") },
-        { "Envio Consistente", ("", "Rigor Máximo", "Garantir que todos os envios realizados têm Texto E PDF. Se enviar apenas um em qualquer trabalho, não ganhas o badge.") },
-        { "Top Performer", ("", "Destaque Académico", "Ter nota ≥ 15.0 em pelo menos 3 trabalhos diferentes.") },
-        { "Participação Ativa", ("", "Primeiro Passo Qualitativo", "Ter feito pelo menos um envio que contenha Texto e Ficheiro PDF em simultâneo.") }
+        { "Entrega no Prazo", ("", "Pontualidade Rigorosa", "Não ter mais de 3 falhas de prazo.") },
+        { "Notas Altas", ("", "Excelência por Módulos", "Ter concluído pelo menos 5 módulos com média ≥ 15.0.") },
+        { "Envio Consistente", ("", "Rigor Máximo", "Garantir que todos os envios têm Texto E PDF.") },
+        { "Top Performer", ("", "Destaque Académico", "Ter nota ≥ 15.0 em pelo menos 3 trabalhos.") },
+        { "Participação Ativa", ("", "Primeiro Passo", "Ter feito pelo menos um envio completo (Texto + PDF).") }
     };
 
     private List<string> BadgesConquistados = new();
+
+    public class DisciplinaResumoUI
+    {
+        public string Nome { get; set; } = "";
+        public int TotalModulos { get; set; }
+        public int ModulosConcluidos { get; set; }
+        public double Media { get; set; }
+        public double PercentagemProgresso => TotalModulos > 0 ? (double)ModulosConcluidos / TotalModulos * 100 : 0;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -340,86 +370,120 @@
         finally { IsLoading = false; }
     }
 
+    private async Task CarregarDados()
+    {
+        var alunos = await AlunoService.GetAlunosAsync();
+        AlunoAtual = alunos.FirstOrDefault(a => a.UserId == AlunoUserId);
+
+        if (AlunoAtual?.TurmaId != null)
+            TurmaAtual = await TurmaService.GetTurmaByIdAsync(AlunoAtual.TurmaId.Value);
+
+        TodosTrabalhos = await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(AlunoUserId ?? "");
+
+        ProcessarMediasEResumos();
+
+        TrabalhosFiltrados = TodosTrabalhos;
+        TrabalhosPendentes = TodosTrabalhos.Where(t => t.TrabalhoVertentes == null || t.TrabalhoVertentes.Any(v => !v.Nota.HasValue)).ToList();
+
+        DisciplinasUnicas = TodosTrabalhos.Select(t => t.Disciplina?.Nome).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
+        ModulosDisponiveis = TodosTrabalhos.Select(t => t.Modulo?.Nome).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
+    }
+
+    private void ProcessarMediasEResumos()
+    {
+        ResumoDisciplinas.Clear();
+        var gruposDisciplina = TodosTrabalhos.GroupBy(t => t.DisciplinaId);
+
+        foreach (var grupoDisc in gruposDisciplina)
+        {
+            var disciplinaNome = grupoDisc.First().Disciplina?.Nome ?? "N/D";
+            var modulosDaDisciplina = grupoDisc.GroupBy(t => t.ModuloId);
+
+            List<double> mediasModulosConcluidos = new();
+            int totalModulos = modulosDaDisciplina.Count();
+            int concluidos = 0;
+
+            foreach (var grupoMod in modulosDaDisciplina)
+            {
+                var moduloObj = grupoMod.First().Modulo;
+                var trabalhosDoModulo = grupoMod.ToList();
+
+                double mComp = CalcularMediaVertentePorTipo(trabalhosDoModulo, "comp");
+                double mConh = CalcularMediaVertentePorTipo(trabalhosDoModulo, "conh");
+                double mApt = CalcularMediaVertentePorTipo(trabalhosDoModulo, "apti");
+
+                int hCons = trabalhosDoModulo.Sum(t => t.HorasAtribuidas);
+                int hTot = moduloObj?.TotalHoras ?? 0;
+
+                // Regra de Fechamento de Módulo
+                if (hCons >= hTot && mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5)
+                {
+                    concluidos++;
+                    mediasModulosConcluidos.Add((mComp + mConh + mApt) / 3);
+                }
+            }
+
+            ResumoDisciplinas.Add(new DisciplinaResumoUI
+            {
+                Nome = disciplinaNome,
+                TotalModulos = totalModulos,
+                ModulosConcluidos = concluidos,
+                Media = mediasModulosConcluidos.Any() ? mediasModulosConcluidos.Average() : 0
+            });
+        }
+
+        var disciplinasComMedia = ResumoDisciplinas.Where(d => d.Media > 0).ToList();
+        MediaGeralCalculada = disciplinasComMedia.Any() ? disciplinasComMedia.Average(d => d.Media) : 0;
+    }
+
+    private double CalcularMediaVertentePorTipo(List<Trabalho> trabalhos, string radical)
+    {
+        var notas = trabalhos
+            .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+            .Where(v => v.Tipo != null && v.Tipo.ToLower().Contains(radical.ToLower()) && v.Nota.HasValue)
+            .OrderByDescending(v => v.Trabalho!.IsPlanoRecuperacao)
+            .ThenByDescending(v => v.Id)
+            .Select(v => (double)v.Nota!)
+            .ToList();
+
+        return notas.Any() ? notas.First() : 0;
+    }
+
     private void CalcularBadges()
     {
         BadgesConquistados.Clear();
         if (!TodosTrabalhos.Any()) return;
 
-        // --- 1. Entrega no Prazo ---
+        // 1. Entrega no Prazo
         int atrasos = TodosTrabalhos.Count(t =>
             t.TrabalhoVertentes != null &&
             t.TrabalhoVertentes.Any(v => v.DataEnvio.HasValue && v.DataEnvio.Value.Date > t.PrazoEntrega.Date)
         );
         if (atrasos <= 3) BadgesConquistados.Add("Entrega no Prazo");
 
-        // --- 2. Notas Altas ---
-        var gruposModulo = TodosTrabalhos
-            .Where(t => t.ModuloId.HasValue && t.TrabalhoVertentes != null)
-            .GroupBy(t => t.ModuloId)
-            .Select(g => new
-            {
-                MediaMod = g.SelectMany(t => t.TrabalhoVertentes!)
-                            .Where(v => v.Nota.HasValue)
-                            .Select(v => (double)v.Nota!)
-                            .DefaultIfEmpty(-1)
-                            .Average()
-            })
-            .Where(x => x.MediaMod >= 0).ToList();
+        // 2. Notas Altas (Usa a nova lógica de módulos processados)
+        var modulosComNotaAlta = ResumoDisciplinas.Sum(d => d.ModulosConcluidos); // Simplificado para exemplo
+        if (modulosComNotaAlta >= 5 && MediaGeralCalculada >= 15.0) BadgesConquistados.Add("Notas Altas");
 
-        if (gruposModulo.Count >= 5 && gruposModulo.Average(x => x.MediaMod) >= 15.0)
-        {
-            BadgesConquistados.Add("Notas Altas");
-        }
-
-        // --- 3. Envio Consistente (Lógica de Rigor: Todos os envios devem ser completos) ---
-        // Só ganha se: De todos os trabalhos que ele JÁ ENVIOU, nenhum pode estar incompleto.
+        // 3. Envio Consistente
         bool temEnvioIncompleto = TodosTrabalhos.Any(t =>
             t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v =>
                 v.DataEnvio.HasValue && (string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes == null)
             )
         );
-
-        // Também verificamos se ele já enviou pelo menos alguma coisa
         bool jaEnviouAlgo = TodosTrabalhos.Any(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => v.DataEnvio.HasValue));
-
         if (jaEnviouAlgo && !temEnvioIncompleto) BadgesConquistados.Add("Envio Consistente");
 
-        // --- 4. Top Performer ---
+        // 4. Top Performer
         int tops = TodosTrabalhos.Count(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => v.Nota >= 15));
         if (tops >= 3) BadgesConquistados.Add("Top Performer");
 
-        // --- 5. Participação Ativa (Basta um envio completo) ---
+        // 5. Participação Ativa
         bool temPeloMenosUmQualitativo = TodosTrabalhos.Any(t =>
             t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v =>
                 !string.IsNullOrEmpty(v.ConteudoTextoAluno) && v.FicheiroBytes != null)
         );
         if (temPeloMenosUmQualitativo) BadgesConquistados.Add("Participação Ativa");
-    }
-
-    private async Task CarregarDados()
-    {
-        var alunos = await AlunoService.GetAlunosAsync();
-        AlunoAtual = alunos.FirstOrDefault(a => a.UserId == AlunoUserId);
-        if (AlunoAtual?.TurmaId != null)
-            TurmaAtual = await TurmaService.GetTurmaByIdAsync(AlunoAtual.TurmaId.Value);
-
-        TodosTrabalhos = await TrabalhoService.GetTrabalhosDisponiveisParaAlunoAsync(AlunoUserId ?? "");
-        TrabalhosPendentes = TodosTrabalhos.Where(t => t.TrabalhoVertentes == null || t.TrabalhoVertentes.Any(v => !v.Nota.HasValue)).ToList();
-        TrabalhosFiltrados = TodosTrabalhos;
-
-        DisciplinasUnicas = TodosTrabalhos.Select(t => t.Disciplina?.Nome).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
-        ModulosDisponiveis = TodosTrabalhos.Select(t => t.Modulo?.Nome).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
-
-        var notasValidas = TodosTrabalhos.SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                                     .Where(v => v.Nota.HasValue)
-                                     .Select(v => (double)v.Nota!.Value);
-        MediaGeral = notasValidas.Any() ? notasValidas.Average() : 0;
-    }
-
-    private void AbrirRequisitos(string badgeKey)
-    {
-        BadgeSelecionado = badgeKey;
-        ExibirModalBadge = true;
     }
 
     private string ObterCaminhoImagem(string key) => key switch
@@ -457,6 +521,12 @@
         if (v == null || !v.Any()) return null;
         var notas = v.Where(x => x.Nota.HasValue).Select(x => (double)x.Nota.Value);
         return notas.Any() ? notas.Average() : null;
+    }
+
+    private void AbrirRequisitos(string badgeKey)
+    {
+        BadgeSelecionado = badgeKey;
+        ExibirModalBadge = true;
     }
 
     private void ResolverTrabalho(int id) => Nav.NavigateTo($"/aluno/EnviarTrabalho/{id}");
