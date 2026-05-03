@@ -313,11 +313,21 @@
     {
         if (TrabalhoEmEdicao == null) return;
 
-        // Aqui chamaria o serviço para atualizar no banco
-        // await TrabalhoService.UpdateTrabalhoAsync(TrabalhoEmEdicao);
+        // 1. ATUALIZA NA BASE DE DADOS
+        TrabalhoEmEdicao.PrazoEntrega = NovaData;
 
+        // ALTERADO: De UpdateTrabalhoAsync para AtualizarTrabalhoAsync
+        await TrabalhoService.AtualizarTrabalhoAsync(TrabalhoEmEdicao);
+
+        // 2. Atualiza a lista local
         var t = TodosTrabalhos.FirstOrDefault(x => x.Id == TrabalhoEmEdicao.Id);
-        if (t != null) { t.Titulo = TrabalhoEmEdicao.Titulo; t.Descricao = TrabalhoEmEdicao.Descricao; t.PrazoEntrega = NovaData; }
+        if (t != null)
+        {
+            t.Titulo = TrabalhoEmEdicao.Titulo;
+            t.ConteudoTexto = TrabalhoEmEdicao.ConteudoTexto; // Verifique se é Descricao ou ConteudoTexto no seu Model
+            t.PrazoEntrega = NovaData;
+        }
+
         FecharModal();
         FiltrarTrabalhos();
     }
