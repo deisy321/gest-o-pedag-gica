@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Security.Cryptography; // Necessário para gerar o Hash do conteúdo
 
 public class IAService
 {
@@ -31,13 +32,12 @@ public class IAService
     {
         try
         {
-            // 1. Extração de texto do PDF (Executa apenas se houver bytes)
+            // 1. Extração de texto do PDF
             string textoArquivo = (arquivoBytes != null && arquivoBytes.Length > 0)
                 ? LerPdfComSeguranca(arquivoBytes)
                 : "";
 
             // --- LÓGICA DE ADAPTAÇÃO PARA RELATÓRIOS ---
-            // Se o ID indicar um relatório, formatamos como dados estatísticos
             bool esRelatorio = trabalhoId.Contains("RELATORIO") || trabalhoId.Contains("REPORT");
 
             string inputCompleto;
@@ -59,23 +59,26 @@ public class IAService
             if (string.IsNullOrWhiteSpace(conteudoParaAnalisar) && string.IsNullOrEmpty(textoArquivo))
                 return "Ainda não encontrei conteúdo (texto ou PDF) para analisar.";
 
-            // 2. Gestão de Cache
-            var cacheKey = $"{alunoId}_{trabalhoId}_{vertenteId}";
+            // --- NOVA LÓGICA DE CACHE INTELIGENTE ---
+            // Geramos um código único (Hash) baseado no conteúdo enviado + instrução do prof
+            // Se o aluno mudar uma letra ou o professor mudar a instrução, o Hash muda.
+            string hashConteudo = GerarHashConteudo(inputCompleto + instrucaoPrincipal);
+
+            // A chave agora inclui o Hash. Se o conteúdo mudar, a chave muda e o cache falha.
+            var cacheKey = $"{alunoId}_{trabalhoId}_{vertenteId}_{hashConteudo}";
+
             if (useCache && _cache.TryGetValue(cacheKey, out var cached))
                 return cached;
 
-            // 3. REFINAMENTO DO PROMPT (Original mantido, mas adaptado se for relatório)
+            // 3. REFINAMENTO DO PROMPT (Toda a tua lógica original mantida)
             string promptSistemaFinal;
-
             if (esRelatorio)
             {
-                // Prompt focado em análise de dados para o Professor/Admin
                 promptSistemaFinal = $@"{promptSistemaOriginal}
 Tu és um analista pedagógico. Analisa os números fornecidos, identifica tendências de notas, turmas que precisam de atenção e pontos positivos. Sê objetivo e prático.";
             }
             else
             {
-                // Teu prompt original de Mentor para alunos
                 promptSistemaFinal = $@"
 {promptSistemaOriginal}
 
@@ -110,6 +113,14 @@ Não dês ordens; sê o espelho que ajuda o aluno a perceber se a sua entrega fa
         }
     }
 
+    // Método para gerar o Hash único do conteúdo
+    private string GerarHashConteudo(string input)
+    {
+        var inputBytes = Encoding.UTF8.GetBytes(input);
+        var hashBytes = SHA256.HashData(inputBytes);
+        return Convert.ToHexString(hashBytes).Substring(0, 12); // Usamos os primeiros 12 caracteres do Hash
+    }
+
     private async Task<string> EnviarParaGroq(string systemPrompt, string userPrompt)
     {
         var requestBody = new
@@ -120,7 +131,7 @@ Não dês ordens; sê o espelho que ajuda o aluno a perceber se a sua entrega fa
                 new { role = "user", content = userPrompt }
             },
             temperature = 0.5,
-            max_tokens = 1024 // Limite para garantir respostas focadas
+            max_tokens = 1024
         };
 
         var jsonContent = JsonSerializer.Serialize(requestBody);
