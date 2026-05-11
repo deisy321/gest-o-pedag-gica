@@ -34,45 +34,40 @@
             </div>
         </div>
 
-        @* Lógica de Alerta de Recuperação Atualizada *@
+        @* Lógica de Alerta de Recuperação na Horizontal *@
         @if (IsLoading == false)
         {
             var planosRecuperacao = TodosTrabalhos?.Where(t => t.IsPlanoRecuperacao).ToList() ?? new List<Trabalho>();
+            // Filtra apenas os que não têm nota ainda
+            var planosAtivos = planosRecuperacao.Where(p => !CalcularNotaTrabalho(p.TrabalhoVertentes).HasValue).ToList();
 
-            @if (planosRecuperacao.Any())
+            @if (planosAtivos.Any())
             {
-                @foreach (var plano in planosRecuperacao)
-                {
-                    // 1. Verifica se o aluno já enviou algo
-                    bool jaEnviou = plano.TrabalhoVertentes?.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null) ?? false;
+                <div class="alert alert-danger shadow-sm border-0 mb-4 animate__animated animate__fadeIn"
+                     style="border-radius: 15px; border-left: 8px solid #dc3545 !important; background-color: #fff5f5;">
 
-                    // 2. Verifica se já tem nota
-                    var notaPlano = CalcularNotaTrabalho(plano.TrabalhoVertentes);
-                    bool jaTemNota = notaPlano.HasValue;
+                    <div class="d-flex align-items-center flex-wrap gap-3">
+                        <div class="me-2">
+                            <h5 class="fw-bold mb-1" style="color: #dc3545;">
+                                <i class="bi bi-lightning-charge-fill"></i> Tens Planos de Recuperação Ativos!
+                            </h5>
+                            <p class="mb-0 text-muted small">O teu professor enviou atividades específicas para melhorar as tuas notas nas vertentes críticas.</p>
+                        </div>
 
-                    // Se já tem nota, o aviso desaparece
-                    if (jaTemNota) continue;
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var plano in planosAtivos)
+                            {
+                                bool jaEnviou = plano.TrabalhoVertentes?.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null) ?? false;
 
-                    <div class="alert @(jaEnviou ? "alert-warning" : "alert-danger") shadow-sm border-0 mb-4 animate__animated animate__pulse"
-                         style="border-radius: 15px; border-left: 8px solid @(jaEnviou ? "#ffc107" : "#dc3545") !important;">
-
-                        <h5 class="fw-bold">
-                            <i class="bi @(jaEnviou ? "bi-clock-history" : "bi-lightning-charge-fill")"></i>
-                            Plano de Recuperação: @plano.Titulo
-                        </h5>
-
-                        <p>
-                            @(jaEnviou
-                                        ? "Trabalho enviado com sucesso! O aviso ficará amarelo até que o professor lance a tua nota."
-                                        : "Tens um plano de recuperação ativo. Envia o trabalho para melhorar a tua nota nesta vertente.")
-        </p>
-
-                        <button class="btn @(jaEnviou ? "btn-warning" : "btn-danger") btn-sm rounded-pill px-3 shadow-sm" @onclick="() => ResolverTrabalho(plano.Id)">
-                            <i class="bi @(jaEnviou ? "bi-eye" : "bi-pencil-square")"></i>
-                            @(jaEnviou ? "Ver meu Envio" : "Resolver Agora")
-                        </button>
+                                <button class="btn @(jaEnviou ? "btn-warning" : "btn-danger") btn-sm rounded-pill px-3 shadow-sm d-flex align-items-center gap-2"
+                                        @onclick="() => ResolverTrabalho(plano.Id)">
+                                    <i class="bi @(jaEnviou ? "bi-clock-history" : "bi-pencil-square")"></i>
+                                    <span>Resolver: @plano.Titulo</span>
+                                </button>
+                            }
+                        </div>
                     </div>
-        }
+                </div>
             }
         }
 
