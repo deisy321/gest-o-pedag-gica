@@ -5,6 +5,7 @@
 @inject TrabalhoService TrabalhoService
 @inject AlunoService AlunoService
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div class="container-fluid animate-fade-in pb-5">
     @if (aluno == null)
@@ -75,9 +76,26 @@
 
                                         @if (m.StatusCritico == "Vermelho")
                                         {
-                                            <button class="btn btn-sm btn-danger mt-2 fw-bold" @onclick="() => AbrirModalRecuperacao(m.ModuloId, m.Nome)">
-                                                <i class="fas fa-tools"></i> Criar Plano de Recuperação
-                                            </button>
+                                            <div class="d-flex flex-wrap gap-1 mt-2">
+                                                @if (m.MediaCompParcial < 9.5 && m.MediaCompParcial > 0)
+                                                {
+                                                    <button class="btn btn-xs btn-outline-danger fw-bold" style="font-size: 0.7rem;" @onclick="@(() => AbrirModalRecuperacao(m.ModuloId, m.Nome, "Competência"))">
+                                                        <i class="fas fa-tools"></i> Rec. Comp
+                                                    </button>
+                                                }
+                                                @if (m.MediaConhParcial < 9.5 && m.MediaConhParcial > 0)
+                                                {
+                                                    <button class="btn btn-xs btn-outline-danger fw-bold" style="font-size: 0.7rem;" @onclick="@(() => AbrirModalRecuperacao(m.ModuloId, m.Nome, "Conhecimento"))">
+                                                        <i class="fas fa-tools"></i> Rec. Conh
+                                                    </button>
+                                                }
+                                                @if (m.MediaAptParcial < 9.5 && m.MediaAptParcial > 0)
+                                                {
+                                                    <button class="btn btn-xs btn-outline-danger fw-bold" style="font-size: 0.7rem;" @onclick="@(() => AbrirModalRecuperacao(m.ModuloId, m.Nome, "Aptidão"))">
+                                                        <i class="fas fa-tools"></i> Rec. Apt
+                                                    </button>
+                                                }
+                                            </div>
                                         }
                                     </div>
                                 </td>
@@ -118,13 +136,13 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title"><i class="fas fa-tools"></i> Novo Plano de Recuperação</h5>
+                    <h5 class="modal-title"><i class="fas fa-tools"></i> Novo Plano: @tipoParaCriar</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="FecharModal"></button>
                 </div>
                 <div class="modal-body">
                     <p>Módulo: <strong>@moduloSelecionadoNome</strong></p>
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Atividade de Recuperação</label>
+                        <label class="form-label fw-bold">Atividade de Recuperação (@tipoParaCriar)</label>
                         <textarea class="form-control" rows="3" @bind="descricaoRecuperacao" placeholder="Descreva o que o aluno deve realizar..."></textarea>
                     </div>
                 </div>
@@ -146,6 +164,7 @@
     private int moduloSelecionadoId;
     private string moduloSelecionadoNome = "";
     private string descricaoRecuperacao = "";
+    private string tipoParaCriar = "";
 
     protected override async Task OnInitializedAsync() => await CarregarDados();
 
@@ -161,45 +180,34 @@
 
     private void Voltar() => Nav.NavigateTo("/professor/DashboardProfessor");
     private void IrParaAvaliar() => Nav.NavigateTo($"/professor/AvaliarAlunos/{AlunoId}");
-    private void AbrirModalRecuperacao(int id, string nome) { moduloSelecionadoId = id; moduloSelecionadoNome = nome; exibirModal = true; }
+
+    private void AbrirModalRecuperacao(int id, string nome, string tipo)
+    {
+        moduloSelecionadoId = id;
+        moduloSelecionadoNome = nome;
+        tipoParaCriar = tipo;
+        descricaoRecuperacao = ""; // Limpa sempre ao abrir
+        exibirModal = true;
+    }
+
     private void FecharModal() => exibirModal = false;
 
     private async Task SalvarRecuperacao()
     {
         if (aluno == null || string.IsNullOrWhiteSpace(descricaoRecuperacao)) return;
 
-        // Buscamos o resumo do módulo atual
-        var resumoModulo = ModulosProcessados.FirstOrDefault(m => m.ModuloId == moduloSelecionadoId);
-        if (resumoModulo == null) return;
+        // Recarregar para garantir que não criamos duplicados se o professor clicou rápido
+        ListaOriginalTrabalhos = await TrabalhoService.GetTrabalhosByAlunoAsync(aluno.UserId);
 
-        // 1. IMPORTANTE: Pegar os tipos de vertentes que JÁ possuem um plano de recuperação ATIVO (sem nota)
-        // Isso evita que o sistema crie dois planos para "Conhecimento" ao mesmo tempo.
         var tiposJaComPlano = ListaOriginalTrabalhos
             .Where(t => t.ModuloId == moduloSelecionadoId && t.IsPlanoRecuperacao)
             .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-            .Where(v => !v.Nota.HasValue) // Só conta se ainda não foi avaliado
-            .Select(v => v.Tipo)
-            .ToList();
+            .Where(v => !v.Nota.HasValue && v.Tipo == tipoParaCriar)
+            .Any();
 
-        string tipoParaCriar = "";
-
-        // 2. Lógica de Seleção: Escolhe a primeira vertente que está negativa E não tem plano em curso
-        if (resumoModulo.MediaCompParcial < 9.5 && resumoModulo.MediaCompParcial > 0 && !tiposJaComPlano.Contains("Competência"))
+        if (tiposJaComPlano)
         {
-            tipoParaCriar = "Competência";
-        }
-        else if (resumoModulo.MediaConhParcial < 9.5 && resumoModulo.MediaConhParcial > 0 && !tiposJaComPlano.Contains("Conhecimento"))
-        {
-            tipoParaCriar = "Conhecimento";
-        }
-        else if (resumoModulo.MediaAptParcial < 9.5 && resumoModulo.MediaAptParcial > 0 && !tiposJaComPlano.Contains("Aptidão"))
-        {
-            tipoParaCriar = "Aptidão";
-        }
-
-        // Se não encontrou nenhuma vertente que precise de plano novo, fechamos o modal
-        if (string.IsNullOrEmpty(tipoParaCriar))
-        {
+            await JS.InvokeVoidAsync("alert", "Já existe um plano pendente para " + tipoParaCriar);
             exibirModal = false;
             return;
         }
@@ -224,10 +232,8 @@
                 Ativo = true
             };
 
-            // Salva o Trabalho e obtém o ID
             var trabalhoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
 
-            // Cria a vertente específica
             await TrabalhoService.AddVertenteAsync(new TrabalhoVertente
             {
                 TrabalhoId = trabalhoId,
@@ -235,11 +241,10 @@
                 ConteudoTexto = "Avaliação de Recuperação: " + tipoParaCriar
             });
 
-            // Limpeza e Refresh
+            await JS.InvokeVoidAsync("alert", "Plano criado com sucesso!");
+
             descricaoRecuperacao = "";
             exibirModal = false;
-
-            // ESSENCIAL: Recarregar os dados para que o "tiposJaComPlano" seja atualizado no próximo clique
             await CarregarDados();
             StateHasChanged();
         }
@@ -248,6 +253,7 @@
             Console.WriteLine($"Erro ao salvar: {ex.Message}");
         }
     }
+
     private void ProcessarLogicaVisual(List<Trabalho> trabalhos)
     {
         ModulosProcessados = trabalhos
@@ -261,46 +267,33 @@
                 double ObterNotaFinalVertente(string termoBusca)
                 {
                     termoBusca = termoBusca.ToLower();
-
-                    // 1. BUSCA NA RECUPERAÇÃO (Prioridade Máxima)
-                    // Buscamos se existe nota na vertente, independente do status do trabalho pai
                     var notaRec = lista
                         .Where(t => t.Titulo != null && t.Titulo.ToLower().Contains("recuper"))
                         .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                        .Where(v => v.Tipo != null &&
-                                    v.Tipo.ToLower().Contains(termoBusca.Substring(0, 4)) &&
-                                    v.Nota.HasValue)
+                        .Where(v => v.Tipo != null && v.Tipo.ToLower().Contains(termoBusca.Substring(0, 4)) && v.Nota.HasValue)
                         .OrderByDescending(v => v.Id)
                         .Select(v => (double?)v.Nota)
                         .FirstOrDefault();
 
                     if (notaRec.HasValue) return notaRec.Value;
 
-                    // 2. MÉDIA DOS TRABALHOS NORMAIS
                     var notasNormais = lista
                         .Where(t => t.Titulo == null || !t.Titulo.ToLower().Contains("recuper"))
                         .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                        .Where(v => v.Tipo != null &&
-                                    v.Tipo.ToLower().Contains(termoBusca.Substring(0, 4)) &&
-                                    v.Nota.HasValue)
+                        .Where(v => v.Tipo != null && v.Tipo.ToLower().Contains(termoBusca.Substring(0, 4)) && v.Nota.HasValue)
                         .Select(v => (double)v.Nota!)
                         .ToList();
 
                     return notasNormais.Any() ? notasNormais.Average() : 0;
                 }
 
-                // Obtendo médias usando radicais para evitar erros de acentuação
                 double mComp = ObterNotaFinalVertente("comp");
                 double mConh = ObterNotaFinalVertente("conh");
                 double mApt = ObterNotaFinalVertente("apti");
 
-                // Lógica de Status Baseada em Dados
                 var trabalhosRec = lista.Where(t => t.Titulo != null && t.Titulo.ToLower().Contains("recuper")).ToList();
-                bool existeRec = trabalhosRec.Any();
-
-                // Uma recuperação é considerada "Avaliada" se houver pelo menos uma nota lançada em suas vertentes
                 bool recAvaliada = trabalhosRec.Any(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => v.Nota.HasValue));
-                bool recupPendente = existeRec && !recAvaliada;
+                bool recupPendente = trabalhosRec.Any() && !recAvaliada;
 
                 bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
 
@@ -308,7 +301,6 @@
                 if (recupPendente) statusCor = "Amarelo";
                 else if (temNotaBaixa) statusCor = "Vermelho";
 
-                // Verificação de Aprovação (Horas + Notas + Sem Pendências)
                 int hCons = lista.Sum(t => t.HorasAtribuidas);
                 int hTot = modulo?.TotalHoras ?? 0;
                 bool aprovado = hCons >= hTot && mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5 && !recupPendente;
