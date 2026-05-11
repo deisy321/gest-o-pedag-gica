@@ -186,7 +186,7 @@
         moduloSelecionadoId = id;
         moduloSelecionadoNome = nome;
         tipoParaCriar = tipo;
-        descricaoRecuperacao = ""; // Limpa sempre ao abrir
+        descricaoRecuperacao = "";
         exibirModal = true;
     }
 
@@ -196,18 +196,18 @@
     {
         if (aluno == null || string.IsNullOrWhiteSpace(descricaoRecuperacao)) return;
 
-        // Recarregar para garantir que não criamos duplicados se o professor clicou rápido
+        // Recarga preventiva
         ListaOriginalTrabalhos = await TrabalhoService.GetTrabalhosByAlunoAsync(aluno.UserId);
 
-        var tiposJaComPlano = ListaOriginalTrabalhos
-            .Where(t => t.ModuloId == moduloSelecionadoId && t.IsPlanoRecuperacao)
+        // Verificação robusta: se existe trabalho de recuperação ATIVO e SEM NOTA para este módulo e tipo
+        var existePendente = ListaOriginalTrabalhos
+            .Where(t => t.ModuloId == moduloSelecionadoId && t.IsPlanoRecuperacao && t.Ativo)
             .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-            .Where(v => !v.Nota.HasValue && v.Tipo == tipoParaCriar)
-            .Any();
+            .Any(v => v.Tipo.Contains(tipoParaCriar.Substring(0, 4)) && !v.Nota.HasValue);
 
-        if (tiposJaComPlano)
+        if (existePendente)
         {
-            await JS.InvokeVoidAsync("alert", "Já existe um plano pendente para " + tipoParaCriar);
+            await JS.InvokeVoidAsync("alert", "Atenção: Já existe um plano de " + tipoParaCriar + " em curso para este aluno.");
             exibirModal = false;
             return;
         }
@@ -241,7 +241,7 @@
                 ConteudoTexto = "Avaliação de Recuperação: " + tipoParaCriar
             });
 
-            await JS.InvokeVoidAsync("alert", "Plano criado com sucesso!");
+            await JS.InvokeVoidAsync("alert", "Sucesso! Plano de " + tipoParaCriar + " atribuído.");
 
             descricaoRecuperacao = "";
             exibirModal = false;
@@ -266,11 +266,11 @@
 
                 double ObterNotaFinalVertente(string termoBusca)
                 {
-                    termoBusca = termoBusca.ToLower();
+                    termoBusca = termoBusca.ToLower().Substring(0, 4);
                     var notaRec = lista
-                        .Where(t => t.Titulo != null && t.Titulo.ToLower().Contains("recuper"))
+                        .Where(t => t.IsPlanoRecuperacao && t.Ativo)
                         .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                        .Where(v => v.Tipo != null && v.Tipo.ToLower().Contains(termoBusca.Substring(0, 4)) && v.Nota.HasValue)
+                        .Where(v => v.Tipo != null && v.Tipo.ToLower().Contains(termoBusca) && v.Nota.HasValue)
                         .OrderByDescending(v => v.Id)
                         .Select(v => (double?)v.Nota)
                         .FirstOrDefault();
@@ -278,9 +278,9 @@
                     if (notaRec.HasValue) return notaRec.Value;
 
                     var notasNormais = lista
-                        .Where(t => t.Titulo == null || !t.Titulo.ToLower().Contains("recuper"))
+                        .Where(t => !t.IsPlanoRecuperacao)
                         .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
-                        .Where(v => v.Tipo != null && v.Tipo.ToLower().Contains(termoBusca.Substring(0, 4)) && v.Nota.HasValue)
+                        .Where(v => v.Tipo != null && v.Tipo.ToLower().Contains(termoBusca) && v.Nota.HasValue)
                         .Select(v => (double)v.Nota!)
                         .ToList();
 
@@ -291,18 +291,23 @@
                 double mConh = ObterNotaFinalVertente("conh");
                 double mApt = ObterNotaFinalVertente("apti");
 
-                var trabalhosRec = lista.Where(t => t.Titulo != null && t.Titulo.ToLower().Contains("recuper")).ToList();
-                bool recAvaliada = trabalhosRec.Any(t => t.TrabalhoVertentes != null && t.TrabalhoVertentes.Any(v => v.Nota.HasValue));
-                bool recupPendente = trabalhosRec.Any() && !recAvaliada;
+                // --- CORREÇÃO DA LÓGICA DO AMARELO ---
+                // Verifica se existe algum trabalho de recuperação que ainda não tem nota em suas vertentes
+                bool recupPendente = lista
+                    .Where(t => t.IsPlanoRecuperacao && t.Ativo)
+                    .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+                    .Any(v => !v.Nota.HasValue);
 
                 bool temNotaBaixa = (mComp > 0 && mComp < 9.5) || (mConh > 0 && mConh < 9.5) || (mApt > 0 && mApt < 9.5);
 
                 string statusCor = "Verde";
-                if (recupPendente) statusCor = "Amarelo";
-                else if (temNotaBaixa) statusCor = "Vermelho";
+                if (recupPendente) statusCor = "Amarelo"; // Prioridade para o Amarelo (em curso)
+                else if (temNotaBaixa) statusCor = "Vermelho"; // Se não tem plano em curso e a nota é baixa, fica vermelho
 
                 int hCons = lista.Sum(t => t.HorasAtribuidas);
                 int hTot = modulo?.TotalHoras ?? 0;
+
+                // Aprovação exige horas, notas boas e que não haja recuperação pendente
                 bool aprovado = hCons >= hTot && mComp >= 9.5 && mConh >= 9.5 && mApt >= 9.5 && !recupPendente;
 
                 return new ModuloResumoUI
