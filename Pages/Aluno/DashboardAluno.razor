@@ -360,7 +360,13 @@
         ProcessarMediasGerais();
 
         TrabalhosFiltrados = TodosTrabalhos;
-        TrabalhosPendentes = TodosTrabalhos.Where(t => t.TrabalhoVertentes == null || !t.TrabalhoVertentes.Any() || t.TrabalhoVertentes.Any(v => !v.Nota.HasValue)).ToList();
+
+        // CORREÇÃO: O trabalho só é pendente se não tiver vertentes OU se alguma vertente ainda não tiver conteúdo de entrega (texto ou ficheiro)
+        TrabalhosPendentes = TodosTrabalhos.Where(t =>
+            t.TrabalhoVertentes == null ||
+            !t.TrabalhoVertentes.Any() ||
+            t.TrabalhoVertentes.Any(v => string.IsNullOrEmpty(v.ConteudoTextoAluno) && v.FicheiroBytes == null)
+        ).ToList();
 
         DisciplinasUnicas = TodosTrabalhos.Select(t => t.Disciplina?.Nome).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
         ModulosDisponiveis = TodosTrabalhos.Select(t => t.Modulo?.Nome).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
