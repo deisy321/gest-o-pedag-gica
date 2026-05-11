@@ -168,74 +168,86 @@
     {
         if (aluno == null || string.IsNullOrWhiteSpace(descricaoRecuperacao)) return;
 
+        // Buscamos o resumo do módulo atual
         var resumoModulo = ModulosProcessados.FirstOrDefault(m => m.ModuloId == moduloSelecionadoId);
         if (resumoModulo == null) return;
 
-        // 1. Procurar todos os trabalhos de recuperação deste módulo que ainda NÃO têm nota (pendentes)
-        var recuperacoesPendentes = ListaOriginalTrabalhos
-            .Where(t => t.ModuloId == moduloSelecionadoId &&
-                        t.IsPlanoRecuperacao &&
-                        (t.TrabalhoVertentes == null || !t.TrabalhoVertentes.Any(v => v.Nota.HasValue)))
+        // 1. IMPORTANTE: Pegar os tipos de vertentes que JÁ possuem um plano de recuperação ATIVO (sem nota)
+        // Isso evita que o sistema crie dois planos para "Conhecimento" ao mesmo tempo.
+        var tiposJaComPlano = ListaOriginalTrabalhos
+            .Where(t => t.ModuloId == moduloSelecionadoId && t.IsPlanoRecuperacao)
             .SelectMany(t => t.TrabalhoVertentes ?? new List<TrabalhoVertente>())
+            .Where(v => !v.Nota.HasValue) // Só conta se ainda não foi avaliado
             .Select(v => v.Tipo)
             .ToList();
 
+        string tipoParaCriar = "";
+
+        // 2. Lógica de Seleção: Escolhe a primeira vertente que está negativa E não tem plano em curso
+        if (resumoModulo.MediaCompParcial < 9.5 && resumoModulo.MediaCompParcial > 0 && !tiposJaComPlano.Contains("Competência"))
+        {
+            tipoParaCriar = "Competência";
+        }
+        else if (resumoModulo.MediaConhParcial < 9.5 && resumoModulo.MediaConhParcial > 0 && !tiposJaComPlano.Contains("Conhecimento"))
+        {
+            tipoParaCriar = "Conhecimento";
+        }
+        else if (resumoModulo.MediaAptParcial < 9.5 && resumoModulo.MediaAptParcial > 0 && !tiposJaComPlano.Contains("Aptidão"))
+        {
+            tipoParaCriar = "Aptidão";
+        }
+
+        // Se não encontrou nenhuma vertente que precise de plano novo, fechamos o modal
+        if (string.IsNullOrEmpty(tipoParaCriar))
+        {
+            exibirModal = false;
+            return;
+        }
+
         try
         {
-            string tipoParaCriar = "";
-
-            // 2. Só escolhe a vertente se ela for negativa E se ainda não houver um plano pendente para ela
-            if (resumoModulo.MediaCompParcial < 9.5 && resumoModulo.MediaCompParcial > 0 && !recuperacoesPendentes.Contains("Competência"))
-            {
-                tipoParaCriar = "Competência";
-            }
-            else if (resumoModulo.MediaConhParcial < 9.5 && resumoModulo.MediaConhParcial > 0 && !recuperacoesPendentes.Contains("Conhecimento"))
-            {
-                tipoParaCriar = "Conhecimento";
-            }
-            else if (resumoModulo.MediaAptParcial < 9.5 && resumoModulo.MediaAptParcial > 0 && !recuperacoesPendentes.Contains("Aptidão"))
-            {
-                tipoParaCriar = "Aptidão";
-            }
-
-            if (string.IsNullOrEmpty(tipoParaCriar)) return; // Já existem planos para tudo o que é crítico
-
-            // 3. Cria o trabalho individual para essa vertente específica
             var refTrabalho = ListaOriginalTrabalhos.FirstOrDefault(t => t.ModuloId == moduloSelecionadoId);
+
             var novoTrabalho = new Trabalho
             {
                 Titulo = "Recuperação: " + tipoParaCriar,
                 ConteudoTexto = descricaoRecuperacao,
                 AlunoId = aluno.UserId,
                 ModuloId = moduloSelecionadoId,
-                DisciplinaId = refTrabalho?.DisciplinaId,
+                DisciplinaId = refTrabalho?.DisciplinaId ?? 0,
                 ProfessorId = refTrabalho?.ProfessorId ?? "",
                 Status = "Pendente",
                 IsPlanoRecuperacao = true,
                 DataCriacao = DateTime.Now,
                 PrazoEntrega = DateTime.Now.AddDays(7),
+                HorasAtribuidas = 0,
                 Ativo = true
             };
 
+            // Salva o Trabalho e obtém o ID
             var trabalhoId = await TrabalhoService.AddTrabalhoAsync(novoTrabalho);
 
+            // Cria a vertente específica
             await TrabalhoService.AddVertenteAsync(new TrabalhoVertente
             {
                 TrabalhoId = trabalhoId,
                 Tipo = tipoParaCriar,
-                ConteudoTexto = "Recuperação específica de " + tipoParaCriar
+                ConteudoTexto = "Avaliação de Recuperação: " + tipoParaCriar
             });
 
+            // Limpeza e Refresh
             descricaoRecuperacao = "";
             exibirModal = false;
+
+            // ESSENCIAL: Recarregar os dados para que o "tiposJaComPlano" seja atualizado no próximo clique
             await CarregarDados();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erro: {ex.Message}");
+            Console.WriteLine($"Erro ao salvar: {ex.Message}");
         }
     }
-
     private void ProcessarLogicaVisual(List<Trabalho> trabalhos)
     {
         ModulosProcessados = trabalhos
