@@ -22,7 +22,6 @@
     {
         <div class="admin-header-row">
             <div>
-                @* Título removido a pedido *@
                 <p class="page-subtitle">Bem-vindo! Acompanhe seus trabalhos e badges conquistados</p>
             </div>
             <div class="d-flex gap-2" style="flex-wrap: wrap;">
@@ -35,20 +34,47 @@
             </div>
         </div>
 
-        @if (TodosTrabalhos != null && TodosTrabalhos.Any(t => t.IsPlanoRecuperacao && (CalcularNotaTrabalho(t.TrabalhoVertentes) == null || CalcularNotaTrabalho(t.TrabalhoVertentes) <= 9.0)))
+        @* Lógica de Alerta de Recuperação Atualizada *@
+        @if (IsLoading == false)
         {
-            <div class="alert alert-danger shadow-sm border-0 mb-4 animate__animated animate__pulse" style="border-radius: 15px; border-left: 8px solid #dc3545 !important;">
-                <h5 class="fw-bold"><i class="bi bi-lightning-charge-fill"></i> Tens Planos de Recuperação Ativos!</h5>
-                <p>O teu professor enviou atividades específicas para melhorar as tuas notas nas vertentes críticas.</p>
-                <div class="d-flex gap-2" style="flex-wrap: wrap;">
-                    @foreach (var plano in TodosTrabalhos.Where(t => t.IsPlanoRecuperacao && (CalcularNotaTrabalho(t.TrabalhoVertentes) == null || CalcularNotaTrabalho(t.TrabalhoVertentes) <= 9.0)))
-                    {
-                        <button class="btn btn-danger btn-sm rounded-pill px-3 shadow-sm" @onclick="() => ResolverTrabalho(plano.Id)">
-                            <i class="bi bi-pencil-square"></i> Resolver: @plano.Titulo
+            // Removido o @{ } extra, declaramos direto pois estamos dentro do else/if do HTML
+            var planosRecuperacao = TodosTrabalhos?.Where(t => t.IsPlanoRecuperacao).ToList() ?? new List<Trabalho>();
+
+            @if (planosRecuperacao.Any())
+            {
+                @foreach (var plano in planosRecuperacao)
+                {
+                    // 1. Verifica se o aluno já enviou algo
+                    bool jaEnviou = plano.TrabalhoVertentes?.Any(v => !string.IsNullOrEmpty(v.ConteudoTextoAluno) || v.FicheiroBytes != null) ?? false;
+
+                    // 2. Verifica se já tem nota
+                    var notaPlano = CalcularNotaTrabalho(plano.TrabalhoVertentes);
+                    bool jaTemNota = notaPlano.HasValue;
+
+                    // Se já tem nota, o aviso desaparece
+                    if (jaTemNota) continue;
+
+                    <div class="alert @(jaEnviou ? "alert-warning" : "alert-danger") shadow-sm border-0 mb-4 animate__animated animate__pulse"
+                         style="border-radius: 15px; border-left: 8px solid @(jaEnviou ? "#ffc107" : "#dc3545") !important;">
+
+                        <h5 class="fw-bold">
+                            <i class="bi @(jaEnviou ? "bi-clock-history" : "bi-lightning-charge-fill")"></i>
+                            Plano de Recuperação: @plano.Titulo
+                        </h5>
+
+                        <p>
+                            @(jaEnviou
+                                        ? "Trabalho enviado com sucesso! O aviso ficará amarelo até que o professor lance a tua nota."
+                                        : "Tens um plano de recuperação ativo. Envia o trabalho para melhorar a tua nota nesta vertente.")
+        </p>
+
+                        <button class="btn @(jaEnviou ? "btn-warning" : "btn-danger") btn-sm rounded-pill px-3 shadow-sm" @onclick="() => ResolverTrabalho(plano.Id)">
+                            <i class="bi @(jaEnviou ? "bi-eye" : "bi-pencil-square")"></i>
+                            @(jaEnviou ? "Ver meu Envio" : "Resolver Agora")
                         </button>
-                    }
-                </div>
-            </div>
+                    </div>
+        }
+            }
         }
 
         @* Stats Gerais *@
@@ -91,7 +117,7 @@
             </div>
         </div>
 
-        @* Seção de Filtros *@
+        @* Filtros *@
         <div class="custom-card elevation-2">
             <div class="card-header-custom">
                 <h5><i class="bi bi-funnel"></i> Filtrar Trabalhos</h5>
@@ -191,7 +217,6 @@
                                         }
                                         else
                                         {
-
                                             <span class="text-muted">--</span>
                                         }
                                     </td>
@@ -209,7 +234,7 @@
             }
         </div>
 
-        @* Badges Conquistados *@
+        @* Seção de Badges *@
         <div class="custom-card elevation-2" style="margin-top: 2rem;">
             <div class="card-header-custom">
                 <h5><i class="bi bi-award-fill"></i> Meus Badges</h5>
@@ -247,6 +272,7 @@
     }
 </div>
 
+@* Modal de Badge *@
 @if (ExibirModalBadge && BadgeSelecionado != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
@@ -299,7 +325,6 @@
     private double MediaGeralCalculada = 0;
     private string? AlunoUserId;
     private bool IsLoading = true;
-
     private bool ExibirModalBadge = false;
     private string? BadgeSelecionado;
 
@@ -381,7 +406,7 @@
                 mediasDisciplinas.Add(mediasModulosValidos.Average());
         }
 
-        MediaGeralCalculada = (mediasDisciplinas.Count == gruposDisciplina.Count()) ? mediasDisciplinas.Average() : 0;
+        MediaGeralCalculada = (mediasDisciplinas.Count == gruposDisciplina.Count() && mediasDisciplinas.Any()) ? mediasDisciplinas.Average() : 0;
     }
 
     private double CalcularMediaVertentePorTipo(List<Trabalho> trabalhos, string radical)
