@@ -37,7 +37,6 @@
         @* Lógica de Alerta de Recuperação Atualizada *@
         @if (IsLoading == false)
         {
-            // Removido o @{ } extra, declaramos direto pois estamos dentro do else/if do HTML
             var planosRecuperacao = TodosTrabalhos?.Where(t => t.IsPlanoRecuperacao).ToList() ?? new List<Trabalho>();
 
             @if (planosRecuperacao.Any())
