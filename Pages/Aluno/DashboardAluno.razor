@@ -361,7 +361,6 @@
 
         TrabalhosFiltrados = TodosTrabalhos;
 
-        // CORREÇÃO: O trabalho só é pendente se não tiver vertentes OU se alguma vertente ainda não tiver conteúdo de entrega (texto ou ficheiro)
         TrabalhosPendentes = TodosTrabalhos.Where(t =>
             t.TrabalhoVertentes == null ||
             !t.TrabalhoVertentes.Any() ||
