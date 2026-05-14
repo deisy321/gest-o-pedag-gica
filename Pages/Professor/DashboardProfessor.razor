@@ -11,148 +11,160 @@
 @inject IJSRuntime JS
 @layout MainLayout
 
-<div class="page-teacher">
-    @if (IsLoading)
-    {
-        <div class="text-center mt-5">
-            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
-            <p class="mt-3 text-muted">Carregando dados...</p>
+<AuthorizeView Roles="Professor">
+    <Authorized>
+        <div class="page-teacher">
+            @if (IsLoading)
+            {
+                <div class="text-center mt-5">
+                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+                    <p class="mt-3 text-muted">Carregando dados...</p>
+                </div>
+            }
+            else
+            {
+                <div class="admin-header-row">
+                    <div>
+                        <h1 class="page-title">Dashboard de Professor</h1>
+                        <p class="page-subtitle">Acompanhe seus alunos, turmas e trabalhos</p>
+                    </div>
+                    <div class="d-flex gap-2" style="flex-wrap: wrap;">
+                        <button class="btn btn-custom btn-custom-secondary" @onclick="IrParaRelatorios">
+                            <i class="bi bi-file-text"></i> Relatórios
+                        </button>
+                        <button class="btn btn-custom btn-custom-outline" @onclick='() => Nav.NavigateTo("/professor/GerirTrabalhos")'>
+                            <i class="bi bi-gear"></i> Gerir Trabalhos
+                        </button>
+                        <button class="btn btn-custom btn-custom-primary" @onclick="CriarTrabalho">
+                            <i class="bi bi-plus-lg"></i> Criar Trabalho
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row g-3" style="margin-bottom: 2rem;">
+                    <div class="col-md-6 col-lg-3">
+                        <div class="stat-card card-blue">
+                            <i class="bi bi-people stat-card-icon"></i>
+                            <div class="stat-card-content">
+                                <h3>Total de Alunos</h3>
+                                <p>@Alunos.Count</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 col-lg-3">
+                        <div class="stat-card card-green">
+                            <i class="bi bi-people-fill stat-card-icon"></i>
+                            <div class="stat-card-content">
+                                <h3>Total de Turmas</h3>
+                                <p>@Turmas.Count</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 col-lg-3">
+                        <div class="stat-card card-yellow">
+                            <i class="bi bi-file-earmark stat-card-icon"></i>
+                            <div class="stat-card-content">
+                                <h3>Trabalhos Pendentes</h3>
+                                <p>@TodosTrabalhosPendentes.Count</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 col-lg-3">
+                        <div class="stat-card card-red">
+                            <i class="bi bi-exclamation-triangle stat-card-icon"></i>
+                            <div class="stat-card-content">
+                                <h3>Média Crítica (≤ 9)</h3>
+                                <p>@AlunosMediaBaixa.Count</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="custom-card elevation-2">
+                    <div class="card-header-custom">
+                        <h5>Alunos das Suas Turmas</h5>
+                    </div>
+                    <div class="card-body-custom">
+                        <div class="row g-2 mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label"><i class="bi bi-funnel"></i> Filtrar por Turma</label>
+                                <select class="form-select" @onchange="FiltrarTurma">
+                                    <option value="">Todas as Turmas</option>
+                                    @foreach (var turma in Turmas)
+                                    {
+                                        <option value="@turma.Id">@turma.Nome</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        @if (!AlunosFiltrados.Any())
+                        {
+                            <div class="text-center py-5">
+                                <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                                <p class="mt-3 text-muted">Nenhum aluno encontrado</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div style="overflow-x: auto;">
+                                <table class="custom-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 40%;">Nome / Email</th>
+                                            <th style="width: 30%;">Turma</th>
+                                            <th style="width: 30%;" class="text-center">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var aluno in AlunosFiltrados)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="avatar-circle me-2" style="width: 32px; height: 32px; font-size: 0.9rem;">
+                                                            @(string.IsNullOrEmpty(aluno.Nome) ? "?" : aluno.Nome.Substring(0, 1).ToUpper())
+                                                        </div>
+                                                        <div>
+                                                            <strong>@aluno.Nome</strong><br />
+                                                            <small class="text-muted">@aluno.Email</small>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-primary text-white">
+                                                        @(aluno.Turma?.Nome ?? "Sem Turma")
+                                                    </span>
+                                                </td>
+                                                <td class="text-center">
+                                                    <button class="btn btn-custom btn-custom-primary" style="padding: 6px 12px;"
+                                                            @onclick='() => Nav.NavigateTo("/professor/FichaAluno/" + aluno.Id)'>
+                                                        <i class="bi bi-eye"></i> Ver Ficha
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
         </div>
-    }
-    else
-    {
-        <div class="admin-header-row">
-            <div>
-                <h1 class="page-title">Dashboard de Professor</h1>
-                <p class="page-subtitle">Acompanhe seus alunos, turmas e trabalhos</p>
-            </div>
-            <div class="d-flex gap-2" style="flex-wrap: wrap;">
-                <button class="btn btn-custom btn-custom-secondary" @onclick="IrParaRelatorios">
-                    <i class="bi bi-file-text"></i> Relatórios
-                </button>
-                <button class="btn btn-custom btn-custom-outline" @onclick='() => Nav.NavigateTo("/professor/GerirTrabalhos")'>
-                    <i class="bi bi-gear"></i> Gerir Trabalhos
-                </button>
-                <button class="btn btn-custom btn-custom-primary" @onclick="CriarTrabalho">
-                    <i class="bi bi-plus-lg"></i> Criar Trabalho
-                </button>
-            </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="container text-center mt-5 py-5 elevation-2 custom-card" style="max-width: 500px;">
+            <i class="bi bi-shield-lock-fill text-danger" style="font-size: 4rem;"></i>
+            <h2 class="mt-3 text-danger fw-bold">Acesso Negado</h2>
+            <p class="text-muted mt-2">Você não tem permissão para aceder a esta página.</p>
+            <button class="btn btn-primary mt-4" @onclick='() => Nav.NavigateTo("/")'>Voltar ao Início</button>
         </div>
-
-        <div class="row g-3" style="margin-bottom: 2rem;">
-            <div class="col-md-6 col-lg-3">
-                <div class="stat-card card-blue">
-                    <i class="bi bi-people stat-card-icon"></i>
-                    <div class="stat-card-content">
-                        <h3>Total de Alunos</h3>
-                        <p>@Alunos.Count</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6 col-lg-3">
-                <div class="stat-card card-green">
-                    <i class="bi bi-people-fill stat-card-icon"></i>
-                    <div class="stat-card-content">
-                        <h3>Total de Turmas</h3>
-                        <p>@Turmas.Count</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6 col-lg-3">
-                <div class="stat-card card-yellow">
-                    <i class="bi bi-file-earmark stat-card-icon"></i>
-                    <div class="stat-card-content">
-                        <h3>Trabalhos Pendentes</h3>
-                        <p>@TodosTrabalhosPendentes.Count</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6 col-lg-3">
-                <div class="stat-card card-red">
-                    <i class="bi bi-exclamation-triangle stat-card-icon"></i>
-                    <div class="stat-card-content">
-                        <h3>Média Crítica (≤ 9)</h3>
-                        <p>@AlunosMediaBaixa.Count</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="custom-card elevation-2">
-            <div class="card-header-custom">
-                <h5>Alunos das Suas Turmas</h5>
-            </div>
-            <div class="card-body-custom">
-                <div class="row g-2 mb-4">
-                    <div class="col-md-4">
-                        <label class="form-label"><i class="bi bi-funnel"></i> Filtrar por Turma</label>
-                        <select class="form-select" @onchange="FiltrarTurma">
-                            <option value="">Todas as Turmas</option>
-                            @foreach (var turma in Turmas)
-                            {
-                                <option value="@turma.Id">@turma.Nome</option>
-                            }
-                        </select>
-                    </div>
-                </div>
-
-                @if (!AlunosFiltrados.Any())
-                {
-                    <div class="text-center py-5">
-                        <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
-                        <p class="mt-3 text-muted">Nenhum aluno encontrado</p>
-                    </div>
-                }
-                else
-                {
-                    <div style="overflow-x: auto;">
-                        <table class="custom-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 40%;">Nome / Email</th>
-                                    <th style="width: 30%;">Turma</th>
-                                    <th style="width: 30%;" class="text-center">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var aluno in AlunosFiltrados)
-                                {
-                                    <tr>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <div class="avatar-circle me-2" style="width: 32px; height: 32px; font-size: 0.9rem;">
-                                                    @(string.IsNullOrEmpty(aluno.Nome) ? "?" : aluno.Nome.Substring(0, 1).ToUpper())
-                                                </div>
-                                                <div>
-                                                    <strong>@aluno.Nome</strong><br />
-                                                    <small class="text-muted">@aluno.Email</small>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-primary text-white">
-                                                @(aluno.Turma?.Nome ?? "Sem Turma")
-                                            </span>
-                                        </td>
-                                        <td class="text-center">
-                                            <button class="btn btn-custom btn-custom-primary" style="padding: 6px 12px;"
-                                                    @onclick='() => Nav.NavigateTo("/professor/FichaAluno/" + aluno.Id)'>
-                                                <i class="bi bi-eye"></i> Ver Ficha
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-            </div>
-        </div>
-    }
-</div>
+    </NotAuthorized>
+</AuthorizeView>
 
 @code {
     private List<Aluno> Alunos = new();
@@ -221,7 +233,7 @@
             AlunosFiltrados = new List<Aluno>(Alunos);
             TurmaSelecionadaId = 0;
         }
-        else if (int.TryParse(val, out int id))
+        if (int.TryParse(val, out int id))
         {
             TurmaSelecionadaId = id;
             AlunosFiltrados = Alunos.Where(a => a.TurmaId == id).ToList();
