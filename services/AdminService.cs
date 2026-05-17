@@ -19,7 +19,7 @@ namespace gestaopedagogica.Services
         // 1. Totais para os Cards
         public async Task<int> GetTotalAlunosAsync()
         {
-            // Se tiveres uma tabela Alunos, é mais rápido usar: await _context.Alunos.CountAsync();
+           
             var alunos = await _userManager.GetUsersInRoleAsync("Aluno");
             return alunos.Count;
         }
