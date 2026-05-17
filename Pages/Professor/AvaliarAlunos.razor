@@ -57,12 +57,12 @@
             </div>
         </div>
 
-        @* NOVO: Filtro de Disciplinas *@
+        @* ATUALIZADO: Filtros de Disciplinas e Módulos Combinados *@
         <div class="custom-card mb-4 p-3 elevation-1">
-            <div class="row align-items-center">
-                <div class="col-md-4">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-6">
                     <label class="form-label fw-bold small text-muted text-uppercase">Filtrar por Disciplina</label>
-                    <select class="form-select border-primary shadow-sm" @bind="DisciplinaSelecionada">
+                    <select class="form-select border-primary shadow-sm" @onchange="OnDisciplinaChanged">
                         <option value="">Todas as Disciplinas</option>
                         @foreach (var disc in DisciplinasUnicas)
                         {
@@ -70,17 +70,32 @@
                         }
                     </select>
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Filtrar por Módulo</label>
+                    <select class="form-select border-primary shadow-sm" @bind="ModuloSelecionado" disabled="@(string.IsNullOrEmpty(DisciplinaSelecionada))">
+                        <option value="">Todos os Módulos</option>
+                        @foreach (var mod in ModulosFiltrados)
+                        {
+                            <option value="@mod">@mod</option>
+                        }
+                    </select>
+                </div>
             </div>
         </div>
 
-        @* Lista de Trabalhos Filtrada *@
-        @foreach (var trabalho in Trabalhos.Where(t => string.IsNullOrEmpty(DisciplinaSelecionada) || t.Disciplina?.Nome == DisciplinaSelecionada))
+        @* Lista de Trabalhos Filtrada por Disciplina e Módulo *@
+        @foreach (var trabalho in Trabalhos.Where(t =>
+            (string.IsNullOrEmpty(DisciplinaSelecionada) || t.Disciplina?.Nome == DisciplinaSelecionada) &&
+            (string.IsNullOrEmpty(ModuloSelecionado) || t.Modulo?.Nome == ModuloSelecionado)))
         {
             <div class="custom-card mb-4 elevation-2 overflow-hidden">
                 <div class="card-header-custom bg-light d-flex justify-content-between align-items-center">
                     <div>
-                        @* Exibição do nome da Disciplina junto ao Título *@
                         <span class="badge bg-primary me-2 shadow-sm">@(trabalho.Disciplina?.Nome ?? "Geral")</span>
+                        @if (trabalho.Modulo != null)
+                        {
+                            <span class="badge bg-info text-dark me-2 shadow-sm">@trabalho.Modulo.Nome</span>
+                        }
                         <span class="fw-bold text-dark"><i class="fas fa-file-signature me-2 text-primary"></i>@trabalho.Titulo</span>
                     </div>
                     <span class="badge bg-white text-muted border">ID: #@trabalho.Id</span>
@@ -168,6 +183,7 @@
 </div>
 
 <style>
+    /* Mantém os teus estilos originais */
     .text-truncate-3 {
         display: -webkit-box;
         -webkit-line-clamp: 3;
@@ -203,11 +219,21 @@
     private List<Trabalho> Trabalhos = new();
     private bool IsLoading = true;
 
-    // Variáveis para o Filtro
+    // Variáveis para os Filtros Avançados
     private string DisciplinaSelecionada = "";
+    private string ModuloSelecionado = "";
+
     private List<string> DisciplinasUnicas => Trabalhos
         .Where(t => t.Disciplina != null)
         .Select(t => t.Disciplina!.Nome)
+        .Distinct()
+        .OrderBy(n => n)
+        .ToList();
+
+    // Carrega apenas os módulos pertencentes à disciplina ativa selecionada
+    private List<string> ModulosFiltrados => Trabalhos
+        .Where(t => t.Disciplina != null && t.Disciplina.Nome == DisciplinaSelecionada && t.Modulo != null)
+        .Select(t => t.Modulo!.Nome)
         .Distinct()
         .OrderBy(n => n)
         .ToList();
@@ -238,6 +264,13 @@
         {
             IsLoading = false;
         }
+    }
+
+    // Método que limpa o módulo antigo quando o utilizador troca a disciplina principal
+    private void OnDisciplinaChanged(ChangeEventArgs e)
+    {
+        DisciplinaSelecionada = e.Value?.ToString() ?? "";
+        ModuloSelecionado = ""; // Faz reset ao módulo para evitar filtros impossíveis
     }
 
     private void IrAvaliar(int trabalhoId, string tipo)
